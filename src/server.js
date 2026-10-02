@@ -1,429 +1,188 @@
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
-import dotenv from "dotenv";
 import pg from "pg";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-dotenv.config();
 
 const { Pool } = pg;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required");
+}
 
-const app = express();
-
-const PORT = Number(process.env.PORT || 3000);
-
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+
+  max: Number(process.env.DB_POOL_MAX || 20),
+
+  idleTimeoutMillis: 30000,
+
+  connectionTimeoutMillis: 10000,
+
   ssl:
     process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
+      ? {
+          rejectUnauthorized: false
+        }
       : false
 });
 
-app.disable("x-powered-by");
+pool.on("error", (error) => {
+  console.error("[DATABASE]", error);
+});
 
-app.use(
-  helmet({
-    crossOriginResourcePolicy: false
-  })
-);
 
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || "*",
-    credentials: true
-  })
-);
+/**
+ * استعلام عادي.
+ *
+ * لا يستخدم Tenant Context.
+ * يستخدم فقط للاستعلامات التي لا تعتمد على RLS
+ * أو للاستعلامات التي يتم فيها تمرير organization_id
+ * صراحةً داخل SQL.
+ */
+export async function query(text, params = []) {
+  return pool.query(text, params);
+}
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
 
-/*
-|--------------------------------------------------------------------------
-| Platform
-|--------------------------------------------------------------------------
-*/
+/**
+ * Transaction عادية.
+ */
+export async function transaction(callback) {
+  const client = await pool.connect();
 
-const PLATFORM = {
-  name: "AZ MEDIA",
-  repository: "EZMEDIA-",
-  version: "11.0.0"
-};
-
-/*
-|--------------------------------------------------------------------------
-| Database
-|--------------------------------------------------------------------------
-*/
-
-async function databaseHealth() {
   try {
-    await pool.query("SELECT 1");
-    return "connected";
+    await client.query("BEGIN");
+
+    const result = await callback(client);
+
+    await client.query("COMMIT");
+
+    return result;
   } catch (error) {
-    console.error("Database error:", error.message);
-    return "error";
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error(
+        "[DATABASE_ROLLBACK]",
+        rollbackError
+      );
+    }
+
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| Health
-|--------------------------------------------------------------------------
-*/
 
-app.get("/health", async (req, res) => {
-  const database = await databaseHealth();
-
-  res.json({
-    success: database === "connected",
-    platform: PLATFORM.name,
-    version: PLATFORM.version,
-    status: "online",
-    database,
-    timestamp: new Date().toISOString()
-  });
-});
-
-/*
-|--------------------------------------------------------------------------
-| API
-|--------------------------------------------------------------------------
-*/
-
-app.get("/api", (req, res) => {
-  res.json({
-    success: true,
-    platform: PLATFORM.name,
-    version: PLATFORM.version,
-    api: "v1",
-    modules: [
-      "auth",
-      "users",
-      "organizations",
-      "newsroom",
-      "media",
-      "production",
-      "design",
-      "audio",
-      "live",
-      "social",
-      "ai",
-      "agents",
-      "automation",
-      "ads",
-      "sponsorship",
-      "crm",
-      "commerce",
-      "analytics"
-    ]
-  });
-});
-
-/*
-|--------------------------------------------------------------------------
-| Dashboard
-|--------------------------------------------------------------------------
-*/
-
-app.get("/api/v1/dashboard", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT
-        (SELECT COUNT(*) FROM users) AS users,
-        (SELECT COUNT(*) FROM articles) AS articles,
-        (SELECT COUNT(*) FROM media_assets) AS media_assets,
-        (SELECT COUNT(*) FROM ai_agents) AS ai_agents,
-        (SELECT COUNT(*) FROM automation_workflows) AS workflows,
-        (SELECT COUNT(*) FROM production_projects) AS production_projects
-    `);
-
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: "dashboard_database_error"
-    });
-  }
-});
-
-/*
-|--------------------------------------------------------------------------
-| Articles
-|--------------------------------------------------------------------------
-*/
-
-app.get("/api/v1/articles", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT
-        id,
-        organization_id,
-        title,
-        slug,
-        content,
-        status,
-        author_id,
-        published_at,
-        created_at,
-        updated_at
-      FROM articles
-      ORDER BY created_at DESC
-      LIMIT 100
-    `);
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      success: false,
-      error: "articles_database_error"
-    });
-  }
-});
-
-app.post("/api/v1/articles", async (req, res) => {
-  const {
-    organization_id,
-    title,
-    slug,
-    content = "",
-    status = "draft",
-    author_id = null
-  } = req.body;
-
-  if (!organization_id || !title) {
-    return res.status(400).json({
-      success: false,
-      error: "organization_id_and_title_required"
-    });
+/**
+ * Transaction مع Tenant Context.
+ *
+ * جميع الاستعلامات التي يتم تنفيذها داخل callback
+ * تستخدم نفس PostgreSQL connection ونفس transaction.
+ *
+ * هذا مهم جدًا مع Row-Level Security.
+ */
+export async function tenantTransaction(
+  organizationId,
+  userId,
+  callback
+) {
+  if (!organizationId) {
+    throw new Error(
+      "organizationId is required for tenant transaction"
+    );
   }
 
+  if (!userId) {
+    throw new Error(
+      "userId is required for tenant transaction"
+    );
+  }
+
+  const client = await pool.connect();
+
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    await client.query(
       `
-      INSERT INTO articles
-      (
-        organization_id,
-        title,
-        slug,
-        content,
-        status,
-        author_id
+      SELECT set_config(
+        'app.organization_id',
+        $1,
+        true
       )
-      VALUES
-      ($1, $2, $3, $4, $5, $6)
-      RETURNING *
       `,
-      [
-        organization_id,
-        title,
-        slug || null,
-        content,
-        status,
-        author_id
-      ]
+      [organizationId]
     );
 
-    res.status(201).json({
-      success: true,
-      data: result.rows[0]
-    });
+    await client.query(
+      `
+      SELECT set_config(
+        'app.user_id',
+        $1,
+        true
+      )
+      `,
+      [userId]
+    );
+
+    const result = await callback(client);
+
+    await client.query("COMMIT");
+
+    return result;
   } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      success: false,
-      error: "article_create_failed"
-    });
-  }
-});
-
-/*
-|--------------------------------------------------------------------------
-| Media
-|--------------------------------------------------------------------------
-*/
-
-app.get("/api/v1/media", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT *
-      FROM media_assets
-      ORDER BY created_at DESC
-      LIMIT 100
-    `);
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
-  } catch {
-    res.status(500).json({
-      success: false,
-      error: "media_database_error"
-    });
-  }
-});
-
-/*
-|--------------------------------------------------------------------------
-| AI Agents
-|--------------------------------------------------------------------------
-*/
-
-app.get("/api/v1/ai/agents", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT
-        id,
-        name,
-        role,
-        description,
-        autonomy_level,
-        status,
-        created_at
-      FROM ai_agents
-      ORDER BY created_at DESC
-    `);
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
-  } catch {
-    res.status(500).json({
-      success: false,
-      error: "agents_database_error"
-    });
-  }
-});
-
-/*
-|--------------------------------------------------------------------------
-| Automation
-|--------------------------------------------------------------------------
-*/
-
-app.get(
-  "/api/v1/automation/workflows",
-  async (req, res) => {
     try {
-      const result = await pool.query(`
-        SELECT *
-        FROM automation_workflows
-        ORDER BY created_at DESC
-      `);
-
-      res.json({
-        success: true,
-        data: result.rows
-      });
-    } catch {
-      res.status(500).json({
-        success: false,
-        error: "automation_database_error"
-      });
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error(
+        "[TENANT_ROLLBACK]",
+        rollbackError
+      );
     }
+
+    throw error;
+  } finally {
+    client.release();
   }
-);
+}
 
-/*
-|--------------------------------------------------------------------------
-| Production
-|--------------------------------------------------------------------------
-*/
 
-app.get(
-  "/api/v1/production/projects",
-  async (req, res) => {
-    try {
-      const result = await pool.query(`
-        SELECT *
-        FROM production_projects
-        ORDER BY created_at DESC
-      `);
-
-      res.json({
-        success: true,
-        data: result.rows
-      });
-    } catch {
-      res.status(500).json({
-        success: false,
-        error: "production_database_error"
-      });
+/**
+ * تنفيذ استعلام واحد داخل Tenant Context.
+ */
+export async function tenantQuery(
+  organizationId,
+  userId,
+  text,
+  params = []
+) {
+  return tenantTransaction(
+    organizationId,
+    userId,
+    async (client) => {
+      return client.query(text, params);
     }
-  }
-);
+  );
+}
 
-/*
-|--------------------------------------------------------------------------
-| Social
-|--------------------------------------------------------------------------
-*/
 
-app.get("/api/v1/social/posts", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT *
-      FROM social_posts
-      ORDER BY created_at DESC
-      LIMIT 100
-    `);
+/**
+ * فحص اتصال قاعدة البيانات.
+ */
+export async function checkDatabase() {
+  const result = await pool.query(
+    "SELECT NOW() AS now"
+  );
 
-    res.json({
-      success: true,
-      data: result.rows
-    });
-  } catch {
-    res.status(500).json({
-      success: false,
-      error: "social_database_error"
-    });
-  }
-});
+  return {
+    connected: true,
+    time: result.rows[0].now
+  };
+}
 
-/*
-|--------------------------------------------------------------------------
-| Error Handler
-|--------------------------------------------------------------------------
-*/
 
-app.use((error, req, res, next) => {
-  console.error(error);
-
-  res.status(500).json({
-    success: false,
-    error: "internal_server_error"
-  });
-});
-
-/*
-|--------------------------------------------------------------------------
-| Start
-|--------------------------------------------------------------------------
-*/
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("");
-  console.log("=================================");
-  console.log("AZ MEDIA 11.0");
-  console.log("=================================");
-  console.log(`PORT: ${PORT}`);
-  console.log("API: /api");
-  console.log("HEALTH: /health");
-  console.log("=================================");
-});
+/**
+ * إغلاق Pool.
+ */
+export async function closeDatabase() {
+  await pool.end();
+}
