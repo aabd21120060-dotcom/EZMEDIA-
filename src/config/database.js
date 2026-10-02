@@ -1,16 +1,26 @@
 import pg from "pg";
+
 import { config } from "./env.js";
 
 const { Pool } = pg;
 
 let pool = null;
 
+
+/*
+|--------------------------------------------------------------------------
+| إنشاء اتصال PostgreSQL
+|--------------------------------------------------------------------------
+*/
+
 function createPool() {
+
   if (pool) {
     return pool;
   }
 
   if (!config.database.url) {
+
     console.warn(
       "[EZ MEDIA] DATABASE_URL غير موجودة."
     );
@@ -18,111 +28,221 @@ function createPool() {
     return null;
   }
 
+
   pool = new Pool({
-    connectionString: config.database.url,
 
-    max: config.database.poolMax,
+    connectionString:
+      config.database.url,
 
-    idleTimeoutMillis: 30000,
+    max:
+      config.database.poolMax,
 
-    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis:
+      30000,
 
-    allowExitOnIdle: false,
+    connectionTimeoutMillis:
+      10000,
 
-    ssl: config.app.isProduction
-      ? {
-          rejectUnauthorized: false
-        }
-      : undefined
+    allowExitOnIdle:
+      false,
+
+    ssl:
+      config.app.isProduction
+        ? {
+            rejectUnauthorized: false
+          }
+        : undefined
+
   });
 
-  pool.on("error", (error) => {
-    console.error(
-      "[EZ MEDIA] PostgreSQL pool error:",
-      error
-    );
-  });
+
+  pool.on(
+    "error",
+    (error) => {
+
+      console.error(
+        "[EZ MEDIA] PostgreSQL Pool Error:",
+        error
+      );
+
+    }
+  );
+
 
   return pool;
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| الحصول على Pool
+|--------------------------------------------------------------------------
+*/
+
 function getPool() {
+
   return createPool();
+
 }
 
 
-async function query(text, params = []) {
-  const databasePool = getPool();
+/*
+|--------------------------------------------------------------------------
+| تنفيذ Query
+|--------------------------------------------------------------------------
+*/
+
+async function query(
+  text,
+  params = []
+) {
+
+  const databasePool =
+    getPool();
+
 
   if (!databasePool) {
+
     throw new Error(
-      "Database is not configured. DATABASE_URL is missing."
+      "DATABASE_URL غير موجودة"
     );
+
   }
+
 
   return databasePool.query(
     text,
     params
   );
+
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| فحص قاعدة البيانات
+|--------------------------------------------------------------------------
+*/
 
 async function checkDatabase() {
-  const databasePool = getPool();
+
+  const databasePool =
+    getPool();
+
 
   if (!databasePool) {
+
     return {
+
       connected: false,
+
       databaseName: null,
-      message: "Database not configured"
+
+      message:
+        "Database not configured"
+
     };
+
   }
 
-  const result = await databasePool.query(`
-    SELECT
-      current_database() AS database_name,
-      current_user AS database_user,
-      NOW() AS server_time,
-      version() AS version
-  `);
 
-  const row = result.rows[0];
+  const result =
+    await databasePool.query(`
+
+      SELECT
+
+        current_database()
+          AS database_name,
+
+        current_user
+          AS database_user,
+
+        NOW()
+          AS server_time,
+
+        version()
+          AS version
+
+    `);
+
+
+  const row =
+    result.rows[0];
+
 
   return {
+
     connected: true,
-    databaseName: row.database_name,
-    databaseUser: row.database_user,
-    serverTime: row.server_time,
-    version: row.version
+
+    databaseName:
+      row.database_name,
+
+    databaseUser:
+      row.database_user,
+
+    serverTime:
+      row.server_time,
+
+    version:
+      row.version
+
   };
+
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| إغلاق قاعدة البيانات
+|--------------------------------------------------------------------------
+*/
+
 async function closeDatabase() {
+
   if (!pool) {
     return;
   }
 
-  const currentPool = pool;
+
+  const currentPool =
+    pool;
+
 
   pool = null;
 
+
   await currentPool.end();
+
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Exports
+|--------------------------------------------------------------------------
+*/
+
 export {
+
   getPool,
+
   query,
+
   checkDatabase,
+
   closeDatabase
+
 };
 
 
 export default {
+
   getPool,
+
   query,
+
   checkDatabase,
+
   closeDatabase
+
 };
