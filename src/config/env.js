@@ -10,6 +10,18 @@ const isDevelopment =
 const isTest =
   nodeEnvironment === "test";
 
+const nodeEnvironment =
+  process.env.NODE_ENV || "development";
+
+const isProduction =
+  nodeEnvironment === "production";
+
+const isDevelopment =
+  nodeEnvironment === "development";
+
+const isTest =
+  nodeEnvironment === "test";
+
 
 const appName =
   process.env.APP_NAME || "EZ MEDIA";
