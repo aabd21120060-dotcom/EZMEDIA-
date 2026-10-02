@@ -1,220 +1,163 @@
-const nodeEnvironment =
+import "dotenv/config";
+
+const NODE_ENV =
   process.env.NODE_ENV || "development";
 
-const isProduction =
-  nodeEnvironment === "production";
+const IS_PRODUCTION =
+  NODE_ENV === "production";
 
-const isDevelopment =
-  nodeEnvironment === "development";
+const IS_DEVELOPMENT =
+  NODE_ENV === "development";
 
-const isTest =
-  nodeEnvironment === "test";
-
-const nodeEnvironment =
-  process.env.NODE_ENV || "development";
-
-const isProduction =
-  nodeEnvironment === "production";
-
-const isDevelopment =
-  nodeEnvironment === "development";
-
-const isTest =
-  nodeEnvironment === "test";
+const IS_TEST =
+  NODE_ENV === "test";
 
 
-const appName =
+const APP_NAME =
   process.env.APP_NAME || "EZ MEDIA";
 
-const appVersion =
+const APP_VERSION =
   process.env.APP_VERSION || "11.0.0";
 
-const appUrl =
+const APP_URL =
   process.env.APP_URL ||
   "http://localhost:3000";
 
-const port =
+const PORT =
   Number(process.env.PORT || 3000);
 
 
-const databaseUrl =
+const DATABASE_URL =
   process.env.DATABASE_URL || null;
 
-const dbPoolMax =
-  Number(process.env.DB_POOL_MAX || 20);
+const DB_POOL_MAX =
+  Number(process.env.DB_POOL_MAX || 10);
 
 
-const jwtSecret =
+const JWT_SECRET =
   process.env.JWT_SECRET || null;
 
-const jwtAccessExpiresIn =
-  process.env.JWT_ACCESS_EXPIRES_IN ||
-  "15m";
+const JWT_ACCESS_EXPIRES_IN =
+  process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 
-const jwtRefreshExpiresDays =
+const JWT_REFRESH_EXPIRES_DAYS =
   Number(
     process.env.JWT_REFRESH_EXPIRES_DAYS || 30
   );
 
-const bcryptRounds =
-  Number(
-    process.env.BCRYPT_ROUNDS || 12
-  );
 
-
-const corsOrigin =
+const CORS_ORIGIN =
   process.env.CORS_ORIGIN || "*";
 
 
-const storageProvider =
-  process.env.STORAGE_PROVIDER || "local";
-
-const storageBucket =
-  process.env.STORAGE_BUCKET || null;
-
-const storageRegion =
-  process.env.STORAGE_REGION || null;
-
-const storageEndpoint =
-  process.env.STORAGE_ENDPOINT || null;
-
-const storageAccessKey =
-  process.env.STORAGE_ACCESS_KEY || null;
-
-const storageSecretKey =
-  process.env.STORAGE_SECRET_KEY || null;
-
-
-const aiProvider =
-  process.env.AI_PROVIDER || null;
-
-const aiApiKey =
-  process.env.AI_API_KEY || null;
-
-const aiModel =
-  process.env.AI_MODEL || null;
-
-
-const redisUrl =
-  process.env.REDIS_URL || null;
-
-
-const logLevel =
+const LOG_LEVEL =
   process.env.LOG_LEVEL || "info";
 
 
-const webhookSecret =
+const STORAGE_PROVIDER =
+  process.env.STORAGE_PROVIDER || "local";
+
+const STORAGE_BUCKET =
+  process.env.STORAGE_BUCKET || null;
+
+const STORAGE_REGION =
+  process.env.STORAGE_REGION || null;
+
+const STORAGE_ENDPOINT =
+  process.env.STORAGE_ENDPOINT || null;
+
+const STORAGE_ACCESS_KEY =
+  process.env.STORAGE_ACCESS_KEY || null;
+
+const STORAGE_SECRET_KEY =
+  process.env.STORAGE_SECRET_KEY || null;
+
+
+const AI_PROVIDER =
+  process.env.AI_PROVIDER || null;
+
+const AI_API_KEY =
+  process.env.AI_API_KEY || null;
+
+const AI_MODEL =
+  process.env.AI_MODEL || null;
+
+
+const REDIS_URL =
+  process.env.REDIS_URL || null;
+
+
+const WEBHOOK_SECRET =
   process.env.WEBHOOK_SECRET || null;
 
 
-const encryptionKey =
+const ENCRYPTION_KEY =
   process.env.ENCRYPTION_KEY || null;
 
 
 /*
 |--------------------------------------------------------------------------
-| Production
-|--------------------------------------------------------------------------
-*/
-
-if (isProduction) {
-
-  if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL is required in production"
-    );
-  }
-
-  if (!jwtSecret) {
-    throw new Error(
-      "JWT_SECRET is required in production"
-    );
-  }
-
-  if (jwtSecret.length < 32) {
-    throw new Error(
-      "JWT_SECRET must contain at least 32 characters"
-    );
-  }
-
-  if (!encryptionKey) {
-    throw new Error(
-      "ENCRYPTION_KEY is required in production"
-    );
-  }
-
-  if (encryptionKey.length < 32) {
-    throw new Error(
-      "ENCRYPTION_KEY must contain at least 32 characters"
-    );
-  }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| EZ MEDIA Configuration
+| EZ MEDIA CONFIG
 |--------------------------------------------------------------------------
 */
 
 const config = Object.freeze({
 
   app: Object.freeze({
-    name: appName,
-    version: appVersion,
-    url: appUrl,
-    port,
-    environment: nodeEnvironment,
-    isProduction,
-    isDevelopment,
-    isTest
+    name: APP_NAME,
+    version: APP_VERSION,
+    url: APP_URL,
+    port: PORT,
+    environment: NODE_ENV,
+    isProduction: IS_PRODUCTION,
+    isDevelopment: IS_DEVELOPMENT,
+    isTest: IS_TEST
   }),
 
   database: Object.freeze({
-    url: databaseUrl,
-    poolMax: dbPoolMax
+    url: DATABASE_URL,
+    poolMax: DB_POOL_MAX
   }),
 
   auth: Object.freeze({
-    jwtSecret,
-    jwtAccessExpiresIn,
-    jwtRefreshExpiresDays,
-    bcryptRounds
+    jwtSecret: JWT_SECRET,
+    accessExpiresIn: JWT_ACCESS_EXPIRES_IN,
+    refreshExpiresDays: JWT_REFRESH_EXPIRES_DAYS
   }),
 
   cors: Object.freeze({
-    origin: corsOrigin
+    origin: CORS_ORIGIN
   }),
 
   storage: Object.freeze({
-    provider: storageProvider,
-    bucket: storageBucket,
-    region: storageRegion,
-    endpoint: storageEndpoint,
-    accessKey: storageAccessKey,
-    secretKey: storageSecretKey
+    provider: STORAGE_PROVIDER,
+    bucket: STORAGE_BUCKET,
+    region: STORAGE_REGION,
+    endpoint: STORAGE_ENDPOINT,
+    accessKey: STORAGE_ACCESS_KEY,
+    secretKey: STORAGE_SECRET_KEY
   }),
 
   ai: Object.freeze({
-    provider: aiProvider,
-    apiKey: aiApiKey,
-    model: aiModel
+    provider: AI_PROVIDER,
+    apiKey: AI_API_KEY,
+    model: AI_MODEL
   }),
 
-  queue: Object.freeze({
-    redisUrl
-  }),
-
-  logging: Object.freeze({
-    level: logLevel
+  redis: Object.freeze({
+    url: REDIS_URL
   }),
 
   webhooks: Object.freeze({
-    secret: webhookSecret
+    secret: WEBHOOK_SECRET
   }),
 
   encryption: Object.freeze({
-    key: encryptionKey
+    key: ENCRYPTION_KEY
+  }),
+
+  logging: Object.freeze({
+    level: LOG_LEVEL
   })
 
 });
