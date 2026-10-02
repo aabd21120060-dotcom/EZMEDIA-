@@ -41,8 +41,7 @@ const jwtAccessExpiresIn =
 
 const jwtRefreshExpiresDays =
   Number(
-    process.env.JWT_REFRESH_EXPIRES_DAYS ||
-    30
+    process.env.JWT_REFRESH_EXPIRES_DAYS || 30
   );
 
 const bcryptRounds =
