@@ -1,58 +1,33 @@
 import "dotenv/config";
 
-const NODE_ENV =
-  process.env.NODE_ENV || "development";
+const NODE_ENV = process.env.NODE_ENV || "development";
 
-const IS_PRODUCTION =
-  NODE_ENV === "production";
+const IS_PRODUCTION = NODE_ENV === "production";
+const IS_DEVELOPMENT = NODE_ENV === "development";
+const IS_TEST = NODE_ENV === "test";
 
-const IS_DEVELOPMENT =
-  NODE_ENV === "development";
+const APP_NAME = process.env.APP_NAME || "EZ MEDIA";
+const APP_VERSION = process.env.APP_VERSION || "11.0.0";
+const APP_URL = process.env.APP_URL || "http://localhost:3000";
 
-const IS_TEST =
-  NODE_ENV === "test";
+const PORT = Number(process.env.PORT || 3000);
 
+const DATABASE_URL = process.env.DATABASE_URL || null;
+const DB_POOL_MAX = Number(process.env.DB_POOL_MAX || 10);
 
-const APP_NAME =
-  process.env.APP_NAME || "EZ MEDIA";
-
-const APP_VERSION =
-  process.env.APP_VERSION || "11.0.0";
-
-const APP_URL =
-  process.env.APP_URL ||
-  "http://localhost:3000";
-
-const PORT =
-  Number(process.env.PORT || 3000);
-
-
-const DATABASE_URL =
-  process.env.DATABASE_URL || null;
-
-const DB_POOL_MAX =
-  Number(process.env.DB_POOL_MAX || 10);
-
-
-const JWT_SECRET =
-  process.env.JWT_SECRET || null;
+const JWT_SECRET = process.env.JWT_SECRET || null;
 
 const JWT_ACCESS_EXPIRES_IN =
   process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 
 const JWT_REFRESH_EXPIRES_DAYS =
-  Number(
-    process.env.JWT_REFRESH_EXPIRES_DAYS || 30
-  );
-
+  Number(process.env.JWT_REFRESH_EXPIRES_DAYS || 30);
 
 const CORS_ORIGIN =
   process.env.CORS_ORIGIN || "*";
 
-
 const LOG_LEVEL =
   process.env.LOG_LEVEL || "info";
-
 
 const STORAGE_PROVIDER =
   process.env.STORAGE_PROVIDER || "local";
@@ -72,7 +47,6 @@ const STORAGE_ACCESS_KEY =
 const STORAGE_SECRET_KEY =
   process.env.STORAGE_SECRET_KEY || null;
 
-
 const AI_PROVIDER =
   process.env.AI_PROVIDER || null;
 
@@ -82,24 +56,14 @@ const AI_API_KEY =
 const AI_MODEL =
   process.env.AI_MODEL || null;
 
-
 const REDIS_URL =
   process.env.REDIS_URL || null;
-
 
 const WEBHOOK_SECRET =
   process.env.WEBHOOK_SECRET || null;
 
-
 const ENCRYPTION_KEY =
   process.env.ENCRYPTION_KEY || null;
-
-
-/*
-|--------------------------------------------------------------------------
-| EZ MEDIA CONFIG
-|--------------------------------------------------------------------------
-*/
 
 const config = Object.freeze({
 
@@ -161,7 +125,6 @@ const config = Object.freeze({
   })
 
 });
-
 
 export {
   config
