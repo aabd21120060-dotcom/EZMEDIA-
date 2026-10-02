@@ -1,3 +1,209 @@
+import {
+  pool
+} from "../config/database.js";
+
+import {
+  runMigrations,
+  getMigrationStatus
+} from "./migrator.js";
+
+
+/*
+|--------------------------------------------------------------------------
+| Migration Lock
+|--------------------------------------------------------------------------
+|
+| رقم ثابت يمثل مورد Migration الخاص بـ AZ MEDIA.
+|
+*/
+
+const MIGRATION_LOCK_KEY =
+  82110411;
+
+
+/*
+|--------------------------------------------------------------------------
+| Acquire Migration Lock
+|--------------------------------------------------------------------------
+*/
+
+async function acquireMigrationLock(
+  client
+) {
+  const result =
+    await client.query(
+      `
+      SELECT pg_try_advisory_xact_lock($1)
+      AS locked
+      `,
+      [
+        MIGRATION_LOCK_KEY
+      ]
+    );
+
+  return result.rows[0].locked;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Run
+|--------------------------------------------------------------------------
+*/
+
+async function main() {
+  const client =
+    await pool.connect();
+
+  try {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Transaction
+    |--------------------------------------------------------------------------
+    */
+
+    await client.query(
+      "BEGIN"
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Prevent Concurrent Migration
+    |--------------------------------------------------------------------------
+    */
+
+    const locked =
+      await acquireMigrationLock(
+        client
+      );
+
+    if (!locked) {
+      throw new Error(
+        "Another AZ MEDIA migration process is already running"
+      );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Commit Lock Transaction
+    |--------------------------------------------------------------------------
+    */
+
+    await client.query(
+      "COMMIT"
+    );
+
+  } catch (error) {
+
+    try {
+      await client.query(
+        "ROLLBACK"
+      );
+    } catch {
+      // Ignore rollback errors.
+    }
+
+    throw error;
+
+  } finally {
+    client.release();
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Execute Migrations
+  |--------------------------------------------------------------------------
+  */
+
+  const result =
+    await runMigrations();
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Output
+  |--------------------------------------------------------------------------
+  */
+
+  console.log(
+    JSON.stringify(
+      result,
+      null,
+      2
+    )
+  );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Status
+|--------------------------------------------------------------------------
+*/
+
+async function status() {
+  const result =
+    await getMigrationStatus();
+
+  console.log(
+    JSON.stringify(
+      result,
+      null,
+      2
+    )
+  );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| CLI
+|--------------------------------------------------------------------------
+*/
+
+const command =
+  process.argv[2] || "up";
+
+
+try {
+
+  if (
+    command === "status"
+  ) {
+    await status();
+
+  } else if (
+    command === "up"
+  ) {
+    await main();
+
+  } else {
+    throw new Error(
+      `Unknown migration command: ${command}`
+    );
+  }
+
+} catch (error) {
+
+  console.error(
+    "[AZ MEDIA] Migration command failed"
+  );
+
+  console.error(
+    error
+  );
+
+  process.exitCode = 1;
+
+} finally {
+
+  await pool.end();
+
+}
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
