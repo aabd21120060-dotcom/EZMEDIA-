@@ -1,452 +1,119 @@
-const nodeEnvironment =
-  process.env.NODE_ENV || "development";
+import pg from "pg";
+import { config } from "./env.js";
 
-const isProduction =
-  nodeEnvironment === "production";
+const { Pool } = pg;
 
-const isDevelopment =
-  nodeEnvironment === "development";
+let pool = null;
 
-const isTest =
-  nodeEnvironment === "test";
-
-
-function required(name) {
-  const value = process.env[name];
-
-  if (
-    value === undefined ||
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    throw new Error(
-      `Environment variable "${name}" is required`
-    );
+function createPool() {
+  if (pool) {
+    return pool;
   }
 
-  return String(value).trim();
+  if (!config.database.url) {
+    console.warn(
+      "[AZ MEDIA] DATABASE_URL غير موجودة. سيتم تشغيل التطبيق بدون اتصال بقاعدة البيانات."
+    );
+
+    return null;
+  }
+
+  pool = new Pool({
+    connectionString: config.database.url,
+
+    max: config.database.poolMax,
+
+    idleTimeoutMillis: 30000,
+
+    connectionTimeoutMillis: 10000,
+
+    allowExitOnIdle: false,
+
+    ssl:
+      config.app.isProduction
+        ? {
+            rejectUnauthorized: false
+          }
+        : undefined
+  });
+
+  pool.on("error", (error) => {
+    console.error(
+      "[AZ MEDIA] PostgreSQL pool error:",
+      error
+    );
+  });
+
+  return pool;
 }
 
-
-function optional(
-  name,
-  defaultValue = undefined
-) {
-  const value = process.env[name];
-
-  if (
-    value === undefined ||
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    return defaultValue;
-  }
-
-  return String(value).trim();
+function getPool() {
+  return createPool();
 }
 
+async function query(text, params = []) {
+  const databasePool = getPool();
 
-function number(
-  name,
-  defaultValue,
-  options = {}
-) {
-  const value = optional(
-    name,
-    String(defaultValue)
-  );
-
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed)) {
+  if (!databasePool) {
     throw new Error(
-      `Environment variable "${name}" must be a valid number`
+      "Database is not configured. DATABASE_URL is missing."
     );
   }
 
-  if (
-    options.min !== undefined &&
-    parsed < options.min
-  ) {
-    throw new Error(
-      `Environment variable "${name}" must be >= ${options.min}`
-    );
-  }
-
-  if (
-    options.max !== undefined &&
-    parsed > options.max
-  ) {
-    throw new Error(
-      `Environment variable "${name}" must be <= ${options.max}`
-    );
-  }
-
-  return parsed;
+  return databasePool.query(text, params);
 }
 
+async function checkDatabase() {
+  const databasePool = getPool();
 
-function boolean(
-  name,
-  defaultValue = false
-) {
-  const value = optional(
-    name,
-    defaultValue ? "true" : "false"
-  ).toLowerCase();
-
-  if (
-    value === "true" ||
-    value === "1" ||
-    value === "yes"
-  ) {
-    return true;
+  if (!databasePool) {
+    return {
+      connected: false,
+      databaseName: null,
+      message: "Database not configured"
+    };
   }
 
-  if (
-    value === "false" ||
-    value === "0" ||
-    value === "no"
-  ) {
-    return false;
-  }
+  const result = await databasePool.query(`
+    SELECT
+      current_database() AS database_name,
+      current_user AS database_user,
+      NOW() AS server_time,
+      version() AS version
+  `);
 
-  throw new Error(
-    `Environment variable "${name}" must be true/false`
-  );
+  const row = result.rows[0];
+
+  return {
+    connected: true,
+    databaseName: row.database_name,
+    databaseUser: row.database_user,
+    serverTime: row.server_time,
+    version: row.version
+  };
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Application
-|--------------------------------------------------------------------------
-*/
-
-const appName =
-  optional(
-    "APP_NAME",
-    "AZ MEDIA"
-  );
-
-const appVersion =
-  optional(
-    "APP_VERSION",
-    "11.0.0"
-  );
-
-const appUrl =
-  optional(
-    "APP_URL",
-    "http://localhost:3000"
-  );
-
-const port =
-  number(
-    "PORT",
-    3000,
-    {
-      min: 1,
-      max: 65535
-    }
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Database
-|--------------------------------------------------------------------------
-*/
-
-const databaseUrl =
-  optional(
-    "DATABASE_URL"
-  );
-
-const dbPoolMax =
-  number(
-    "DB_POOL_MAX",
-    20,
-    {
-      min: 1,
-      max: 100
-    }
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Authentication
-|--------------------------------------------------------------------------
-*/
-
-const jwtSecret =
-  optional(
-    "JWT_SECRET"
-  );
-
-const jwtAccessExpiresIn =
-  optional(
-    "JWT_ACCESS_EXPIRES_IN",
-    "15m"
-  );
-
-const jwtRefreshExpiresDays =
-  number(
-    "JWT_REFRESH_EXPIRES_DAYS",
-    30,
-    {
-      min: 1,
-      max: 365
-    }
-  );
-
-const bcryptRounds =
-  number(
-    "BCRYPT_ROUNDS",
-    12,
-    {
-      min: 10,
-      max: 16
-    }
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| CORS
-|--------------------------------------------------------------------------
-*/
-
-const corsOrigin =
-  optional(
-    "CORS_ORIGIN",
-    "http://localhost:3000"
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Storage
-|--------------------------------------------------------------------------
-*/
-
-const storageProvider =
-  optional(
-    "STORAGE_PROVIDER",
-    "local"
-  );
-
-const storageBucket =
-  optional(
-    "STORAGE_BUCKET"
-  );
-
-const storageRegion =
-  optional(
-    "STORAGE_REGION"
-  );
-
-const storageEndpoint =
-  optional(
-    "STORAGE_ENDPOINT"
-  );
-
-const storageAccessKey =
-  optional(
-    "STORAGE_ACCESS_KEY"
-  );
-
-const storageSecretKey =
-  optional(
-    "STORAGE_SECRET_KEY"
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| AI
-|--------------------------------------------------------------------------
-*/
-
-const aiProvider =
-  optional(
-    "AI_PROVIDER"
-  );
-
-const aiApiKey =
-  optional(
-    "AI_API_KEY"
-  );
-
-const aiModel =
-  optional(
-    "AI_MODEL"
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Redis / Queue
-|--------------------------------------------------------------------------
-*/
-
-const redisUrl =
-  optional(
-    "REDIS_URL"
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Logging
-|--------------------------------------------------------------------------
-*/
-
-const logLevel =
-  optional(
-    "LOG_LEVEL",
-    "info"
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Webhooks
-|--------------------------------------------------------------------------
-*/
-
-const webhookSecret =
-  optional(
-    "WEBHOOK_SECRET"
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Encryption
-|--------------------------------------------------------------------------
-*/
-
-const encryptionKey =
-  optional(
-    "ENCRYPTION_KEY"
-  );
-
-
-/*
-|--------------------------------------------------------------------------
-| Production Validation
-|--------------------------------------------------------------------------
-|
-| بعض القيم يمكن أن تبقى فارغة أثناء التطوير.
-| في Production تصبح إلزامية.
-|
-*/
-
-if (isProduction) {
-  if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL is required in production"
-    );
+async function closeDatabase() {
+  if (!pool) {
+    return;
   }
 
-  if (!jwtSecret) {
-    throw new Error(
-      "JWT_SECRET is required in production"
-    );
-  }
+  const currentPool = pool;
+  pool = null;
 
-  if (jwtSecret.length < 32) {
-    throw new Error(
-      "JWT_SECRET must contain at least 32 characters"
-    );
-  }
-
-  if (!encryptionKey) {
-    throw new Error(
-      "ENCRYPTION_KEY is required in production"
-    );
-  }
-
-  if (encryptionKey.length < 32) {
-    throw new Error(
-      "ENCRYPTION_KEY must contain at least 32 characters"
-    );
-  }
+  await currentPool.end();
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| Frozen Configuration
-|--------------------------------------------------------------------------
-*/
-
-export const config = Object.freeze({
-  app: Object.freeze({
-    name: appName,
-    version: appVersion,
-    url: appUrl,
-    port,
-    environment: nodeEnvironment,
-    isProduction,
-    isDevelopment,
-    isTest
-  }),
-
-  database: Object.freeze({
-    url: databaseUrl,
-    poolMax: dbPoolMax
-  }),
-
-  auth: Object.freeze({
-    jwtSecret,
-    jwtAccessExpiresIn,
-    jwtRefreshExpiresDays,
-    bcryptRounds
-  }),
-
-  cors: Object.freeze({
-    origin: corsOrigin
-  }),
-
-  storage: Object.freeze({
-    provider: storageProvider,
-    bucket: storageBucket,
-    region: storageRegion,
-    endpoint: storageEndpoint,
-    accessKey: storageAccessKey,
-    secretKey: storageSecretKey
-  }),
-
-  ai: Object.freeze({
-    provider: aiProvider,
-    apiKey: aiApiKey,
-    model: aiModel
-  }),
-
-  queue: Object.freeze({
-    redisUrl
-  }),
-
-  logging: Object.freeze({
-    level: logLevel
-  }),
-
-  webhooks: Object.freeze({
-    secret: webhookSecret
-  }),
-
-  encryption: Object.freeze({
-    key: encryptionKey
-  })
-});
-
 
 export {
-  required,
-  optional,
-  number,
-  boolean
+  getPool,
+  query,
+  checkDatabase,
+  closeDatabase
+};
+
+export default {
+  getPool,
+  query,
+  checkDatabase,
+  closeDatabase
 };
