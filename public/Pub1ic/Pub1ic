@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>EZ MEDIA | لوحة الإدارة</title>
+
+  <link
+    rel="stylesheet"
+    href="/admin/admin.css"
+  >
+
+</head>
+
+
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+
+  <aside class="sidebar">
+
+    <div class="brand">
+
+      <div class="brand-logo">
+        EZ
+      </div>
+
+      <div>
+        <strong>EZ MEDIA</strong>
+        <span>11.0</span>
+      </div>
+
+    </div>
+
+
+    <nav>
+
+      <button
+        class="nav-item active"
+        data-section="dashboard"
+      >
+        <span>⌂</span>
+        الرئيسية
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="content"
+      >
+        <span>📰</span>
+        المحتوى
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="media"
+      >
+        <span>▣</span>
+        مكتبة الوسائط
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="automation"
+      >
+        <span>⚙</span>
+        الأتمتة
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="ai"
+      >
+        <span>✦</span>
+        الذكاء الاصطناعي
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="live"
+      >
+        <span>●</span>
+        البث المباشر
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="social"
+      >
+        <span>◎</span>
+        منصاتي
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="advertising"
+      >
+        <span>▤</span>
+        الإعلانات
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="sponsorship"
+      >
+        <span>◇</span>
+        الرعاية
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="analytics"
+      >
+        <span>◌</span>
+        التحليلات
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="users"
+      >
+        <span>♙</span>
+        المستخدمون
+      </button>
+
+
+      <button
+        class="nav-item"
+        data-section="settings"
+      >
+        <span>⚙</span>
+        الإعدادات
+      </button>
+
+    </nav>
+
+
+    <div class="sidebar-footer">
+
+      <div class="system-status">
+
+        <span class="status-dot"></span>
+
+        <div>
+          <strong>النظام يعمل</strong>
+          <small id="sidebarStatus">
+            جاري الفحص...
+          </small>
+        </div>
+
+      </div>
+
+    </div>
+
+  </aside>
+
+
+  <!-- MAIN -->
+
+  <main class="main">
+
+    <header class="topbar">
+
+      <div>
+
+        <button
+          id="menuButton"
+          class="menu-button"
+        >
+          ☰
+        </button>
+
+        <div class="page-title">
+
+          <h1 id="pageTitle">
+            الرئيسية
+          </h1>
+
+          <p id="pageDescription">
+            مركز التحكم الموحد في EZ MEDIA
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="top-actions">
+
+        <button
+          class="icon-button"
+          id="refreshButton"
+        >
+          ↻
+        </button>
+
+        <button
+          class="profile-button"
+        >
+
+          <div class="avatar">
+            EZ
+          </div>
+
+          <div>
+
+            <strong>مدير النظام</strong>
+
+            <small>
+              Super Admin
+            </small>
+
+          </div>
+
+        </button>
+
+      </div>
+
+    </header>
+
+
+    <!-- DASHBOARD -->
+
+    <section
+      id="dashboard"
+      class="section active"
+    >
+
+      <div class="welcome">
+
+        <div>
+
+          <span class="eyebrow">
+            EZ MEDIA 11.0
+          </span>
+
+          <h2>
+            مركز القيادة الإعلامية
+          </h2>
+
+          <p>
+            إدارة المحتوى والأخبار والوسائط والأتمتة
+            والنشر والتحليلات من مكان واحد.
+          </p>
+
+        </div>
+
+        <div class="version-card">
+
+          <span>الإصدار</span>
+
+          <strong>
+            11.0.0
+          </strong>
+
+          <small id="environment">
+            Production
+          </small>
+
+        </div>
+
+      </div>
+
+
+      <div class="stats-grid">
+
+        <div class="stat-card">
+
+          <span>📰</span>
+
+          <div>
+
+            <small>
+              المحتوى
+            </small>
+
+            <strong id="contentCount">
+              —
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <span>▣</span>
+
+          <div>
+
+            <small>
+              الوسائط
+            </small>
+
+            <strong>
+              جاهز
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <span>⚙</span>
+
+          <div>
+
+            <small>
+              الأتمتة
+            </small>
+
+            <strong>
+              جاهزة
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <span>✦</span>
+
+          <div>
+
+            <small>
+              الذكاء الاصطناعي
+            </small>
+
+            <strong>
+              جاهز
+            </strong>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="grid-2">
+
+        <div class="panel">
+
+          <div class="panel-header">
+
+            <div>
+
+              <h3>
+                حالة المنصة
+              </h3>
+
+              <p>
+                الحالة الحالية للخدمات الأساسية
+              </p>
+
+            </div>
+
+            <span
+              id="systemBadge"
+              class="badge success"
+            >
+              جاري الفحص
+            </span>
+
+          </div>
+
+
+          <div
+            id="systemModules"
+            class="module-list"
+          >
+
+          </div>
+
+        </div>
+
+
+        <div class="panel">
+
+          <div class="panel-header">
+
+            <div>
+
+              <h3>
+                إجراءات سريعة
+              </h3>
+
+              <p>
+                الوصول السريع للمهام اليومية
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="quick-actions">
+
+            <button
+              data-section="content"
+            >
+              <strong>+</strong>
+              <span>إضافة محتوى</span>
+            </button>
+
+            <button
+              data-section="media"
+            >
+              <strong>↑</strong>
+              <span>رفع وسائط</span>
+            </button>
+
+            <button
+              data-section="automation"
+            >
+              <strong>⚙</strong>
+              <span>أتمتة جديدة</span>
+            </button>
+
+            <button
+              data-section="live"
+            >
+              <strong>●</strong>
+              <span>بدء بث</span>
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="panel">
+
+        <div class="panel-header">
+
+          <div>
+
+            <h3>
+              آخر المحتوى
+            </h3>
+
+            <p>
+              آخر العناصر الموجودة في النظام
+            </p>
+
+          </div>
+
+          <button
+            class="outline-button"
+            data-section="content"
+          >
+            عرض الكل
+          </button>
+
+        </div>
+
+
+        <div
+          id="latestContent"
+          class="content-table"
+        >
+
+          جاري تحميل المحتوى...
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- CONTENT -->
+
+    <section
+      id="content"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            إدارة المحتوى
+          </h2>
+
+          <p>
+            الأخبار والتقارير والتغطيات والمحتوى الرقمي
+          </p>
+
+        </div>
+
+        <button
+          class="primary-button"
+          id="newContentButton"
+        >
+          + محتوى جديد
+        </button>
+
+      </div>
+
+
+      <div class="panel">
+
+        <div
+          id="contentList"
+          class="content-table"
+        >
+          جاري تحميل المحتوى...
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- MEDIA -->
+
+    <section
+      id="media"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            مكتبة الوسائط
+          </h2>
+
+          <p>
+            الصور والفيديو والصوت والملفات
+          </p>
+
+        </div>
+
+        <button class="primary-button">
+          + رفع ملف
+        </button>
+
+      </div>
+
+
+      <div class="empty-state">
+
+        <div>
+          ▣
+        </div>
+
+        <h3>
+          مكتبة الوسائط جاهزة للربط
+        </h3>
+
+        <p>
+          سيتم ربط التخزين السحابي ونظام معالجة الصور
+          والفيديو في المرحلة التالية.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- AUTOMATION -->
+
+    <section
+      id="automation"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            الأتمتة
+          </h2>
+
+          <p>
+            تشغيل العمليات الإعلامية تلقائيًا
+          </p>
+
+        </div>
+
+        <button class="primary-button">
+          + Workflow جديد
+        </button>
+
+      </div>
+
+
+      <div class="automation-flow">
+
+        <div>
+          <strong>01</strong>
+          المصدر
+          <small>جلب المحتوى</small>
+        </div>
+
+        <span>←</span>
+
+        <div>
+          <strong>02</strong>
+          AI
+          <small>تحليل وتنظيف</small>
+        </div>
+
+        <span>←</span>
+
+        <div>
+          <strong>03</strong>
+          التحرير
+          <small>مراجعة</small>
+        </div>
+
+        <span>←</span>
+
+        <div>
+          <strong>04</strong>
+          النشر
+          <small>توزيع</small>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- AI -->
+
+    <section
+      id="ai"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            الذكاء الاصطناعي
+          </h2>
+
+          <p>
+            مركز مهام AI في EZ MEDIA
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="feature-grid">
+
+        <div class="feature-card">
+          <span>✦</span>
+          <h3>تحليل الأخبار</h3>
+          <p>تحليل وتصنيف المحتوى القادم من المصادر.</p>
+        </div>
+
+        <div class="feature-card">
+          <span>✎</span>
+          <h3>المحرر الذكي</h3>
+          <p>اقتراح العناوين والملخصات وتحسين النصوص.</p>
+        </div>
+
+        <div class="feature-card">
+          <span>◎</span>
+          <h3>SEO</h3>
+          <p>اقتراح البيانات والعناوين والكلمات المفتاحية.</p>
+        </div>
+
+        <div class="feature-card">
+          <span>⚡</span>
+          <h3>التوزيع الذكي</h3>
+          <p>تحديد قنوات النشر المناسبة للمحتوى.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- LIVE -->
+
+    <section
+      id="live"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            البث المباشر
+          </h2>
+
+          <p>
+            مركز إدارة البث والتوزيع المباشر
+          </p>
+
+        </div>
+
+        <button class="primary-button">
+          + بث جديد
+        </button>
+
+      </div>
+
+
+      <div class="live-card">
+
+        <div class="live-icon">
+          ●
+        </div>
+
+        <h3>
+          لا يوجد بث نشط
+        </h3>
+
+        <p>
+          نظام البث سيتم ربطه لاحقًا بمحرك البث
+          وتوزيع البث على المنصات الاجتماعية.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- SOCIAL -->
+
+    <section
+      id="social"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            منصاتي
+          </h2>
+
+          <p>
+            إدارة قنوات التواصل والنشر
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="feature-grid">
+
+        <div class="social-card">
+          <strong>Snapchat</strong>
+          <span>غير مربوط</span>
+        </div>
+
+        <div class="social-card">
+          <strong>TikTok</strong>
+          <span>غير مربوط</span>
+        </div>
+
+        <div class="social-card">
+          <strong>Instagram</strong>
+          <span>غير مربوط</span>
+        </div>
+
+        <div class="social-card">
+          <strong>YouTube</strong>
+          <span>غير مربوط</span>
+        </div>
+
+        <div class="social-card">
+          <strong>X</strong>
+          <span>غير مربوط</span>
+        </div>
+
+        <div class="social-card">
+          <strong>Facebook</strong>
+          <span>غير مربوط</span>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ADVERTISING -->
+
+    <section
+      id="advertising"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            الإعلانات
+          </h2>
+
+          <p>
+            إدارة الحملات والمساحات الإعلانية
+          </p>
+
+        </div>
+
+        <button class="primary-button">
+          + حملة إعلانية
+        </button>
+
+      </div>
+
+
+      <div class="empty-state">
+
+        <div>▤</div>
+
+        <h3>
+          نظام الإعلانات الذكي
+        </h3>
+
+        <p>
+          سيتم ربط الحملات والمساحات والاستهداف
+          والإحصائيات في طبقة الإعلانات.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- SPONSORSHIP -->
+
+    <section
+      id="sponsorship"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            الرعاية
+          </h2>
+
+          <p>
+            إدارة الرعاة والشراكات والفرص الإعلامية
+          </p>
+
+        </div>
+
+        <button class="primary-button">
+          + راعٍ جديد
+        </button>
+
+      </div>
+
+
+      <div class="empty-state">
+
+        <div>◇</div>
+
+        <h3>
+          نظام الرعاية
+        </h3>
+
+        <p>
+          سيتم بناء CRM خاص بالرعاية والشراكات
+          مع متابعة العقود والفرص والحملات.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- ANALYTICS -->
+
+    <section
+      id="analytics"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            التحليلات
+          </h2>
+
+          <p>
+            قياس أداء المنصة والمحتوى
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="stats-grid">
+
+        <div class="stat-card">
+          <span>👁</span>
+          <div>
+            <small>المشاهدات</small>
+            <strong>—</strong>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span>↗</span>
+          <div>
+            <small>التفاعل</small>
+            <strong>—</strong>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span>♧</span>
+          <div>
+            <small>النشر</small>
+            <strong>—</strong>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span>⚡</span>
+          <div>
+            <small>الأتمتة</small>
+            <strong>—</strong>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- USERS -->
+
+    <section
+      id="users"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            المستخدمون
+          </h2>
+
+          <p>
+            المستخدمون والصلاحيات والأدوار
+          </p>
+
+        </div>
+
+        <button class="primary-button">
+          + مستخدم
+        </button>
+
+      </div>
+
+
+      <div class="empty-state">
+
+        <div>♙</div>
+
+        <h3>
+          نظام المستخدمين
+        </h3>
+
+        <p>
+          قاعدة المستخدمين والصلاحيات موجودة في
+          PostgreSQL وسيتم ربط واجهة الإدارة بها.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- SETTINGS -->
+
+    <section
+      id="settings"
+      class="section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            الإعدادات
+          </h2>
+
+          <p>
+            إعدادات EZ MEDIA
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="settings-grid">
+
+        <div class="setting-card">
+
+          <strong>
+            معلومات المنصة
+          </strong>
+
+          <span>
+            EZ MEDIA 11.0
+          </span>
+
+        </div>
+
+
+        <div class="setting-card">
+
+          <strong>
+            البيئة
+          </strong>
+
+          <span id="settingsEnvironment">
+            Production
+          </span>
+
+        </div>
+
+
+        <div class="setting-card">
+
+          <strong>
+            الخادم
+          </strong>
+
+          <span>
+            Node.js
+          </span>
+
+        </div>
+
+
+        <div class="setting-card">
+
+          <strong>
+            قاعدة البيانات
+          </strong>
+
+          <span id="settingsDatabase">
+            جاري الفحص...
+          </span>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script
+  src="/admin/admin.js"
+></script>
+
+</body>
+
+</html>
