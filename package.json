@@ -1,8 +1,9 @@
 {
   "name": "ez-media",
   "version": "11.0.0",
-  "description": "EZ MEDIA 11.0 - منصة إعلامية رقمية ذكية للأخبار والمحتوى والإعلانات والرعاية والأتمتة",
+  "private": true,
   "type": "module",
+  "description": "EZ MEDIA 11.0 - منصة إعلامية رقمية ذكية",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
