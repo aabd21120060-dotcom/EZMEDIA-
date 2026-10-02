@@ -1,25 +1,22 @@
 import express from "express";
+
 import cors from "cors";
+
 import helmet from "helmet";
 
-const app = express();
+import morgan from "morgan";
 
-const APP_NAME =
-  process.env.APP_NAME || "AZ MEDIA";
+import { randomUUID } from "node:crypto";
 
-const APP_VERSION =
-  process.env.APP_VERSION || "11.0.0";
+import { config } from "./config/env.js";
+
+import {
+  checkDatabase
+} from "./config/database.js";
 
 
-/*
-|--------------------------------------------------------------------------
-| Express Configuration
-|--------------------------------------------------------------------------
-*/
-
-app.disable("x-powered-by");
-
-app.set("trust proxy", 1);
+const app =
+  express();
 
 
 /*
@@ -30,7 +27,7 @@ app.set("trust proxy", 1);
 
 app.use(
   helmet({
-    contentSecurityPolicy: false
+    crossOriginResourcePolicy: false
   })
 );
 
@@ -41,16 +38,13 @@ app.use(
 |--------------------------------------------------------------------------
 */
 
-const corsOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean)
-  : true;
-
 app.use(
   cors({
-    origin: corsOrigins,
+    origin:
+      config.cors.origin === "*"
+        ? true
+        : config.cors.origin,
+
     credentials: true
   })
 );
@@ -64,15 +58,27 @@ app.use(
 
 app.use(
   express.json({
-    limit: "2mb"
+    limit: "50mb"
   })
 );
+
 
 app.use(
   express.urlencoded({
     extended: true,
-    limit: "2mb"
+    limit: "50mb"
   })
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Logging
+|--------------------------------------------------------------------------
+*/
+
+app.use(
+  morgan("combined")
 );
 
 
@@ -82,18 +88,24 @@ app.use(
 |--------------------------------------------------------------------------
 */
 
-app.use((req, res, next) => {
-  req.requestId =
-    req.headers["x-request-id"] ||
-    crypto.randomUUID();
+app.use(
+  (req, res, next) => {
 
-  res.setHeader(
-    "x-request-id",
-    req.requestId
-  );
+    req.requestId =
+      req.headers["x-request-id"] ||
+      randomUUID();
 
-  next();
-});
+
+    res.setHeader(
+      "X-Request-ID",
+      req.requestId
+    );
+
+
+    next();
+
+  }
+);
 
 
 /*
@@ -102,34 +114,37 @@ app.use((req, res, next) => {
 |--------------------------------------------------------------------------
 */
 
-app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    platform: APP_NAME,
-    version: APP_VERSION,
-    status: "online",
-    message: "AZ MEDIA API is running",
-    requestId: req.requestId
-  });
-});
+app.get(
+  "/",
+  (req, res) => {
 
+    res.json({
 
-/*
-|--------------------------------------------------------------------------
-| API
-|--------------------------------------------------------------------------
-*/
+      platform:
+        "EZ MEDIA",
 
-app.get("/api", (req, res) => {
-  res.status(200).json({
-    success: true,
-    platform: APP_NAME,
-    version: APP_VERSION,
-    api: "v1",
-    status: "online",
-    requestId: req.requestId
-  });
-});
+      version:
+        config.app.version,
+
+      status:
+        "online",
+
+      message:
+        "EZ MEDIA 11.0 يعمل بنجاح",
+
+      environment:
+        config.app.environment,
+
+      requestId:
+        req.requestId,
+
+      timestamp:
+        new Date().toISOString()
+
+    });
+
+  }
+);
 
 
 /*
@@ -138,93 +153,214 @@ app.get("/api", (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    status: "healthy",
-    platform: APP_NAME,
-    version: APP_VERSION,
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    requestId: req.requestId
-  });
-});
+app.get(
+  "/health",
+  async (req, res) => {
+
+    let database = {
+
+      connected: false,
+
+      databaseName: null,
+
+      message:
+        "Database not configured"
+
+    };
 
 
-/*
-|--------------------------------------------------------------------------
-| Readiness
-|--------------------------------------------------------------------------
-*/
+    try {
 
-app.get("/ready", (req, res) => {
-  res.status(200).json({
-    success: true,
-    ready: true,
-    platform: APP_NAME,
-    version: APP_VERSION,
-    timestamp: new Date().toISOString(),
-    requestId: req.requestId
-  });
-});
+      database =
+        await checkDatabase();
 
+    } catch (error) {
 
-/*
-|--------------------------------------------------------------------------
-| API v1 Router
-|--------------------------------------------------------------------------
-*/
+      database = {
 
-const apiV1 = express.Router();
+        connected: false,
+
+        databaseName: null,
+
+        message:
+          error.message
+
+      };
+
+    }
 
 
-apiV1.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    platform: APP_NAME,
-    version: APP_VERSION,
-    api: "v1",
-    status: "online",
-    requestId: req.requestId
-  });
-});
+    const healthy =
+      database.connected;
 
 
-/*
-|--------------------------------------------------------------------------
-| System Status
-|--------------------------------------------------------------------------
-*/
+    res.status(
+      healthy ? 200 : 503
+    );
 
-apiV1.get("/status", (req, res) => {
-  res.status(200).json({
-    success: true,
 
-    platform: {
-      name: APP_NAME,
-      version: APP_VERSION,
+    res.json({
+
+      platform:
+        "EZ MEDIA",
+
+      version:
+        config.app.version,
+
+      status:
+        healthy
+          ? "healthy"
+          : "degraded",
+
+      server:
+        "online",
+
+      database,
+
+      node:
+        process.version,
+
       environment:
-        process.env.NODE_ENV ||
-        "development"
-    },
+        config.app.environment,
 
-    runtime: {
-      node: process.version,
-      uptime: process.uptime()
-    },
+      uptime:
+        process.uptime(),
 
-    timestamp:
-      new Date().toISOString(),
+      timestamp:
+        new Date().toISOString(),
 
-    requestId:
-      req.requestId
-  });
-});
+      requestId:
+        req.requestId
+
+    });
+
+  }
+);
 
 
-app.use(
-  "/api/v1",
-  apiV1
+/*
+|--------------------------------------------------------------------------
+| API
+|--------------------------------------------------------------------------
+*/
+
+app.get(
+  "/api",
+  (req, res) => {
+
+    res.json({
+
+      name:
+        "EZ MEDIA API",
+
+      version:
+        "11.0.0",
+
+      status:
+        "online",
+
+      endpoints: {
+
+        root:
+          "/",
+
+        health:
+          "/health",
+
+        api:
+          "/api",
+
+        status:
+          "/api/status"
+
+      },
+
+      timestamp:
+        new Date().toISOString()
+
+    });
+
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| API Status
+|--------------------------------------------------------------------------
+*/
+
+app.get(
+  "/api/status",
+  async (req, res) => {
+
+    let databaseStatus =
+      "not_configured";
+
+
+    try {
+
+      const database =
+        await checkDatabase();
+
+
+      databaseStatus =
+        database.connected
+          ? "connected"
+          : "not_configured";
+
+    } catch {
+
+      databaseStatus =
+        "error";
+
+    }
+
+
+    res.json({
+
+      platform:
+        "EZ MEDIA",
+
+      version:
+        "11.0.0",
+
+      server:
+        "online",
+
+      database:
+        databaseStatus,
+
+      automation:
+        "ready",
+
+      media:
+        "ready",
+
+      content:
+        "ready",
+
+      advertising:
+        "ready",
+
+      sponsorship:
+        "ready",
+
+      social:
+        "ready",
+
+      live:
+        "ready",
+
+      ai:
+        "ready",
+
+      timestamp:
+        new Date().toISOString()
+
+    });
+
+  }
 );
 
 
@@ -234,17 +370,32 @@ app.use(
 |--------------------------------------------------------------------------
 */
 
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: "NOT_FOUND",
-    message:
-      "المسار المطلوب غير موجود",
-    path: req.originalUrl,
-    requestId:
-      req.requestId
-  });
-});
+app.use(
+  (req, res) => {
+
+    res.status(404);
+
+    res.json({
+
+      success:
+        false,
+
+      error:
+        "NOT_FOUND",
+
+      message:
+        "المسار المطلوب غير موجود",
+
+      path:
+        req.originalUrl,
+
+      requestId:
+        req.requestId
+
+    });
+
+  }
+);
 
 
 /*
@@ -260,57 +411,48 @@ app.use(
     res,
     next
   ) => {
+
     console.error(
-      "[AZ MEDIA ERROR]",
-      {
-        requestId:
-          req.requestId,
-
-        method:
-          req.method,
-
-        path:
-          req.originalUrl,
-
-        message:
-          error.message,
-
-        stack:
-          process.env.NODE_ENV ===
-          "production"
-            ? undefined
-            : error.stack
-      }
+      "[EZ MEDIA] ERROR:",
+      error
     );
 
+
     if (res.headersSent) {
+
       return next(error);
+
     }
 
-    const statusCode =
-      Number(error.statusCode) >= 400 &&
-      Number(error.statusCode) < 600
-        ? Number(error.statusCode)
-        : 500;
 
-    res.status(statusCode).json({
-      success: false,
+    res.status(
+      error.status || 500
+    );
+
+
+    res.json({
+
+      success:
+        false,
 
       error:
-        process.env.NODE_ENV ===
-        "production"
-          ? "INTERNAL_SERVER_ERROR"
-          : error.message,
+        "INTERNAL_SERVER_ERROR",
+
+      message:
+        config.app.isDevelopment
+          ? error.message
+          : "حدث خطأ داخلي في الخادم",
 
       requestId:
-        req.requestId
+        req.requestId,
+
+      timestamp:
+        new Date().toISOString()
+
     });
+
   }
 );
 
 
 export default app;
-
-export {
-  app
-};
