@@ -11,332 +11,98 @@ const isTest =
   nodeEnvironment === "test";
 
 
-function required(name) {
-  const value = process.env[name];
-
-  if (
-    value === undefined ||
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    throw new Error(
-      `Environment variable "${name}" is required`
-    );
-  }
-
-  return String(value).trim();
-}
-
-
-function optional(
-  name,
-  defaultValue = undefined
-) {
-  const value = process.env[name];
-
-  if (
-    value === undefined ||
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    return defaultValue;
-  }
-
-  return String(value).trim();
-}
-
-
-function number(
-  name,
-  defaultValue,
-  options = {}
-) {
-  const value = optional(
-    name,
-    String(defaultValue)
-  );
-
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed)) {
-    throw new Error(
-      `Environment variable "${name}" must be a valid number`
-    );
-  }
-
-  if (
-    options.min !== undefined &&
-    parsed < options.min
-  ) {
-    throw new Error(
-      `Environment variable "${name}" must be >= ${options.min}`
-    );
-  }
-
-  if (
-    options.max !== undefined &&
-    parsed > options.max
-  ) {
-    throw new Error(
-      `Environment variable "${name}" must be <= ${options.max}`
-    );
-  }
-
-  return parsed;
-}
-
-
-function boolean(
-  name,
-  defaultValue = false
-) {
-  const value = optional(
-    name,
-    defaultValue ? "true" : "false"
-  ).toLowerCase();
-
-  if (
-    value === "true" ||
-    value === "1" ||
-    value === "yes"
-  ) {
-    return true;
-  }
-
-  if (
-    value === "false" ||
-    value === "0" ||
-    value === "no"
-  ) {
-    return false;
-  }
-
-  throw new Error(
-    `Environment variable "${name}" must be true/false`
-  );
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Application
-|--------------------------------------------------------------------------
-*/
-
 const appName =
-  optional(
-    "APP_NAME",
-    "EZ MEDIA"
-  );
+  process.env.APP_NAME || "EZ MEDIA";
 
 const appVersion =
-  optional(
-    "APP_VERSION",
-    "11.0.0"
-  );
+  process.env.APP_VERSION || "11.0.0";
 
 const appUrl =
-  optional(
-    "APP_URL",
-    "http://localhost:3000"
-  );
+  process.env.APP_URL ||
+  "http://localhost:3000";
 
 const port =
-  number(
-    "PORT",
-    3000,
-    {
-      min: 1,
-      max: 65535
-    }
-  );
+  Number(process.env.PORT || 3000);
 
-
-/*
-|--------------------------------------------------------------------------
-| Database
-|--------------------------------------------------------------------------
-*/
 
 const databaseUrl =
-  optional(
-    "DATABASE_URL"
-  );
+  process.env.DATABASE_URL || null;
 
 const dbPoolMax =
-  number(
-    "DB_POOL_MAX",
-    20,
-    {
-      min: 1,
-      max: 100
-    }
-  );
+  Number(process.env.DB_POOL_MAX || 20);
 
-
-/*
-|--------------------------------------------------------------------------
-| Authentication
-|--------------------------------------------------------------------------
-*/
 
 const jwtSecret =
-  optional(
-    "JWT_SECRET"
-  );
+  process.env.JWT_SECRET || null;
 
 const jwtAccessExpiresIn =
-  optional(
-    "JWT_ACCESS_EXPIRES_IN",
-    "15m"
-  );
+  process.env.JWT_ACCESS_EXPIRES_IN ||
+  "15m";
 
 const jwtRefreshExpiresDays =
-  number(
-    "JWT_REFRESH_EXPIRES_DAYS",
-    30,
-    {
-      min: 1,
-      max: 365
-    }
+  Number(
+    process.env.JWT_REFRESH_EXPIRES_DAYS ||
+    30
   );
 
 const bcryptRounds =
-  number(
-    "BCRYPT_ROUNDS",
-    12,
-    {
-      min: 10,
-      max: 16
-    }
+  Number(
+    process.env.BCRYPT_ROUNDS || 12
   );
 
-
-/*
-|--------------------------------------------------------------------------
-| CORS
-|--------------------------------------------------------------------------
-*/
 
 const corsOrigin =
-  optional(
-    "CORS_ORIGIN",
-    "*"
-  );
+  process.env.CORS_ORIGIN || "*";
 
-
-/*
-|--------------------------------------------------------------------------
-| Storage
-|--------------------------------------------------------------------------
-*/
 
 const storageProvider =
-  optional(
-    "STORAGE_PROVIDER",
-    "local"
-  );
+  process.env.STORAGE_PROVIDER || "local";
 
 const storageBucket =
-  optional(
-    "STORAGE_BUCKET"
-  );
+  process.env.STORAGE_BUCKET || null;
 
 const storageRegion =
-  optional(
-    "STORAGE_REGION"
-  );
+  process.env.STORAGE_REGION || null;
 
 const storageEndpoint =
-  optional(
-    "STORAGE_ENDPOINT"
-  );
+  process.env.STORAGE_ENDPOINT || null;
 
 const storageAccessKey =
-  optional(
-    "STORAGE_ACCESS_KEY"
-  );
+  process.env.STORAGE_ACCESS_KEY || null;
 
 const storageSecretKey =
-  optional(
-    "STORAGE_SECRET_KEY"
-  );
+  process.env.STORAGE_SECRET_KEY || null;
 
-
-/*
-|--------------------------------------------------------------------------
-| AI
-|--------------------------------------------------------------------------
-*/
 
 const aiProvider =
-  optional(
-    "AI_PROVIDER"
-  );
+  process.env.AI_PROVIDER || null;
 
 const aiApiKey =
-  optional(
-    "AI_API_KEY"
-  );
+  process.env.AI_API_KEY || null;
 
 const aiModel =
-  optional(
-    "AI_MODEL"
-  );
+  process.env.AI_MODEL || null;
 
-
-/*
-|--------------------------------------------------------------------------
-| Redis
-|--------------------------------------------------------------------------
-*/
 
 const redisUrl =
-  optional(
-    "REDIS_URL"
-  );
+  process.env.REDIS_URL || null;
 
-
-/*
-|--------------------------------------------------------------------------
-| Logging
-|--------------------------------------------------------------------------
-*/
 
 const logLevel =
-  optional(
-    "LOG_LEVEL",
-    "info"
-  );
+  process.env.LOG_LEVEL || "info";
 
-
-/*
-|--------------------------------------------------------------------------
-| Webhooks
-|--------------------------------------------------------------------------
-*/
 
 const webhookSecret =
-  optional(
-    "WEBHOOK_SECRET"
-  );
+  process.env.WEBHOOK_SECRET || null;
 
-
-/*
-|--------------------------------------------------------------------------
-| Encryption
-|--------------------------------------------------------------------------
-*/
 
 const encryptionKey =
-  optional(
-    "ENCRYPTION_KEY"
-  );
+  process.env.ENCRYPTION_KEY || null;
 
 
 /*
 |--------------------------------------------------------------------------
-| Production Validation
+| Production
 |--------------------------------------------------------------------------
 */
 
@@ -376,7 +142,7 @@ if (isProduction) {
 
 /*
 |--------------------------------------------------------------------------
-| Configuration
+| EZ MEDIA Configuration
 |--------------------------------------------------------------------------
 */
 
@@ -443,16 +209,6 @@ const config = Object.freeze({
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| Exports
-|--------------------------------------------------------------------------
-*/
-
 export {
-  config,
-  required,
-  optional,
-  number,
-  boolean
+  config
 };
