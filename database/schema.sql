@@ -1,5 +1,48 @@
 -- ============================================================================
 -- AZ MEDIA 11.0
+-- Database Migration Registry
+-- PostgreSQL
+-- ============================================================================
+
+BEGIN;
+
+
+-- ============================================================================
+-- Migration Registry
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    id BIGSERIAL PRIMARY KEY,
+
+    version VARCHAR(100) NOT NULL UNIQUE,
+
+    name VARCHAR(255) NOT NULL,
+
+    checksum VARCHAR(128),
+
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+-- ============================================================================
+-- Initial Schema
+-- ============================================================================
+
+INSERT INTO schema_migrations (
+    version,
+    name
+)
+VALUES (
+    '001',
+    'initial_az_media_schema'
+)
+ON CONFLICT (version)
+DO NOTHING;
+
+
+COMMIT;
+-- ============================================================================
+-- AZ MEDIA 11.0
 -- Production Database Schema
 -- PostgreSQL
 -- ============================================================================
