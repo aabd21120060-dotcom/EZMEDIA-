@@ -1,80 +1,112 @@
 import "dotenv/config";
-import crypto from "node:crypto";
 
 import app from "./app.js";
 
-const PORT = Number(process.env.PORT || 3000);
+import {
+  checkDatabase,
+  closeDatabase
+} from "./config/database.js";
 
-const APP_NAME =
-  process.env.APP_NAME || "AZ MEDIA";
-
-const APP_VERSION =
-  process.env.APP_VERSION || "11.0.0";
-
-
-/*
-|--------------------------------------------------------------------------
-| Request ID Support
-|--------------------------------------------------------------------------
-|
-| app.js يستخدم crypto.randomUUID().
-| نحتفظ بالـ crypto هنا أيضًا لاستخدامات server-level المستقبلية.
-|
-*/
-
-void crypto;
+import { config } from "./config/env.js";
 
 
 /*
 |--------------------------------------------------------------------------
-| Start Server
+| Server State
 |--------------------------------------------------------------------------
 */
 
-const server = app.listen(
-  PORT,
-  "0.0.0.0",
-  (error) => {
-    if (error) {
-      console.error(
-        "[AZ MEDIA] Failed to start server:",
-        error
-      );
+let server;
 
-      process.exit(1);
-    }
+let shuttingDown = false;
+
+
+/*
+|--------------------------------------------------------------------------
+| Start Application
+|--------------------------------------------------------------------------
+*/
+
+async function startServer() {
+  try {
+    /*
+    |--------------------------------------------------------------------------
+    | Database Check
+    |--------------------------------------------------------------------------
+    */
+
+    const database =
+      await checkDatabase();
 
     console.log(
-      `[AZ MEDIA] ${APP_NAME} ${APP_VERSION}`
+      "[AZ MEDIA] Database connected"
     );
 
     console.log(
-      `[AZ MEDIA] Environment: ${
-        process.env.NODE_ENV || "development"
-      }`
+      `[AZ MEDIA] Database: ${database.databaseName}`
     );
 
-    console.log(
-      `[AZ MEDIA] Server listening on port ${PORT}`
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP Server
+    |--------------------------------------------------------------------------
+    */
+
+    server = app.listen(
+      config.app.port,
+      "0.0.0.0",
+      () => {
+        console.log(
+          `[AZ MEDIA] ${config.app.name} ${config.app.version}`
+        );
+
+        console.log(
+          `[AZ MEDIA] Environment: ${config.app.environment}`
+        );
+
+        console.log(
+          `[AZ MEDIA] Server listening on port ${config.app.port}`
+        );
+      }
     );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Server Error
+    |--------------------------------------------------------------------------
+    */
+
+    server.on(
+      "error",
+      (error) => {
+        console.error(
+          "[AZ MEDIA] Server error:",
+          error
+        );
+
+        void shutdown(
+          "server-error",
+          1
+        );
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "[AZ MEDIA] Startup failed"
+    );
+
+    console.error(
+      error
+    );
+
+    await closeDatabase();
+
+    process.exit(1);
   }
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Server Error
-|--------------------------------------------------------------------------
-*/
-
-server.on("error", (error) => {
-  console.error(
-    "[AZ MEDIA] Server error:",
-    error
-  );
-
-  process.exit(1);
-});
+}
 
 
 /*
@@ -83,9 +115,10 @@ server.on("error", (error) => {
 |--------------------------------------------------------------------------
 */
 
-let shuttingDown = false;
-
-async function shutdown(signal) {
+async function shutdown(
+  signal,
+  exitCode = 0
+) {
   if (shuttingDown) {
     return;
   }
@@ -93,29 +126,63 @@ async function shutdown(signal) {
   shuttingDown = true;
 
   console.log(
-    `[AZ MEDIA] Received ${signal}`
+    `[AZ MEDIA] Shutdown signal: ${signal}`
   );
 
-  console.log(
-    "[AZ MEDIA] Starting graceful shutdown..."
-  );
 
-  server.close((error) => {
-    if (error) {
-      console.error(
-        "[AZ MEDIA] HTTP server close error:",
-        error
-      );
+  /*
+  |--------------------------------------------------------------------------
+  | Stop accepting HTTP requests
+  |--------------------------------------------------------------------------
+  */
 
-      process.exit(1);
-    }
+  if (server) {
+    await new Promise(
+      (resolve) => {
+        server.close(
+          () => {
+            console.log(
+              "[AZ MEDIA] HTTP server closed"
+            );
+
+            resolve();
+          }
+        );
+      }
+    );
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Close Database Pool
+  |--------------------------------------------------------------------------
+  */
+
+  try {
+    await closeDatabase();
 
     console.log(
-      "[AZ MEDIA] HTTP server closed"
+      "[AZ MEDIA] Database pool closed"
     );
 
-    process.exit(0);
-  });
+  } catch (error) {
+    console.error(
+      "[AZ MEDIA] Database shutdown error:",
+      error
+    );
+
+    exitCode = 1;
+  }
+
+
+  console.log(
+    "[AZ MEDIA] Shutdown complete"
+  );
+
+  process.exit(
+    exitCode
+  );
 }
 
 
@@ -128,14 +195,18 @@ async function shutdown(signal) {
 process.on(
   "SIGTERM",
   () => {
-    void shutdown("SIGTERM");
+    void shutdown(
+      "SIGTERM"
+    );
   }
 );
 
 process.on(
   "SIGINT",
   () => {
-    void shutdown("SIGINT");
+    void shutdown(
+      "SIGINT"
+    );
   }
 );
 
@@ -172,10 +243,29 @@ process.on(
     );
 
     void shutdown(
-      "uncaughtException"
+      "uncaughtException",
+      1
     );
   }
 );
 
 
-export { server };
+/*
+|--------------------------------------------------------------------------
+| Start
+|--------------------------------------------------------------------------
+*/
+
+void startServer();
+
+
+/*
+|--------------------------------------------------------------------------
+| Export
+|--------------------------------------------------------------------------
+*/
+
+export {
+  startServer,
+  shutdown
+};
