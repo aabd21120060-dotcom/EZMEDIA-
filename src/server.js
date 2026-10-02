@@ -10,41 +10,120 @@ import {
 import { config } from "./config/env.js";
 
 
-/*
-|--------------------------------------------------------------------------
-| Server State
-|--------------------------------------------------------------------------
-*/
-
-let server;
+let server = null;
 
 let shuttingDown = false;
 
 
 /*
 |--------------------------------------------------------------------------
-| Start Application
+| معلومات التشغيل
+|--------------------------------------------------------------------------
+*/
+
+function printStartupInfo() {
+
+  console.log("");
+  console.log(
+    "=========================================="
+  );
+
+  console.log(
+    "          EZ MEDIA 11.0"
+  );
+
+  console.log(
+    "=========================================="
+  );
+
+  console.log(
+    `[EZ MEDIA] Node: ${process.version}`
+  );
+
+  console.log(
+    `[EZ MEDIA] Environment: ${config.app.environment}`
+  );
+
+  console.log(
+    `[EZ MEDIA] Port: ${config.app.port}`
+  );
+
+  console.log(
+    `[EZ MEDIA] Database: ${
+      config.database.url
+        ? "configured"
+        : "not configured"
+    }`
+  );
+
+  console.log(
+    "=========================================="
+  );
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| تشغيل الخادم
 |--------------------------------------------------------------------------
 */
 
 async function startServer() {
+
   try {
+
+    printStartupInfo();
+
+
     /*
     |--------------------------------------------------------------------------
-    | Database Check
+    | Database
     |--------------------------------------------------------------------------
     */
 
-    const database =
-      await checkDatabase();
+    let database = null;
 
-    console.log(
-      "[AZ MEDIA] Database connected"
-    );
 
-    console.log(
-      `[AZ MEDIA] Database: ${database.databaseName}`
-    );
+    try {
+
+      database =
+        await checkDatabase();
+
+
+      if (database.connected) {
+
+        console.log(
+          "[EZ MEDIA] PostgreSQL: CONNECTED"
+        );
+
+        console.log(
+          `[EZ MEDIA] Database: ${database.databaseName}`
+        );
+
+      } else {
+
+        console.warn(
+          "[EZ MEDIA] PostgreSQL: NOT CONFIGURED"
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "[EZ MEDIA] PostgreSQL connection error:"
+      );
+
+      console.error(
+        error.message
+      );
+
+      console.warn(
+        "[EZ MEDIA] سيتم تشغيل الخادم رغم مشكلة قاعدة البيانات."
+      );
+
+    }
 
 
     /*
@@ -53,23 +132,58 @@ async function startServer() {
     |--------------------------------------------------------------------------
     */
 
-    server = app.listen(
-      config.app.port,
-      "0.0.0.0",
-      () => {
-        console.log(
-          `[AZ MEDIA] ${config.app.name} ${config.app.version}`
-        );
+    server =
+      app.listen(
 
-        console.log(
-          `[AZ MEDIA] Environment: ${config.app.environment}`
-        );
+        config.app.port,
 
-        console.log(
-          `[AZ MEDIA] Server listening on port ${config.app.port}`
-        );
-      }
-    );
+        "0.0.0.0",
+
+        () => {
+
+          console.log("");
+
+          console.log(
+            "=========================================="
+          );
+
+          console.log(
+            "        EZ MEDIA SERVER ONLINE"
+          );
+
+          console.log(
+            "=========================================="
+          );
+
+          console.log(
+            `[EZ MEDIA] ${config.app.name} ${config.app.version}`
+          );
+
+          console.log(
+            `[EZ MEDIA] Listening on 0.0.0.0:${config.app.port}`
+          );
+
+          console.log(
+            `[EZ MEDIA] Health: /health`
+          );
+
+          console.log(
+            `[EZ MEDIA] API: /api`
+          );
+
+          console.log(
+            `[EZ MEDIA] Status: /api/status`
+          );
+
+          console.log(
+            "=========================================="
+          );
+
+          console.log("");
+
+        }
+
+      );
 
 
     /*
@@ -81,37 +195,42 @@ async function startServer() {
     server.on(
       "error",
       (error) => {
+
         console.error(
-          "[AZ MEDIA] Server error:",
-          error
+          "[EZ MEDIA] HTTP Server Error:"
         );
+
+        console.error(error);
 
         void shutdown(
           "server-error",
           1
         );
+
       }
     );
 
+
   } catch (error) {
-    console.error(
-      "[AZ MEDIA] Startup failed"
-    );
 
     console.error(
-      error
+      "[EZ MEDIA] STARTUP FAILED"
     );
+
+    console.error(error);
 
     await closeDatabase();
 
     process.exit(1);
+
   }
+
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Graceful Shutdown
+| Shutdown
 |--------------------------------------------------------------------------
 */
 
@@ -119,151 +238,169 @@ async function shutdown(
   signal,
   exitCode = 0
 ) {
+
   if (shuttingDown) {
+
     return;
+
   }
+
 
   shuttingDown = true;
 
+
   console.log(
-    `[AZ MEDIA] Shutdown signal: ${signal}`
+    `[EZ MEDIA] Shutdown: ${signal}`
   );
 
 
   /*
   |--------------------------------------------------------------------------
-  | Stop accepting HTTP requests
+  | HTTP
   |--------------------------------------------------------------------------
   */
 
   if (server) {
+
     await new Promise(
       (resolve) => {
+
         server.close(
           () => {
+
             console.log(
-              "[AZ MEDIA] HTTP server closed"
+              "[EZ MEDIA] HTTP server closed"
             );
 
             resolve();
+
           }
         );
+
       }
     );
+
   }
 
 
   /*
   |--------------------------------------------------------------------------
-  | Close Database Pool
+  | Database
   |--------------------------------------------------------------------------
   */
 
   try {
+
     await closeDatabase();
 
     console.log(
-      "[AZ MEDIA] Database pool closed"
+      "[EZ MEDIA] Database pool closed"
     );
 
   } catch (error) {
+
     console.error(
-      "[AZ MEDIA] Database shutdown error:",
-      error
+      "[EZ MEDIA] Database shutdown error:"
     );
 
+    console.error(error);
+
     exitCode = 1;
+
   }
 
 
   console.log(
-    "[AZ MEDIA] Shutdown complete"
+    "[EZ MEDIA] Shutdown complete"
   );
+
 
   process.exit(
     exitCode
   );
+
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Process Signals
+| Signals
 |--------------------------------------------------------------------------
 */
 
 process.on(
   "SIGTERM",
   () => {
+
     void shutdown(
-      "SIGTERM"
+      "SIGTERM",
+      0
     );
+
   }
 );
+
 
 process.on(
   "SIGINT",
   () => {
+
     void shutdown(
-      "SIGINT"
+      "SIGINT",
+      0
     );
+
   }
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| Unhandled Promise Rejection
+| Unexpected errors
 |--------------------------------------------------------------------------
 */
 
 process.on(
   "unhandledRejection",
   (reason) => {
+
     console.error(
-      "[AZ MEDIA] Unhandled Promise Rejection:",
-      reason
+      "[EZ MEDIA] Unhandled Promise Rejection:"
     );
+
+    console.error(reason);
+
   }
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Uncaught Exception
-|--------------------------------------------------------------------------
-*/
-
 process.on(
   "uncaughtException",
   (error) => {
+
     console.error(
-      "[AZ MEDIA] Uncaught Exception:",
-      error
+      "[EZ MEDIA] Uncaught Exception:"
     );
+
+    console.error(error);
 
     void shutdown(
       "uncaughtException",
       1
     );
+
   }
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| Start
+| START
 |--------------------------------------------------------------------------
 */
 
 void startServer();
 
-
-/*
-|--------------------------------------------------------------------------
-| Export
-|--------------------------------------------------------------------------
-*/
 
 export {
   startServer,
