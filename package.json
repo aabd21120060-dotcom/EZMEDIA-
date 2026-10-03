@@ -1,20 +1,23 @@
 {
-  "name": "ez-media",
-  "version": "11.0.0",
-  "description": "EZ MEDIA - AI Media Platform",
+  "name": "ez-media-platform",
+  "version": "11.1.0",
+  "private": true,
+  "description": "EZ MEDIA 11 - AI Media Platform",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "test": "node --test"
+    "dev": "node --watch server.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "compression": "^1.7.5",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
-    "express-rate-limit": "^8.2.1",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3"
   }
 }
