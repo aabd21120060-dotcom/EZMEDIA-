@@ -1,142 +1,174 @@
 "use strict";
 
-const { query } = require("./db");
+const {
+  query
+} = require("./db");
 
-async function initializeMediaDatabase() {
+async function initializeDatabase() {
   await query(`
-    CREATE TABLE IF NOT EXISTS media_assets (
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+    CREATE TABLE IF NOT EXISTS cms_content (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+      type VARCHAR(40) NOT NULL DEFAULT 'news',
 
       title VARCHAR(500) NOT NULL,
 
-      description TEXT,
-
-      asset_type VARCHAR(30) NOT NULL,
-
-      mime_type VARCHAR(150),
-
-      file_url TEXT NOT NULL,
-
-      thumbnail_url TEXT,
-
-      storage_provider VARCHAR(100),
-
-      storage_key TEXT,
-
-      file_size BIGINT,
-
-      duration_seconds INTEGER,
-
-      width INTEGER,
-
-      height INTEGER,
-
-      status VARCHAR(30) NOT NULL DEFAULT 'processing',
-
-      uploaded_by UUID,
-
-      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_media_assets_type
-      ON media_assets(asset_type);
-
-    CREATE INDEX IF NOT EXISTS idx_media_assets_status
-      ON media_assets(status);
-
-    CREATE INDEX IF NOT EXISTS idx_media_assets_created
-      ON media_assets(created_at DESC);
-
-
-    CREATE TABLE IF NOT EXISTS live_channels (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-      name VARCHAR(255) NOT NULL,
-
-      description TEXT,
-
-      stream_type VARCHAR(30) NOT NULL DEFAULT 'hls',
-
-      stream_url TEXT NOT NULL,
-
-      backup_stream_url TEXT,
-
-      logo_url TEXT,
-
-      thumbnail_url TEXT,
-
-      status VARCHAR(30) NOT NULL DEFAULT 'offline',
-
-      is_featured BOOLEAN NOT NULL DEFAULT FALSE,
-
-      is_public BOOLEAN NOT NULL DEFAULT TRUE,
-
-      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_live_channels_status
-      ON live_channels(status);
-
-    CREATE INDEX IF NOT EXISTS idx_live_channels_featured
-      ON live_channels(is_featured);
-
-
-    CREATE TABLE IF NOT EXISTS breaking_news (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-      title VARCHAR(500) NOT NULL,
+      slug VARCHAR(600) UNIQUE,
 
       summary TEXT,
 
       body TEXT,
 
-      source_name VARCHAR(255),
+      featured_image_url TEXT,
 
-      source_url TEXT,
+      video_url TEXT,
 
-      image_url TEXT,
+      audio_url TEXT,
 
-      priority VARCHAR(30) NOT NULL DEFAULT 'high',
+      location VARCHAR(255),
+
+      author_id UUID,
+
+      editor_id UUID,
 
       status VARCHAR(30) NOT NULL DEFAULT 'draft',
 
+      priority VARCHAR(20) NOT NULL DEFAULT 'normal',
+
+      is_breaking BOOLEAN NOT NULL DEFAULT FALSE,
+
+      is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+
+      allow_comments BOOLEAN NOT NULL DEFAULT TRUE,
+
+      scheduled_at TIMESTAMPTZ,
+
       published_at TIMESTAMPTZ,
-
-      expires_at TIMESTAMPTZ,
-
-      created_by UUID,
-
-      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
 
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE INDEX IF NOT EXISTS idx_breaking_news_status
-      ON breaking_news(status);
+    CREATE INDEX IF NOT EXISTS idx_cms_content_status
+      ON cms_content(status);
 
-    CREATE INDEX IF NOT EXISTS idx_breaking_news_published
-      ON breaking_news(published_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_cms_content_type
+      ON cms_content(type);
 
-    CREATE INDEX IF NOT EXISTS idx_breaking_news_expires
-      ON breaking_news(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_cms_content_published_at
+      ON cms_content(published_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_cms_content_created_at
+      ON cms_content(created_at DESC);
+
+
+    CREATE TABLE IF NOT EXISTS cms_content_tags (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+      content_id UUID NOT NULL
+        REFERENCES cms_content(id)
+        ON DELETE CASCADE,
+
+      tag VARCHAR(100) NOT NULL,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cms_content_tags_content
+      ON cms_content_tags(content_id);
+
+    CREATE INDEX IF NOT EXISTS idx_cms_content_tags_tag
+      ON cms_content_tags(tag);
+
+
+    CREATE TABLE IF NOT EXISTS cms_content_revisions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+      content_id UUID NOT NULL
+        REFERENCES cms_content(id)
+        ON DELETE CASCADE,
+
+      title VARCHAR(500),
+
+      summary TEXT,
+
+      body TEXT,
+
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+      created_by UUID,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+
+    CREATE TABLE IF NOT EXISTS cms_content_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+      content_id UUID
+        REFERENCES cms_content(id)
+        ON DELETE CASCADE,
+
+      event_type VARCHAR(80) NOT NULL,
+
+      old_status VARCHAR(30),
+
+      new_status VARCHAR(30),
+
+      actor_id UUID,
+
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+
+    CREATE TABLE IF NOT EXISTS ai_jobs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+      content_id UUID
+        REFERENCES cms_content(id)
+        ON DELETE CASCADE,
+
+      provider VARCHAR(100) NOT NULL,
+
+      model VARCHAR(150),
+
+      job_type VARCHAR(100) NOT NULL,
+
+      status VARCHAR(40) NOT NULL DEFAULT 'queued',
+
+      input JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+      output JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+      error TEXT,
+
+      created_by UUID,
+
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+      completed_at TIMESTAMPTZ
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ai_jobs_content
+      ON ai_jobs(content_id);
+
+    CREATE INDEX IF NOT EXISTS idx_ai_jobs_status
+      ON ai_jobs(status);
   `);
 
   return {
     success: true,
-    message: "Media database initialized"
+
+    message:
+      "EZ MEDIA database initialized"
   };
 }
 
 module.exports = {
-  initializeMediaDatabase
+  initializeDatabase
 };
