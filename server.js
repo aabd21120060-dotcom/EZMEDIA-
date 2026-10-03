@@ -1,11 +1,3 @@
-/**
- * EZ MEDIA 11.0
- * AI Media Platform
- *
- * Node.js 20+
- * Express 5+
- */
-
 "use strict";
 
 const express = require("express");
@@ -17,29 +9,37 @@ const path = require("path");
 
 const contentRoutes = require("./src/routes/content");
 const aiRoutes = require("./src/routes/ai");
-const { health: databaseHealth } = require("./src/database/db");
-const { initializeDatabase } = require("./src/database/init");
+const mediaRoutes = require("./src/routes/media");
+const liveRoutes = require("./src/routes/live");
+const breakingRoutes = require("./src/routes/breaking");
+
+const {
+  health: databaseHealth
+} = require("./src/database/db");
+
+const {
+  initializeDatabase
+} = require("./src/database/init");
+
+const {
+  initializeMediaDatabase
+} = require("./src/database/media-init");
 
 const app = express();
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT =
+  Number(process.env.PORT) || 3000;
 
 const PLATFORM = "EZ MEDIA";
 const VERSION = "11.0.0";
 
 /*
 |--------------------------------------------------------------------------
-| BASIC SETTINGS
+| SECURITY
 |--------------------------------------------------------------------------
 */
 
 app.disable("x-powered-by");
-
-/*
-|--------------------------------------------------------------------------
-| SECURITY
-|--------------------------------------------------------------------------
-*/
 
 app.use(
   helmet({
@@ -60,26 +60,26 @@ app.use(compression());
 
 /*
 |--------------------------------------------------------------------------
-| BODY PARSING
+| BODY
 |--------------------------------------------------------------------------
 */
 
 app.use(
   express.json({
-    limit: "10mb"
+    limit: "25mb"
   })
 );
 
 app.use(
   express.urlencoded({
     extended: true,
-    limit: "10mb"
+    limit: "25mb"
   })
 );
 
 /*
 |--------------------------------------------------------------------------
-| STATIC FILES
+| STATIC
 |--------------------------------------------------------------------------
 */
 
@@ -95,50 +95,68 @@ app.use(
 |--------------------------------------------------------------------------
 */
 
-app.use((req, res, next) => {
-  const requestId =
-    req.headers["x-request-id"] ||
-    crypto.randomUUID();
+app.use(
+  (req, res, next) => {
+    const requestId =
+      req.headers["x-request-id"] ||
+      crypto.randomUUID();
 
-  req.requestId = requestId;
+    req.requestId =
+      requestId;
 
-  res.setHeader(
-    "X-Request-ID",
-    requestId
-  );
+    res.setHeader(
+      "X-Request-ID",
+      requestId
+    );
 
-  next();
-});
+    next();
+  }
+);
 
 /*
 |--------------------------------------------------------------------------
-| REQUEST LOGGING
+| LOGGING
 |--------------------------------------------------------------------------
 */
 
-app.use((req, res, next) => {
-  const startedAt = Date.now();
+app.use(
+  (req, res, next) => {
+    const started =
+      Date.now();
 
-  res.on("finish", () => {
-    const duration =
-      Date.now() - startedAt;
+    res.on(
+      "finish",
+      () => {
+        console.log(
+          JSON.stringify({
+            type:
+              "http_request",
 
-    console.log(
-      JSON.stringify({
-        type: "http_request",
-        requestId: req.requestId,
-        method: req.method,
-        path: req.originalUrl,
-        status: res.statusCode,
-        durationMs: duration,
-        timestamp:
-          new Date().toISOString()
-      })
+            requestId:
+              req.requestId,
+
+            method:
+              req.method,
+
+            path:
+              req.originalUrl,
+
+            status:
+              res.statusCode,
+
+            durationMs:
+              Date.now() - started,
+
+            timestamp:
+              new Date().toISOString()
+          })
+        );
+      }
     );
-  });
 
-  next();
-});
+    next();
+  }
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -146,15 +164,18 @@ app.use((req, res, next) => {
 |--------------------------------------------------------------------------
 */
 
-app.get("/", (req, res) => {
-  res.sendFile(
-    path.join(
-      __dirname,
-      "public",
-      "index.html"
-    )
-  );
-});
+app.get(
+  "/",
+  (req, res) => {
+    res.sendFile(
+      path.join(
+        __dirname,
+        "public",
+        "index.html"
+      )
+    );
+  }
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -162,55 +183,81 @@ app.get("/", (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-app.get("/admin", (req, res) => {
-  res.sendFile(
-    path.join(
-      __dirname,
-      "public",
-      "admin.html"
-    )
-  );
-});
+app.get(
+  "/admin",
+  (req, res) => {
+    res.sendFile(
+      path.join(
+        __dirname,
+        "public",
+        "admin.html"
+      )
+    );
+  }
+);
 
 /*
 |--------------------------------------------------------------------------
-| BASIC API
+| API ROOT
 |--------------------------------------------------------------------------
 */
 
-app.get("/api", (req, res) => {
-  res.json({
-    platform: PLATFORM,
-    version: VERSION,
-    status: "online",
+app.get(
+  "/api",
+  (req, res) => {
+    res.json({
+      platform:
+        PLATFORM,
 
-    api: true,
+      version:
+        VERSION,
 
-    requestId:
-      req.requestId,
+      status:
+        "online",
 
-    endpoints: {
-      home: "/",
-      admin: "/admin",
-      health: "/health",
+      api:
+        true,
 
-      system:
-        "/api/system",
+      endpoints: {
+        home:
+          "/",
 
-      database:
-        "/api/system/database",
+        admin:
+          "/admin",
 
-      content:
-        "/api/content",
+        health:
+          "/health",
 
-      ai:
-        "/api/ai"
-    },
+        system:
+          "/api/system",
 
-    timestamp:
-      new Date().toISOString()
-  });
-});
+        database:
+          "/api/system/database",
+
+        content:
+          "/api/content",
+
+        media:
+          "/api/media",
+
+        live:
+          "/api/live",
+
+        breaking:
+          "/api/breaking",
+
+        ai:
+          "/api/ai"
+      },
+
+      requestId:
+        req.requestId,
+
+      timestamp:
+        new Date().toISOString()
+    });
+  }
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -233,9 +280,11 @@ app.get(
             process.env.DATABASE_URL
           ),
 
-        connected: false,
+        connected:
+          false,
 
-        databaseName: null,
+        databaseName:
+          null,
 
         error:
           error.message
@@ -248,15 +297,19 @@ app.get(
         database.connected
       );
 
-    res.status(200).json({
-      platform: PLATFORM,
+    res.json({
+      platform:
+        PLATFORM,
 
-      version: VERSION,
+      version:
+        VERSION,
 
-      status: "online",
+      status:
+        "online",
 
       server: {
-        online: true,
+        online:
+          true,
 
         node:
           process.version,
@@ -293,26 +346,37 @@ app.get(
       },
 
       services: {
-        api: true,
+        api:
+          true,
 
-        cms: true,
+        cms:
+          true,
 
         ai:
           Boolean(
             process.env.AI_API_KEY
           ),
 
-        media: true,
+        media:
+          true,
 
-        live: true,
+        live:
+          true,
 
-        advertising: true,
+        breakingNews:
+          true,
 
-        sponsorships: true,
+        advertising:
+          true,
 
-        automation: true,
+        sponsorships:
+          true,
 
-        analytics: true
+        automation:
+          true,
+
+        analytics:
+          true
       },
 
       requestId:
@@ -326,7 +390,7 @@ app.get(
 
 /*
 |--------------------------------------------------------------------------
-| DATABASE HEALTH
+| DATABASE
 |--------------------------------------------------------------------------
 */
 
@@ -338,9 +402,11 @@ app.get(
         await databaseHealth();
 
       return res.json({
-        success: true,
+        success:
+          true,
 
-        platform: PLATFORM,
+        platform:
+          PLATFORM,
 
         database,
 
@@ -352,9 +418,11 @@ app.get(
       });
     } catch (error) {
       return res.status(503).json({
-        success: false,
+        success:
+          false,
 
-        platform: PLATFORM,
+        platform:
+          PLATFORM,
 
         database: {
           configured:
@@ -362,11 +430,14 @@ app.get(
               process.env.DATABASE_URL
             ),
 
-          connected: false,
+          connected:
+            false,
 
-          ready: false,
+          ready:
+            false,
 
-          databaseName: null,
+          databaseName:
+            null,
 
           error:
             error.message
@@ -403,11 +474,11 @@ app.get(
             process.env.DATABASE_URL
           ),
 
-        connected: false,
+        connected:
+          false,
 
-        ready: false,
-
-        databaseName: null,
+        ready:
+          false,
 
         error:
           error.message
@@ -415,14 +486,18 @@ app.get(
     }
 
     res.json({
-      platform: PLATFORM,
+      platform:
+        PLATFORM,
 
-      version: VERSION,
+      version:
+        VERSION,
 
-      status: "online",
+      status:
+        "online",
 
       server: {
-        online: true,
+        online:
+          true,
 
         node:
           process.version,
@@ -453,23 +528,35 @@ app.get(
       },
 
       modules: {
-        cms: true,
+        cms:
+          true,
 
-        newsroom: true,
+        newsroom:
+          true,
 
-        mediaLibrary: true,
+        breakingNews:
+          true,
 
-        liveBroadcast: true,
+        mediaLibrary:
+          true,
 
-        advertising: true,
+        liveBroadcast:
+          true,
 
-        sponsorships: true,
+        advertising:
+          true,
 
-        analytics: true,
+        sponsorships:
+          true,
 
-        automation: true,
+        analytics:
+          true,
 
-        aiNewsroom: true
+        automation:
+          true,
+
+        aiNewsroom:
+          true
       },
 
       requestId:
@@ -483,7 +570,7 @@ app.get(
 
 /*
 |--------------------------------------------------------------------------
-| CMS
+| CONTENT
 |--------------------------------------------------------------------------
 */
 
@@ -505,6 +592,39 @@ app.use(
 
 /*
 |--------------------------------------------------------------------------
+| MEDIA
+|--------------------------------------------------------------------------
+*/
+
+app.use(
+  "/api/media",
+  mediaRoutes
+);
+
+/*
+|--------------------------------------------------------------------------
+| LIVE
+|--------------------------------------------------------------------------
+*/
+
+app.use(
+  "/api/live",
+  liveRoutes
+);
+
+/*
+|--------------------------------------------------------------------------
+| BREAKING NEWS
+|--------------------------------------------------------------------------
+*/
+
+app.use(
+  "/api/breaking",
+  breakingRoutes
+);
+
+/*
+|--------------------------------------------------------------------------
 | 404
 |--------------------------------------------------------------------------
 */
@@ -512,7 +632,8 @@ app.use(
 app.use(
   (req, res) => {
     res.status(404).json({
-      success: false,
+      success:
+        false,
 
       error:
         "NOT_FOUND",
@@ -534,7 +655,7 @@ app.use(
 
 /*
 |--------------------------------------------------------------------------
-| GLOBAL ERROR HANDLER
+| ERROR HANDLER
 |--------------------------------------------------------------------------
 */
 
@@ -574,7 +695,8 @@ app.use(
       error.statusCode ||
         500
     ).json({
-      success: false,
+      success:
+        false,
 
       error:
         error.code ||
@@ -602,23 +724,19 @@ let server = null;
 
 /*
 |--------------------------------------------------------------------------
-| STARTUP
+| START
 |--------------------------------------------------------------------------
 */
 
 async function startServer() {
   try {
-    /*
-    |--------------------------------------------------------------------------
-    | DATABASE
-    |--------------------------------------------------------------------------
-    */
-
     if (
       process.env.DATABASE_URL
     ) {
       try {
         await initializeDatabase();
+
+        await initializeMediaDatabase();
 
         console.log(
           JSON.stringify({
@@ -672,12 +790,6 @@ async function startServer() {
         })
       );
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | HTTP SERVER
-    |--------------------------------------------------------------------------
-    */
 
     server =
       app.listen(
@@ -737,7 +849,7 @@ async function startServer() {
 
 /*
 |--------------------------------------------------------------------------
-| GRACEFUL SHUTDOWN
+| SHUTDOWN
 |--------------------------------------------------------------------------
 */
 
@@ -752,28 +864,27 @@ async function shutdown(
     process.exit(0);
   }
 
-  server.close(() => {
-    console.log(
-      "EZ MEDIA server closed."
-    );
+  server.close(
+    () => {
+      console.log(
+        "EZ MEDIA server closed."
+      );
 
-    process.exit(0);
-  });
+      process.exit(0);
+    }
+  );
 
-  setTimeout(() => {
-    console.error(
-      "Forced shutdown."
-    );
+  setTimeout(
+    () => {
+      console.error(
+        "Forced shutdown."
+      );
 
-    process.exit(1);
-  }, 10000).unref();
+      process.exit(1);
+    },
+    10000
+  ).unref();
 }
-
-/*
-|--------------------------------------------------------------------------
-| PROCESS EVENTS
-|--------------------------------------------------------------------------
-*/
 
 process.on(
   "SIGTERM",
@@ -807,18 +918,6 @@ process.on(
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| START
-|--------------------------------------------------------------------------
-*/
-
 startServer();
-
-/*
-|--------------------------------------------------------------------------
-| EXPORT
-|--------------------------------------------------------------------------
-*/
 
 module.exports = app;
