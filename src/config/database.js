@@ -2,33 +2,31 @@ import pg from "pg";
 
 const { Pool } = pg;
 
+const connectionString = (
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  ""
+).trim();
+
 let pool = null;
 
-function getDatabaseUrl() {
-  return (
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    ""
-  ).trim();
-}
-
-const databaseUrl = getDatabaseUrl();
-
-if (databaseUrl) {
+if (connectionString) {
   try {
     pool = new Pool({
-      connectionString: databaseUrl,
+      connectionString,
 
       ssl:
         process.env.NODE_ENV === "production"
           ? { rejectUnauthorized: false }
           : false,
 
-      max: Number(process.env.PG_POOL_MAX || 5),
+      max: Number(
+        process.env.PG_POOL_MAX || 10
+      ),
 
       idleTimeoutMillis: 30000,
 
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000
     });
 
     pool.on("error", (error) => {
@@ -39,7 +37,7 @@ if (databaseUrl) {
     });
   } catch (error) {
     console.error(
-      "[EZ MEDIA] PostgreSQL initialization failed:",
+      "[EZ MEDIA] PostgreSQL initialization error:",
       error.message
     );
 
@@ -48,14 +46,17 @@ if (databaseUrl) {
 }
 
 export function isDatabaseConfigured() {
-  return Boolean(databaseUrl);
+  return Boolean(connectionString);
 }
 
 export function isDatabaseReady() {
   return Boolean(pool);
 }
 
-export async function query(text, params = []) {
+export async function query(
+  text,
+  params = []
+) {
   if (!pool) {
     throw new Error(
       "EZ MEDIA database is not configured"
@@ -65,43 +66,14 @@ export async function query(text, params = []) {
   return pool.query(text, params);
 }
 
-export async function transaction(callback) {
-  if (!pool) {
-    throw new Error(
-      "EZ MEDIA database is not configured"
-    );
-  }
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const result = await callback(client);
-
-    await client.query("COMMIT");
-
-    return result;
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch {
-      // تجاهل خطأ rollback
-    }
-
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
 export async function checkDatabase() {
-  if (!databaseUrl) {
+  if (!connectionString) {
     return {
       configured: false,
       ready: false,
-      database: null,
-      message: "DATABASE_URL is not configured",
+      databaseName: null,
+      message:
+        "DATABASE_URL is not configured"
     };
   }
 
@@ -109,32 +81,42 @@ export async function checkDatabase() {
     return {
       configured: true,
       ready: false,
-      database: null,
-      message: "PostgreSQL pool could not be initialized",
+      databaseName: null,
+      message:
+        "PostgreSQL pool is not available"
     };
   }
 
   try {
     const result = await pool.query(`
       SELECT
-        current_database() AS database,
-        current_user AS user,
+        current_database() AS database_name,
         NOW() AS server_time
     `);
 
     return {
       configured: true,
       ready: true,
-      database: result.rows[0].database,
-      user: result.rows[0].user,
-      serverTime: result.rows[0].server_time,
+      databaseName:
+        result.rows[0]?.database_name || null,
+      serverTime:
+        result.rows[0]?.server_time || null,
+      message:
+        "PostgreSQL connection is ready"
     };
   } catch (error) {
     return {
       configured: true,
       ready: false,
-      database: null,
-      message: error.message,
+      databaseName: null,
+      message: error.message
     };
+  }
+}
+
+export async function closeDatabase() {
+  if (pool) {
+    await pool.end();
+    pool = null;
   }
 }
