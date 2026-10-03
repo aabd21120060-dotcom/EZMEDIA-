@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EZ MEDIA — غرفة الأخبار</title>
+<style>
+:root{
+  --bg:#f5fbff;
+  --card:#fff;
+  --soft:#eaf8ff;
+  --primary:#149bd7;
+  --primary2:#087db6;
+  --text:#123044;
+  --muted:#708797;
+  --border:#d8edf8;
+  --success:#18a873;
+  --danger:#df4747;
+  --shadow:0 12px 35px rgba(20,145,195,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;
+  background:
+    radial-gradient(circle at 80% 0%,rgba(93,211,255,.18),transparent 30%),
+    var(--bg);
+  color:var(--text);
+}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+.app{
+  min-height:100vh;
+}
+header{
+  position:sticky;
+  top:0;
+  z-index:100;
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border);
+}
+.header{
+  width:min(1450px,94%);
+  margin:auto;
+  min-height:72px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+}
+.logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+}
+.logo-box{
+  width:45px;
+  height:45px;
+  border-radius:15px;
+  display:grid;
+  place-items:center;
+  color:white;
+  background:linear-gradient(135deg,var(--primary),#65d5ff);
+}
+.header-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.status{
+  padding:8px 13px;
+  border-radius:100px;
+  background:var(--soft);
+  color:var(--primary2);
+  font-size:12px;
+  font-weight:800;
+}
+.layout{
+  width:min(1450px,94%);
+  margin:25px auto;
+  display:grid;
+  grid-template-columns:240px minmax(0,1fr);
+  gap:20px;
+}
+.sidebar{
+  background:white;
+  border:1px solid var(--border);
+  border-radius:25px;
+  padding:15px;
+  box-shadow:var(--shadow);
+  height:max-content;
+  position:sticky;
+  top:95px;
+}
+.sidebar button{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  text-align:right;
+  padding:13px;
+  border-radius:14px;
+  margin-bottom:5px;
+  font-weight:800;
+}
+.sidebar button:hover,
+.sidebar button.active{
+  background:var(--soft);
+  color:var(--primary2);
+}
+.content{
+  min-width:0;
+}
+.page-title{
+  margin-bottom:20px;
+}
+.page-title h1{
+  font-size:32px;
+  margin-bottom:7px;
+}
+.page-title p{
+  color:var(--muted);
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  margin-bottom:20px;
+}
+.stat{
+  background:white;
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:20px;
+  box-shadow:var(--shadow);
+}
+.stat-icon{
+  font-size:25px;
+  margin-bottom:13px;
+}
+.stat strong{
+  display:block;
+  font-size:27px;
+}
+.stat span{
+  color:var(--muted);
+  font-size:12px;
+}
+.card{
+  background:white;
+  border:1px solid var(--border);
+  border-radius:25px;
+  padding:22px;
+  box-shadow:var(--shadow);
+  margin-bottom:20px;
+}
+.card-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:18px;
+}
+.card-header h2{
+  font-size:20px;
+}
+.form-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:15px;
+}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.field.full{
+  grid-column:1/-1;
+}
+.field label{
+  font-size:12px;
+  font-weight:900;
+}
+.field input,
+.field textarea,
+.field select{
+  width:100%;
+  border:1px solid var(--border);
+  background:#fbfeff;
+  border-radius:14px;
+  padding:13px;
+  outline:none;
+  color:var(--text);
+}
+.field textarea{
+  min-height:190px;
+  resize:vertical;
+  line-height:1.8;
+}
+.field input:focus,
+.field textarea:focus,
+.field select:focus{
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px rgba(20,155,215,.08);
+}
+.actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:18px;
+}
+.primary,
+.secondary,
+.ai{
+  border:0;
+  border-radius:14px;
+  padding:12px 17px;
+  font-weight:900;
+}
+.primary{
+  color:white;
+  background:linear-gradient(135deg,var(--primary),var(--primary2));
+}
+.secondary{
+  color:var(--primary2);
+  background:var(--soft);
+}
+.ai{
+  color:white;
+  background:linear-gradient(135deg,#56bce9,#159bd7);
+}
+.table-wrap{
+  overflow:auto;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:700px;
+}
+th,td{
+  text-align:right;
+  padding:13px;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+}
+th{
+  color:var(--muted);
+  font-size:11px;
+}
+.badge{
+  display:inline-block;
+  padding:5px 9px;
+  border-radius:8px;
+  font-size:10px;
+  font-weight:900;
+}
+.badge-draft{background:#eef6fa;color:#638093}
+.badge-review{background:#fff6dd;color:#a87500}
+.badge-approved{background:#e8f8f0;color:#158158}
+.badge-published{background:#dff7ed;color:#10815a}
+.badge-archived{background:#f3f3f3;color:#777}
+.empty{
+  text-align:center;
+  padding:35px;
+  color:var(--muted);
+}
+.ai-result{
+  display:none;
+  margin-top:20px;
+  padding:20px;
+  border-radius:20px;
+  background:var(--soft);
+  border:1px solid var(--border);
+}
+.ai-result.show{
+  display:block;
+}
+.ai-result h3{
+  margin-bottom:12px;
+}
+.ai-box{
+  background:white;
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:10px;
+  border:1px solid var(--border);
+}
+.ai-box small{
+  display:block;
+  color:var(--muted);
+  margin-bottom:5px;
+}
+.ai-box p{
+  line-height:1.8;
+}
+.message{
+  position:fixed;
+  bottom:25px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:999;
+  background:var(--text);
+  color:white;
+  padding:13px 18px;
+  border-radius:14px;
+  box-shadow:0 15px 35px rgba(0,0,0,.15);
+  display:none;
+  font-size:13px;
+  font-weight:800;
+}
+.mobile-menu{
+  display:none;
+}
+@media(max-width:1000px){
+  .layout{
+    grid-template-columns:1fr;
+  }
+  .sidebar{
+    position:static;
+    display:flex;
+    overflow-x:auto;
+    gap:5px;
+  }
+  .sidebar button{
+    min-width:max-content;
+    width:auto;
+  }
+  .grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+@media(max-width:650px){
+  .layout{
+    width:94%;
+  }
+  .grid{
+    grid-template-columns:1fr 1fr;
+  }
+  .form-grid{
+    grid-template-columns:1fr;
+  }
+  .field.full{
+    grid-column:auto;
+  }
+  .page-title h1{
+    font-size:26px;
+  }
+  .header .status{
+    display:none;
+  }
+  .card{
+    padding:17px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="header">
+<a href="/" class="logo">
+  <div class="logo-box">EZ</div>
+  <div>
+    <strong>EZ MEDIA</strong>
+    <small style="display:block;color:#708797;font-size:10px">
+      غرفة الأخبار الذكية
+    </small>
+  </div>
+</a>
+<div class="header-right">
+  <span id="systemStatus" class="status">
+    فحص النظام...
+  </span>
+  <button class="secondary" onclick="location.href='/'">
+    الرئيسية
+  </button>
+</div>
+  </div>
+</header>
+<div class="layout">
+<aside class="sidebar">
+  <button class="active" onclick="showPanel('dashboard',this)">
+    📊 لوحة التحكم
+  </button>
+  <button onclick="showPanel('create',this)">
+    ✍️ إنشاء محتوى
+  </button>
+  <button onclick="showPanel('content',this)">
+    📰 المحتوى
+  </button>
+  <button onclick="showPanel('ai',this)">
+    🤖 EZ AI
+  </button>
+  <button onclick="showPanel('live',this)">
+    📡 البث
+  </button>
+  <button onclick="showPanel('media',this)">
+    📚 المكتبة
+  </button>
+  <button onclick="showPanel('ads',this)">
+    📢 الإعلانات
+  </button>
+  <button onclick="showPanel('sponsors',this)">
+    🤝 الرعايات
+  </button>
+  <button onclick="showPanel('management',this)">
+    ⚙️ الإدارة
+  </button>
+</aside>
+<main class="content">
+<!-- DASHBOARD -->
+<section id="panel-dashboard">
+  <div class="page-title">
+    <h1>غرفة عمليات EZ MEDIA</h1>
+    <p>
+      مركز التحكم بالمحتوى والنشر والذكاء الاصطناعي.
+    </p>
+  </div>
+  <div class="grid">
+<div class="stat">
+  <div class="stat-icon">📰</div>
+  <strong id="totalContent">—</strong>
+  <span>إجمالي المحتوى</span>
+</div>
+<div class="stat">
+  <div class="stat-icon">📝</div>
+  <strong id="draftContent">—</strong>
+  <span>مسودات</span>
+</div>
+<div class="stat">
+  <div class="stat-icon">🔎</div>
+  <strong id="reviewContent">—</strong>
+  <span>قيد المراجعة</span>
+</div>
+<div class="stat">
+  <div class="stat-icon">🟢</div>
+  <strong id="publishedContent">—</strong>
+  <span>منشور</span>
+</div>
+  </div>
+  <div class="card">
+<div class="card-header">
+  <h2>حالة الخدمات</h2>
+  <button class="secondary" onclick="loadSystem()">
+    تحديث
+  </button>
+</div>
+<div id="servicesList">
+  جاري الفحص...
+</div>
+  </div>
+</section>
+<!-- CREATE -->
+<section id="panel-create" style="display:none">
+  <div class="page-title">
+    <h1>إنشاء محتوى</h1>
+    <p>
+      أنشئ خبرًا أو تقريرًا أو مقابلة أو تغطية.
+    </p>
+  </div>
+  <div class="card">
+<form id="contentForm">
+  <div class="form-grid">
+    <div class="field">
+      <label>نوع المحتوى</label>
+      <select id="contentType">
+        <option value="news">خبر</option>
+        <option value="report">تقرير</option>
+        <option value="interview">مقابلة</option>
+        <option value="video">فيديو</option>
+        <option value="coverage">تغطية</option>
+        <option value="breaking">عاجل</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>الأولوية</label>
+      <select id="priority">
+        <option value="normal">عادي</option>
+        <option value="high">مرتفع</option>
+        <option value="urgent">عاجل</option>
+      </select>
+    </div>
+    <div class="field full">
+      <label>العنوان</label>
+      <input
+        id="title"
+        required
+        placeholder="اكتب عنوان المحتوى..."
+      >
+    </div>
+    <div class="field full">
+      <label>الملخص</label>
+      <textarea
+        id="summary"
+        style="min-height:110px"
+        placeholder="ملخص مختصر للمحتوى..."
+      ></textarea>
+    </div>
+    <div class="field full">
+      <label>المحتوى</label>
+      <textarea
+        id="body"
+        required
+        placeholder="اكتب المحتوى الكامل هنا..."
+      ></textarea>
+    </div>
+    <div class="field">
+      <label>الموقع</label>
+      <input
+        id="location"
+        placeholder="المدينة / الدولة"
+      >
+    </div>
+    <div class="field">
+      <label>رابط الصورة</label>
+      <input
+        id="featuredImage"
+        placeholder="https://..."
+      >
+    </div>
+    <div class="field">
+      <label>رابط الفيديو</label>
+      <input
+        id="videoUrl"
+        placeholder="https://..."
+      >
+    </div>
+    <div class="field">
+      <label>رابط الصوت</label>
+      <input
+        id="audioUrl"
+        placeholder="https://..."
+      >
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" type="submit">
+      💾 حفظ كمسودة
+    </button>
+    <button
+      type="button"
+      class="ai"
+      onclick="analyzeDraft()"
+    >
+      🤖 تحليل بواسطة EZ AI
+    </button>
+  </div>
+</form>
+<div
+  id="aiResult"
+  class="ai-result"
+>
+  <h3>
+    🤖 نتيجة تحليل EZ AI
+  </h3>
+  <div class="ai-box">
+    <small>العنوان المقترح</small>
+    <p id="aiHeadline">—</p>
+  </div>
+  <div class="ai-box">
+    <small>الملخص</small>
+    <p id="aiSummary">—</p>
+  </div>
+  <div class="ai-box">
+    <small>الكلمات المفتاحية</small>
+    <p id="aiKeywords">—</p>
+  </div>
+  <div class="ai-box">
+    <small>ملاحظات تحريرية</small>
+    <p id="aiNotes">—</p>
+  </div>
+  <div class="ai-box">
+    <small>مؤشرات المخاطر</small>
+    <p id="aiRisks">—</p>
+  </div>
+  <div class="ai-box">
+    <small>درجة الثقة</small>
+    <p id="aiConfidence">—</p>
+  </div>
+</div>
+  </div>
+</section>
+<!-- CONTENT -->
+<section id="panel-content" style="display:none">
+  <div class="page-title">
+    <h1>إدارة المحتوى</h1>
+    <p>
+      مراجعة واعتماد ونشر المحتوى.
+    </p>
+  </div>
+  <div class="card">
+<div class="card-header">
+  <h2>المحتوى</h2>
+  <button
+    class="secondary"
+    onclick="loadContent()"
+  >
+    تحديث
+  </button>
+</div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>العنوان</th>
+        <th>النوع</th>
+        <th>الحالة</th>
+        <th>الأولوية</th>
+        <th>التاريخ</th>
+        <th>الإجراء</th>
+      </tr>
+    </thead>
+    <tbody id="contentTable">
+      <tr>
+        <td colspan="6" class="empty">
+          جاري التحميل...
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+  </div>
+</section>
+<!-- AI -->
+<section id="panel-ai" style="display:none">
+  <div class="page-title">
+    <h1>EZ AI</h1>
+    <p>
+      محرك الذكاء الاصطناعي التحريري للمنصة.
+    </p>
+  </div>
+  <div class="card">
+<h2>سير العمل الذكي</h2>
+<div class="grid" style="margin-top:18px">
+  <div class="stat">
+    <div class="stat-icon">1️⃣</div>
+    <strong>مصدر</strong>
+    <span>استقبال المحتوى</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon">2️⃣</div>
+    <strong>تحليل</strong>
+    <span>EZ AI</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon">3️⃣</div>
+    <strong>مراجعة</strong>
+    <span>المحرر</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon">4️⃣</div>
+    <strong>نشر</strong>
+    <span>بعد الموافقة</span>
+  </div>
+</div>
+<p style="color:var(--muted);line-height:1.8">
+  الذكاء الاصطناعي يساعد في إعداد وتحليل المحتوى،
+  لكنه لا يعتبر موافقة تحريرية ولا ينشر المحتوى
+  الحساس تلقائيًا دون المرور بمراجعة بشرية.
+</p>
+  </div>
+</section>
+<!-- LIVE -->
+<section id="panel-live" style="display:none">
+  <div class="page-title">
+    <h1>البث</h1>
+    <p>
+      مركز البث المباشر ومصادر البث المرخصة.
+    </p>
+  </div>
+  <div class="card">
+<h2>مصدر البث</h2>
+<div class="field" style="margin-top:18px">
+  <label>رابط HLS</label>
+  <input
+    id="hlsUrl"
+    placeholder="https://example.com/live.m3u8"
+  >
+</div>
+<div class="actions">
+  <button
+    class="primary"
+    onclick="saveStream()"
+  >
+    حفظ المصدر
+  </button>
+  <button
+    class="secondary"
+    onclick="showMessage('سيتم تشغيل البث بعد ربط محرك HLS')"
+  >
+    اختبار البث
+  </button>
+</div>
+  </div>
+</section>
+<!-- MEDIA -->
+<section id="panel-media" style="display:none">
+  <div class="page-title">
+    <h1>المكتبة</h1>
+    <p>
+      مركز إدارة الصور والفيديو والصوت والملفات.
+    </p>
+  </div>
+  <div class="card">
+<div class="empty">
+  📚 مكتبة الوسائط الأساسية جاهزة للربط مع
+  Object Storage في المرحلة التالية.
+</div>
+  </div>
+</section>
+<!-- ADS -->
+<section id="panel-ads" style="display:none">
+  <div class="page-title">
+    <h1>الإعلانات</h1>
+    <p>
+      إدارة الحملات والمساحات الإعلانية.
+    </p>
+  </div>
+  <div class="card">
+<div class="empty">
+  📢 محرك الإعلانات سيُربط بقاعدة البيانات
+  ونظام القياس في المرحلة التالية.
+</div>
+  </div>
+</section>
+<!-- SPONSORS -->
+<section id="panel-sponsors" style="display:none">
+  <div class="page-title">
+    <h1>الرعايات</h1>
+    <p>
+      إدارة الرعاة والشراكات الإعلامية.
+    </p>
+  </div>
+  <div class="card">
+<div class="empty">
+  🤝 نظام الرعاية جاهز للربط مع قاعدة البيانات
+  والحملات والمواقع الإعلانية.
+</div>
+  </div>
+</section>
+<!-- MANAGEMENT -->
+<section id="panel-management" style="display:none">
+  <div class="page-title">
+    <h1>الإدارة</h1>
+    <p>
+      غرفة عمليات المنصة والصلاحيات والموظفين.
+    </p>
+  </div>
+  <div class="card">
+<div class="grid">
+  <div class="stat">
+    <div class="stat-icon">👥</div>
+    <strong>المستخدمون</strong>
+    <span>إدارة الحسابات</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon">🔐</div>
+    <strong>الصلاحيات</strong>
+    <span>أدوار الوصول</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon">📝</div>
+    <strong>المراجعات</strong>
+    <span>اعتماد المحتوى</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon">⚡</div>
+    <strong>الأتمتة</strong>
+    <span>مهام النظام</span>
+  </div>
+</div>
+  </div>
+</section>
+</main>
+</div>
+<div id="message" class="message"></div>
+<script>
+const API = "/api";
+let currentContent = null;
+/* =========================
+   API
+========================= */
+async function api(url,options={}){
+  const response =
+    await fetch(
+      url,
+      {
+        ...options,
+        headers:{
+          "Content-Type":"application/json",
+          ...(options.headers||{})
+        }
+      }
+    );
+  let data=null;
+  try{
+    data=await response.json();
+  }catch{}
+  if(!response.ok){
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      "حدث خطأ في الطلب"
+    );
+  }
+  return data;
+}
+/* =========================
+   PANELS
+========================= */
+function showPanel(name,button){
+  document
+    .querySelectorAll(
+      '[id^="panel-"]'
+    )
+    .forEach(
+      panel =>
+        panel.style.display="none"
+    );
+  const target =
+    document.getElementById(
+      "panel-"+name
+    );
+  if(target){
+    target.style.display="block";
+  }
+  document
+    .querySelectorAll(
+      ".sidebar button"
+    )
+    .forEach(
+      b =>
+        b.classList.remove("active")
+    );
+  if(button){
+    button.classList.add("active");
+  }
+  if(name==="content"){
+    loadContent();
+  }
+  if(name==="dashboard"){
+    loadDashboard();
+  }
+}
+/* =========================
+   SYSTEM
+========================= */
+async function loadSystem(){
+  try{
+    const data =
+      await api(
+        "/health"
+      );
+    document
+      .getElementById(
+        "systemStatus"
+      )
+      .textContent =
+      "● النظام يعمل";
+    document
+      .getElementById(
+        "servicesList"
+      )
+      .innerHTML = `
+        <div class="status" style="display:inline-block;margin:5px">
+          السيرفر: ${data.server?.online ? "يعمل" : "متوقف"}
+        </div>
+        <div class="status" style="display:inline-block;margin:5px">
+          API: ${data.services?.api ? "يعمل" : "غير متاح"}
+        </div>
+        <div class="status" style="display:inline-block;margin:5px">
+          قاعدة البيانات:
+          ${data.database?.connected ? "متصلة" : "غير متصلة"}
+        </div>
+        <div class="status" style="display:inline-block;margin:5px">
+          EZ AI:
+          ${data.services?.ai ? "مجهز" : "بانتظار المفتاح"}
+        </div>
+      `;
+  }catch(error){
+    document
+      .getElementById(
+        "systemStatus"
+      )
+      .textContent =
+      "● تعذر الاتصال";
+  }
+}
+/* =========================
+   DASHBOARD
+========================= */
+async function loadDashboard(){
+  try{
+    const data =
+      await api(
+        "/api/content?limit=100"
+      );
+    const items =
+      data.content || [];
+    document
+      .getElementById(
+        "totalContent"
+      )
+      .textContent =
+      items.length;
+    document
+      .getElementById(
+        "draftContent"
+      )
+      .textContent =
+      items.filter(
+        x=>x.status==="draft"
+      ).length;
+    document
+      .getElementById(
+        "reviewContent"
+      )
+      .textContent =
+      items.filter(
+        x=>x.status==="review"
+      ).length;
+    document
+      .getElementById(
+        "publishedContent"
+      )
+      .textContent =
+      items.filter(
+        x=>x.status==="published"
+      ).length;
+  }catch{
+    document
+      .getElementById(
+        "totalContent"
+      )
+      .textContent="—";
+  }
+}
+/* =========================
+   CREATE CONTENT
+========================= */
+document
+  .getElementById(
+    "contentForm"
+  )
+  .addEventListener(
+    "submit",
+    async event => {
+      event.preventDefault();
+      const payload = {
+        type:
+          document.getElementById(
+            "contentType"
+          ).value,
+        title:
+          document.getElementById(
+            "title"
+          ).value.trim(),
+        summary:
+          document.getElementById(
+            "summary"
+          ).value.trim(),
+        body:
+          document.getElementById(
+            "body"
+          ).value.trim(),
+        location:
+          document.getElementById(
+            "location"
+          ).value.trim(),
+        featured_image_url:
+          document.getElementById(
+            "featuredImage"
+          ).value.trim(),
+        video_url:
+          document.getElementById(
+            "videoUrl"
+          ).value.trim(),
+        audio_url:
+          document.getElementById(
+            "audioUrl"
+          ).value.trim(),
+        priority:
+          document.getElementById(
+            "priority"
+          ).value
+      };
+      try{
+        const result =
+          await api(
+            "/api/content",
+            {
+              method:"POST",
+              body:JSON.stringify(
+                payload
+              )
+            }
+          );
+        currentContent =
+          result.content ||
+          result;
+        showMessage(
+          "تم حفظ المحتوى كمسودة"
+        );
+        loadDashboard();
+      }catch(error){
+        showMessage(
+          error.message
+        );
+      }
+    }
+  );
+/* =========================
+   AI ANALYSIS
+========================= */
+async function analyzeDraft(){
+  if(!currentContent?.id){
+    showMessage(
+      "احفظ المحتوى كمسودة أولًا ثم شغّل EZ AI"
+    );
+    return;
+  }
+  try{
+    showMessage(
+      "EZ AI يحلل المحتوى..."
+    );
+    const result =
+      await api(
+        `/api/ai/content/${currentContent.id}/analyze`,
+        {
+          method:"POST"
+        }
+      );
+    const output =
+      result.output ||
+      result.job?.output ||
+      {};
+    document
+      .getElementById(
+        "aiHeadline"
+      )
+      .textContent =
+      output.headline || "—";
+    document
+      .getElementById(
+        "aiSummary"
+      )
+      .textContent =
+      output.summary || "—";
+    document
+      .getElementById(
+        "aiKeywords"
+      )
+      .textContent =
+      Array.isArray(
+        output.keywords
+      )
+        ? output.keywords.join("، ")
+        : "—";
+    document
+      .getElementById(
+        "aiNotes"
+      )
+      .textContent =
+      Array.isArray(
+        output.editor_notes
+      )
+        ? output.editor_notes.join(" — ")
+        : "—";
+    document
+      .getElementById(
+        "aiRisks"
+      )
+      .textContent =
+      Array.isArray(
+        output.risk_flags
+      )
+        ? output.risk_flags.join(" — ")
+        : "لا توجد بيانات";
+    document
+      .getElementById(
+        "aiConfidence"
+      )
+      .textContent =
+      output.confidence ??
+      "—";
+    document
+      .getElementById(
+        "aiResult"
+      )
+      .classList.add("show");
+    showMessage(
+      "اكتمل تحليل EZ AI"
+    );
+  }catch(error){
+    showMessage(
+      error.message
+    );
+  }
+}
+/* =========================
+   CONTENT LIST
+========================= */
+async function loadContent(){
+  const table =
+    document.getElementById(
+      "contentTable"
+    );
+  table.innerHTML = `
+    <tr>
+      <td colspan="6" class="empty">
+        جاري التحميل...
+      </td>
+    </tr>
+  `;
+  try{
+    const data =
+      await api(
+        "/api/content?limit=100"
+      );
+    const items =
+      data.content || [];
+    if(!items.length){
+      table.innerHTML = `
+        <tr>
+          <td colspan="6" class="empty">
+            لا يوجد محتوى حتى الآن
+          </td>
+        </tr>
+      `;
+      return;
+    }
+    table.innerHTML =
+      items
+        .map(
+          item => `
+            <tr>
+              <td>
+                ${escapeHtml(
+                  item.title
+                )}
+              </td>
+              <td>
+                ${escapeHtml(
+                  item.type
+                )}
+              </td>
+              <td>
+                ${statusBadge(
+                  item.status
+                )}
+              </td>
+              <td>
+                ${escapeHtml(
+                  item.priority ||
+                  "normal"
+                )}
+              </td>
+              <td>
+                ${formatDate(
+                  item.created_at
+                )}
+              </td>
+              <td>
+                <button
+                  class="secondary"
+                  onclick="reviewContent('${item.id}')"
+                >
+                  مراجعة
+                </button>
+              </td>
+            </tr>
+          `
+        )
+        .join("");
+  }catch(error){
+    table.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty">
+          ${escapeHtml(
+            error.message
+          )}
+        </td>
+      </tr>
+    `;
+  }
+}
+/* =========================
+   REVIEW
+========================= */
+async function reviewContent(id){
+  try{
+    const data =
+      await api(
+        `/api/content/${id}`
+      );
+    const item =
+      data.content ||
+      data;
+    currentContent =
+      item;
+    showPanel(
+      "create",
+      document.querySelector(
+        ".sidebar button:nth-child(2)"
+      )
+    );
+    document
+      .getElementById(
+        "contentType"
+      ).value =
+      item.type || "news";
+    document
+      .getElementById(
+        "title"
+      ).value =
+      item.title || "";
+    document
+      .getElementById(
+        "summary"
+      ).value =
+      item.summary || "";
+    document
+      .getElementById(
+        "body"
+      ).value =
+      item.body || "";
+    document
+      .getElementById(
+        "location"
+      ).value =
+      item.location || "";
+    document
+      .getElementById(
+        "featuredImage"
+      ).value =
+      item.featured_image_url || "";
+    document
+      .getElementById(
+        "videoUrl"
+      ).value =
+      item.video_url || "";
+    document
+      .getElementById(
+        "audioUrl"
+      ).value =
+      item.audio_url || "";
+    document
+      .getElementById(
+        "priority"
+      ).value =
+      item.priority || "normal";
+  }catch(error){
+    showMessage(
+      error.message
+    );
+  }
+}
+/* =========================
+   STREAM
+========================= */
+function saveStream(){
+  const url =
+    document
+      .getElementById(
+        "hlsUrl"
+      )
+      .value.trim();
+  if(!url){
+    showMessage(
+      "أدخل رابط البث"
+    );
+    return;
+  }
+  showMessage(
+    "تم تجهيز مصدر البث — سيتم ربط محرك HLS في مرحلة البث"
+  );
+}
+/* =========================
+   HELPERS
+========================= */
+function statusBadge(status){
+  const map = {
+    draft:
+      ["مسودة","badge-draft"],
+    review:
+      ["مراجعة","badge-review"],
+    approved:
+      ["معتمد","badge-approved"],
+    published:
+      ["منشور","badge-published"],
+    archived:
+      ["مؤرشف","badge-archived"]
+  };
+  const item =
+    map[status] ||
+    [status || "غير محدد","badge-draft"];
+  return `
+    <span class="badge ${item[1]}">
+      ${escapeHtml(item[0])}
+    </span>
+  `;
+}
+function formatDate(value){
+  if(!value){
+    return "—";
+  }
+  const date =
+    new Date(value);
+  if(
+    Number.isNaN(
+      date.getTime()
+    )
+  ){
+    return "—";
+  }
+  return new Intl.DateTimeFormat(
+    "ar-SA",
+    {
+      dateStyle:"medium",
+      timeStyle:"short"
+    }
+  ).format(date);
+}
+function escapeHtml(value){
+  return String(
+    value ?? ""
+  )
+  .replace(/&/g,"&amp;")
+  .replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;")
+  .replace(/"/g,"&quot;")
+  .replace(/'/g,"&#039;");
+}
+function showMessage(text){
+  const box =
+    document.getElementById(
+      "message"
+    );
+  box.textContent =
+    text;
+  box.style.display =
+    "block";
+  clearTimeout(
+    window.ezMessageTimer
+  );
+  window.ezMessageTimer =
+    setTimeout(
+      ()=>{
+        box.style.display="none";
+      },
+      3000
+    );
+}
+/* =========================
+   START
+========================= */
+document.addEventListener(
+  "DOMContentLoaded",
+  ()=>{
+    loadSystem();
+    loadDashboard();
+  }
+);
+</script>
+</body>
+</html>
