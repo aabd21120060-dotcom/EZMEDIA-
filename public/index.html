@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
+
   <meta charset="UTF-8">
 
   <meta
@@ -15,51 +17,67 @@
 
   <meta
     name="description"
-    content="EZ MEDIA 11.0 — منصة إعلامية ذكية للأخبار والتقارير والبث المباشر والذكاء الاصطناعي."
+    content="EZ MEDIA 11.0 — لوحة الإدارة وغرفة الأخبار الذكية"
   >
 
-  <title>EZ MEDIA 11.0</title>
+  <title>
+    EZ MEDIA 11.0 — الإدارة
+  </title>
+
 
   <style>
+
     :root {
-      --ez-bg: #ffffff;
-      --ez-bg-soft: #f4fbff;
-      --ez-bg-blue: #e9f7ff;
 
       --ez-blue: #0797e6;
       --ez-blue-dark: #056ca8;
       --ez-blue-light: #69d4ff;
+
+      --ez-bg: #f7fcff;
+      --ez-white: #ffffff;
 
       --ez-text: #123047;
       --ez-text-soft: #60788a;
 
       --ez-border: #dceef7;
 
-      --ez-radius: 22px;
-      --ez-shadow:
-        0 12px 40px rgba(18, 137, 190, 0.08);
+      --ez-success: #19a974;
+      --ez-warning: #e3a008;
+      --ez-danger: #d9534f;
 
-      --ez-max: 1440px;
+      --ez-radius: 18px;
+
+      --ez-shadow:
+        0 10px 35px
+        rgba(
+          10,
+          122,
+          173,
+          0.07
+        );
+
     }
+
 
     * {
       box-sizing: border-box;
     }
 
+
     html {
       scroll-behavior: smooth;
     }
 
+
     body {
+
       margin: 0;
-      padding: 0;
 
       background:
         linear-gradient(
           180deg,
-          #ffffff 0%,
-          #f8fdff 45%,
-          #ffffff 100%
+          #ffffff,
+          #f7fcff
         );
 
       color: var(--ez-text);
@@ -73,532 +91,372 @@
         sans-serif;
 
       line-height: 1.7;
+
     }
 
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
 
     button,
     input,
     textarea,
     select {
+
       font: inherit;
+
     }
 
-    img {
-      max-width: 100%;
-      display: block;
+
+    button {
+
+      cursor: pointer;
+
     }
 
-    .ez-container {
-      width: min(
-        calc(100% - 32px),
-        var(--ez-max)
-      );
 
-      margin-inline: auto;
+    a {
+
+      color: inherit;
+      text-decoration: none;
+
     }
 
-    /* =========================================================
-       HEADER
-       ========================================================= */
 
-    .ez-header {
+    /* ======================================================
+       APP
+       ====================================================== */
+
+    .ez-admin-app {
+
+      min-height: 100vh;
+
+      display: flex;
+
+      flex-direction: row;
+
+    }
+
+
+    /* ======================================================
+       SIDEBAR
+       ====================================================== */
+
+    .ez-sidebar {
+
+      width: 270px;
+
+      min-height: 100vh;
+
       position: sticky;
+
       top: 0;
-      z-index: 1000;
+
+      align-self: flex-start;
 
       background:
-        rgba(255, 255, 255, 0.94);
+        rgba(
+          255,
+          255,
+          255,
+          0.96
+        );
 
-      backdrop-filter:
-        blur(18px);
-
-      border-bottom:
+      border-left:
         1px solid var(--ez-border);
+
+      padding: 20px 14px;
+
+      z-index: 1000;
+
     }
 
-    .ez-header-inner {
-      min-height: 76px;
-
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      gap: 20px;
-    }
 
     .ez-brand {
+
       display: flex;
+
       align-items: center;
 
       gap: 12px;
 
-      min-width: max-content;
+      padding:
+        10px;
+
+      margin-bottom: 20px;
+
     }
 
-    .ez-logo {
-      width: 46px;
-      height: 46px;
 
-      border-radius: 15px;
+    .ez-logo {
+
+      width: 48px;
+      height: 48px;
+
+      border-radius: 16px;
 
       display: grid;
+
       place-items: center;
 
       color: #ffffff;
 
-      font-size: 17px;
       font-weight: 900;
 
       background:
         linear-gradient(
           135deg,
-          #6edcff,
-          #078ddd
+          #69d4ff,
+          #0797e6
         );
 
       box-shadow:
         0 10px 25px
-        rgba(7, 141, 221, 0.20);
+        rgba(
+          7,
+          151,
+          230,
+          0.20
+        );
+
     }
 
-    .ez-brand-title {
-      font-size: 21px;
+
+    .ez-brand-name {
+
+      font-size: 19px;
+
       font-weight: 900;
-      letter-spacing: -0.4px;
+
     }
 
-    .ez-brand-subtitle {
-      color: var(--ez-text-soft);
-      font-size: 11px;
+
+    .ez-brand-version {
+
+      color:
+        var(--ez-text-soft);
+
+      font-size: 10px;
+
     }
 
-    .ez-nav {
+
+    .ez-sidebar-nav {
+
       display: flex;
-      align-items: center;
-      justify-content: center;
 
-      gap: 6px;
+      flex-direction: column;
+
+      gap: 5px;
+
+    }
+
+
+    .ez-nav-button {
+
+      width: 100%;
+
+      min-height: 45px;
+
+      border: 0;
+
+      border-radius: 13px;
+
+      background:
+        transparent;
+
+      color:
+        var(--ez-text-soft);
+
+      text-align: right;
+
+      padding:
+        0 14px;
+
+      font-size: 13px;
+
+      font-weight: 800;
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 10px;
+
+      transition:
+        background .2s ease,
+        color .2s ease;
+
+    }
+
+
+    .ez-nav-button:hover {
+
+      background:
+        #effaff;
+
+      color:
+        var(--ez-blue-dark);
+
+    }
+
+
+    .ez-nav-button.active {
+
+      background:
+        linear-gradient(
+          135deg,
+          #e9f8ff,
+          #f4fcff
+        );
+
+      color:
+        var(--ez-blue-dark);
+
+    }
+
+
+    .ez-nav-icon {
+
+      width: 26px;
+
+      text-align: center;
+
+      font-size: 16px;
+
+    }
+
+
+    /* ======================================================
+       MAIN
+       ====================================================== */
+
+    .ez-main {
 
       flex: 1;
+
+      min-width: 0;
+
+      padding: 22px;
+
     }
 
-    .ez-nav a {
-      padding: 9px 12px;
 
-      border-radius: 12px;
+    .ez-topbar {
 
-      color: var(--ez-text-soft);
-
-      font-size: 14px;
-      font-weight: 700;
-
-      transition:
-        background 0.2s ease,
-        color 0.2s ease;
-    }
-
-    .ez-nav a:hover {
-      color: var(--ez-blue-dark);
-      background: var(--ez-bg-blue);
-    }
-
-    .ez-header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .ez-search-button {
-      border: 1px solid var(--ez-border);
-
-      background: #ffffff;
-
-      color: var(--ez-blue-dark);
-
-      width: 44px;
-      height: 44px;
-
-      border-radius: 14px;
-
-      cursor: pointer;
-
-      transition:
-        transform 0.2s ease,
-        background 0.2s ease;
-    }
-
-    .ez-search-button:hover {
-      background: var(--ez-bg-blue);
-      transform: translateY(-2px);
-    }
-
-    /* =========================================================
-       BREAKING
-       ========================================================= */
-
-    .ez-breaking {
-      border-bottom:
-        1px solid var(--ez-border);
-
-      background:
-        linear-gradient(
-          90deg,
-          #effbff,
-          #ffffff
-        );
-    }
-
-    .ez-breaking-inner {
-      min-height: 44px;
+      min-height: 66px;
 
       display: flex;
+
       align-items: center;
 
-      gap: 14px;
+      justify-content: space-between;
 
-      overflow: hidden;
+      gap: 15px;
+
+      margin-bottom: 20px;
+
+      padding:
+        0 6px;
+
     }
 
-    .ez-breaking-label {
-      flex-shrink: 0;
 
-      padding: 5px 11px;
+    .ez-page-title {
 
-      border-radius: 999px;
+      margin: 0;
 
-      background:
-        linear-gradient(
-          135deg,
-          #0797e6,
-          #64d8ff
-        );
+      font-size: 26px;
 
-      color: #ffffff;
+      font-weight: 900;
+
+    }
+
+
+    .ez-page-subtitle {
+
+      margin: 2px 0 0;
+
+      color:
+        var(--ez-text-soft);
 
       font-size: 12px;
-      font-weight: 900;
+
     }
 
-    .ez-breaking-content {
-      overflow: hidden;
 
-      white-space: nowrap;
-
-      text-overflow: ellipsis;
-
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .ez-breaking-time {
-      margin-inline-start: auto;
-
-      flex-shrink: 0;
-
-      color: var(--ez-text-soft);
-
-      font-size: 11px;
-    }
-
-    /* =========================================================
-       HERO
-       ========================================================= */
-
-    .ez-hero {
-      padding:
-        55px 0 35px;
-    }
-
-    .ez-hero-grid {
-      display: grid;
-
-      grid-template-columns:
-        minmax(0, 1.5fr)
-        minmax(300px, 0.8fr);
-
-      gap: 22px;
-    }
-
-    .ez-hero-main {
-      position: relative;
-
-      overflow: hidden;
-
-      min-height: 410px;
-
-      padding: 45px;
-
-      border:
-        1px solid var(--ez-border);
-
-      border-radius:
-        30px;
-
-      background:
-        radial-gradient(
-          circle at 10% 20%,
-          rgba(101, 215, 255, 0.35),
-          transparent 35%
-        ),
-        linear-gradient(
-          135deg,
-          #ffffff,
-          #edfaff
-        );
-
-      box-shadow:
-        var(--ez-shadow);
+    .ez-top-actions {
 
       display: flex;
-      align-items: flex-end;
+
+      align-items: center;
+
+      gap: 8px;
+
     }
 
-    .ez-hero-main::after {
-      content: "";
 
-      position: absolute;
+    .ez-status {
 
-      width: 260px;
-      height: 260px;
+      display: inline-flex;
 
-      left: -100px;
-      top: -100px;
+      align-items: center;
+
+      gap: 7px;
+
+      padding:
+        7px 11px;
+
+      border-radius:
+        999px;
+
+      background:
+        #eafaff;
+
+      color:
+        var(--ez-blue-dark);
+
+      font-size: 11px;
+
+      font-weight: 900;
+
+    }
+
+
+    .ez-status-dot {
+
+      width: 8px;
+      height: 8px;
 
       border-radius: 50%;
 
       background:
-        rgba(89, 207, 255, 0.12);
+        #19a974;
 
-      filter: blur(10px);
     }
 
-    .ez-hero-content {
-      position: relative;
-      z-index: 2;
 
-      max-width: 760px;
-    }
-
-    .ez-eyebrow {
-      display: inline-flex;
-
-      padding: 7px 12px;
-
-      border-radius: 999px;
-
-      background:
-        #e2f7ff;
-
-      color:
-        var(--ez-blue-dark);
-
-      font-size: 12px;
-      font-weight: 900;
-
-      margin-bottom: 18px;
-    }
-
-    .ez-hero-title {
-      margin: 0;
-
-      font-size:
-        clamp(
-          34px,
-          5vw,
-          62px
-        );
-
-      line-height: 1.1;
-
-      letter-spacing: -2px;
-    }
-
-    .ez-hero-text {
-      margin: 20px 0 0;
-
-      color: var(--ez-text-soft);
-
-      font-size: 17px;
-
-      max-width: 700px;
-    }
-
-    .ez-hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-
-      gap: 10px;
-
-      margin-top: 28px;
-    }
-
-    .ez-button {
-      display: inline-flex;
-
-      align-items: center;
-      justify-content: center;
-
-      min-height: 46px;
-
-      padding:
-        0 20px;
-
-      border-radius: 14px;
-
-      font-size: 14px;
-      font-weight: 900;
-
-      cursor: pointer;
-
-      border:
-        1px solid var(--ez-border);
-
-      background: #ffffff;
-
-      color: var(--ez-blue-dark);
-
-      transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease;
-    }
-
-    .ez-button:hover {
-      transform: translateY(-2px);
-
-      box-shadow:
-        0 10px 25px
-        rgba(7, 151, 230, 0.10);
-    }
-
-    .ez-button-primary {
-      color: #ffffff;
-
-      border: none;
-
-      background:
-        linear-gradient(
-          135deg,
-          #0797e6,
-          #65d6ff
-        );
-    }
-
-    /* =========================================================
-       SIDE CARDS
-       ========================================================= */
-
-    .ez-side-grid {
-      display: grid;
-
-      grid-template-rows:
-        1fr 1fr;
-
-      gap: 22px;
-    }
-
-    .ez-feature-card {
-      padding: 26px;
-
-      border:
-        1px solid var(--ez-border);
-
-      border-radius:
-        var(--ez-radius);
-
-      background:
-        rgba(255,255,255,0.90);
-
-      box-shadow:
-        var(--ez-shadow);
-    }
-
-    .ez-feature-icon {
-      width: 52px;
-      height: 52px;
-
-      border-radius: 17px;
-
-      display: grid;
-      place-items: center;
-
-      background:
-        #eaf8ff;
-
-      color:
-        var(--ez-blue);
-
-      font-size: 24px;
-
-      margin-bottom: 18px;
-    }
-
-    .ez-feature-card h3 {
-      margin: 0 0 8px;
-
-      font-size: 20px;
-    }
-
-    .ez-feature-card p {
-      margin: 0;
-
-      color: var(--ez-text-soft);
-
-      font-size: 14px;
-    }
-
-    /* =========================================================
+    /* ======================================================
        SECTIONS
-       ========================================================= */
+       ====================================================== */
 
-    .ez-section {
-      padding:
-        35px 0;
+    .ez-admin-section {
+
+      display: none;
+
     }
 
-    .ez-section-header {
-      display: flex;
 
-      align-items: flex-end;
-      justify-content: space-between;
+    .ez-admin-section.active {
 
-      gap: 20px;
+      display: block;
 
-      margin-bottom: 18px;
     }
 
-    .ez-section-title {
-      margin: 0;
 
-      font-size: 28px;
+    /* ======================================================
+       DASHBOARD
+       ====================================================== */
 
-      letter-spacing: -0.7px;
-    }
+    .ez-dashboard-grid {
 
-    .ez-section-description {
-      margin: 5px 0 0;
-
-      color: var(--ez-text-soft);
-
-      font-size: 14px;
-    }
-
-    .ez-section-link {
-      color:
-        var(--ez-blue-dark);
-
-      font-size: 13px;
-      font-weight: 900;
-    }
-
-    /* =========================================================
-       NEWS GRID
-       ========================================================= */
-
-    .ez-news-grid {
       display: grid;
 
       grid-template-columns:
@@ -607,829 +465,1095 @@
           minmax(0, 1fr)
         );
 
-      gap: 18px;
+      gap: 14px;
+
+      margin-bottom: 18px;
+
     }
 
-    .ez-news-card {
-      overflow: hidden;
 
-      border:
-        1px solid var(--ez-border);
-
-      border-radius:
-        var(--ez-radius);
+    .ez-stat-card {
 
       background:
         #ffffff;
 
-      box-shadow:
-        0 8px 30px
-        rgba(10, 122, 173, 0.055);
-
-      transition:
-        transform 0.22s ease,
-        box-shadow 0.22s ease;
-    }
-
-    .ez-news-card:hover {
-      transform:
-        translateY(-5px);
-
-      box-shadow:
-        0 18px 45px
-        rgba(10, 122, 173, 0.10);
-    }
-
-    .ez-news-image {
-      height: 190px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #e8f8ff,
-          #f8fdff
-        );
-
-      display: grid;
-      place-items: center;
-
-      color:
-        var(--ez-blue);
-
-      font-size: 42px;
-
-      overflow: hidden;
-    }
-
-    .ez-news-image img {
-      width: 100%;
-      height: 100%;
-
-      object-fit: cover;
-    }
-
-    .ez-news-body {
-      padding: 17px;
-    }
-
-    .ez-news-category {
-      color:
-        var(--ez-blue);
-
-      font-size: 11px;
-      font-weight: 900;
-
-      margin-bottom: 7px;
-    }
-
-    .ez-news-title {
-      margin: 0;
-
-      font-size: 17px;
-
-      line-height: 1.45;
-    }
-
-    .ez-news-meta {
-      margin-top: 9px;
-
-      color:
-        var(--ez-text-soft);
-
-      font-size: 11px;
-    }
-
-    /* =========================================================
-       LIVE
-       ========================================================= */
-
-    .ez-live-wrapper {
-      min-height: 260px;
-
       border:
         1px solid var(--ez-border);
 
       border-radius:
-        28px;
+        var(--ez-radius);
 
-      background:
-        linear-gradient(
-          135deg,
-          #ffffff,
-          #edfaff
-        );
-
-      padding: 24px;
+      padding:
+        20px;
 
       box-shadow:
         var(--ez-shadow);
+
     }
 
-    #ez-live {
-      width: 100%;
+
+    .ez-stat-label {
+
+      color:
+        var(--ez-text-soft);
+
+      font-size: 12px;
+
     }
 
-    /* =========================================================
-       AI
-       ========================================================= */
 
-    .ez-ai-panel {
-      position: relative;
+    .ez-stat-value {
 
-      overflow: hidden;
+      margin-top: 5px;
 
-      padding: 34px;
+      font-size: 30px;
+
+      font-weight: 900;
+
+    }
+
+
+    .ez-dashboard-columns {
+
+      display: grid;
+
+      grid-template-columns:
+        1.4fr
+        .6fr;
+
+      gap: 18px;
+
+    }
+
+
+    .ez-panel {
+
+      background:
+        #ffffff;
 
       border:
         1px solid var(--ez-border);
 
       border-radius:
-        28px;
+        20px;
 
-      background:
-        linear-gradient(
-          135deg,
-          #f4fcff,
-          #ffffff
-        );
+      box-shadow:
+        var(--ez-shadow);
+
+      overflow: hidden;
+
     }
 
-    .ez-ai-panel::before {
-      content: "";
 
-      position: absolute;
+    .ez-panel-header {
 
-      width: 250px;
-      height: 250px;
+      min-height: 58px;
 
-      left: -100px;
-      bottom: -140px;
-
-      border-radius: 50%;
-
-      background:
-        rgba(88, 211, 255, 0.13);
-    }
-
-    .ez-ai-content {
-      position: relative;
-      z-index: 2;
-
-      max-width: 850px;
-    }
-
-    .ez-ai-title {
-      margin: 0;
-
-      font-size: 30px;
-    }
-
-    .ez-ai-text {
-      margin: 10px 0 0;
-
-      color:
-        var(--ez-text-soft);
-    }
-
-    .ez-ai-status {
-      display: inline-flex;
+      display: flex;
 
       align-items: center;
 
-      gap: 8px;
+      justify-content: space-between;
 
-      margin-top: 20px;
+      gap: 10px;
 
       padding:
-        8px 13px;
+        0 18px;
+
+      border-bottom:
+        1px solid #edf5f9;
+
+    }
+
+
+    .ez-panel-title {
+
+      margin: 0;
+
+      font-size: 16px;
+
+      font-weight: 900;
+
+    }
+
+
+    .ez-panel-body {
+
+      padding: 18px;
+
+    }
+
+
+    /* ======================================================
+       BUTTONS
+       ====================================================== */
+
+    .ez-button {
+
+      min-height: 42px;
+
+      border:
+        1px solid var(--ez-border);
 
       border-radius:
-        999px;
+        12px;
 
       background:
-        #e8f9ff;
+        #ffffff;
 
       color:
         var(--ez-blue-dark);
 
+      padding:
+        0 14px;
+
       font-size: 12px;
 
       font-weight: 900;
+
     }
 
-    .ez-ai-dot {
-      width: 8px;
-      height: 8px;
 
-      border-radius: 50%;
+    .ez-button:hover {
 
       background:
-        #25b9f4;
+        #effaff;
 
-      box-shadow:
-        0 0 0 5px
-        rgba(37,185,244,0.12);
     }
 
-    /* =========================================================
-       LOADING / EMPTY
-       ========================================================= */
 
-    .ez-loading {
-      grid-column: 1 / -1;
+    .ez-button-primary {
 
-      padding: 35px;
+      border: 0;
+
+      color: #ffffff;
+
+      background:
+        linear-gradient(
+          135deg,
+          #0797e6,
+          #65d6ff
+        );
+
+    }
+
+
+    .ez-button-danger {
+
+      color:
+        var(--ez-danger);
+
+    }
+
+
+    /* ======================================================
+       TABLE
+       ====================================================== */
+
+    .ez-table-wrap {
+
+      overflow-x: auto;
+
+    }
+
+
+    .ez-table {
+
+      width: 100%;
+
+      border-collapse:
+        collapse;
+
+    }
+
+
+    .ez-table th,
+    .ez-table td {
+
+      padding:
+        12px;
+
+      border-bottom:
+        1px solid #edf5f9;
+
+      text-align:
+        right;
+
+      font-size: 12px;
+
+    }
+
+
+    .ez-table th {
+
+      color:
+        var(--ez-text-soft);
+
+      font-size: 11px;
+
+    }
+
+
+    /* ======================================================
+       FORMS
+       ====================================================== */
+
+    .ez-form-grid {
+
+      display: grid;
+
+      grid-template-columns:
+        repeat(
+          2,
+          minmax(0, 1fr)
+        );
+
+      gap: 14px;
+
+    }
+
+
+    .ez-form-group {
+
+      margin-bottom: 13px;
+
+    }
+
+
+    .ez-form-group-full {
+
+      grid-column:
+        1 / -1;
+
+    }
+
+
+    .ez-label {
+
+      display: block;
+
+      margin-bottom: 6px;
+
+      font-size: 11px;
+
+      font-weight: 900;
+
+    }
+
+
+    .ez-input,
+    .ez-select,
+    .ez-textarea {
+
+      width: 100%;
 
       border:
-        1px dashed var(--ez-border);
+        1px solid var(--ez-border);
 
       border-radius:
-        var(--ez-radius);
+        12px;
+
+      background:
+        #ffffff;
+
+      color:
+        var(--ez-text);
+
+      padding:
+        10px 12px;
+
+      outline: none;
+
+    }
+
+
+    .ez-input,
+    .ez-select {
+
+      min-height: 44px;
+
+    }
+
+
+    .ez-textarea {
+
+      min-height: 120px;
+
+      resize:
+        vertical;
+
+    }
+
+
+    .ez-input:focus,
+    .ez-select:focus,
+    .ez-textarea:focus {
+
+      border-color:
+        var(--ez-blue-light);
+
+    }
+
+
+    /* ======================================================
+       EMPTY
+       ====================================================== */
+
+    .ez-empty {
+
+      min-height: 220px;
+
+      display: grid;
+
+      place-items: center;
 
       text-align: center;
 
       color:
         var(--ez-text-soft);
 
-      background:
-        #fbfeff;
+      padding: 30px;
+
     }
 
-    /* =========================================================
-       FOOTER
-       ========================================================= */
 
-    .ez-footer {
-      margin-top: 50px;
-
-      border-top:
-        1px solid var(--ez-border);
-
-      background:
-        #f7fcff;
-
-      padding:
-        35px 0;
-    }
-
-    .ez-footer-inner {
-      display: flex;
-
-      align-items: center;
-      justify-content: space-between;
-
-      gap: 20px;
-    }
-
-    .ez-footer-brand {
-      font-weight: 900;
-    }
-
-    .ez-footer-text {
-      color:
-        var(--ez-text-soft);
-
-      font-size: 12px;
-    }
-
-    /* =========================================================
+    /* ======================================================
        RESPONSIVE
-       ========================================================= */
+       ====================================================== */
 
     @media (max-width: 1100px) {
 
-      .ez-nav {
-        display: none;
+      .ez-sidebar {
+
+        width: 220px;
+
       }
 
-      .ez-news-grid {
-        grid-template-columns:
-          repeat(
-            3,
-            minmax(0, 1fr)
-          );
-      }
 
-      .ez-hero-grid {
-        grid-template-columns:
-          1fr;
-      }
+      .ez-dashboard-grid {
 
-      .ez-side-grid {
-        grid-template-columns:
-          1fr 1fr;
-
-        grid-template-rows:
-          none;
-      }
-    }
-
-    @media (max-width: 760px) {
-
-      .ez-container {
-        width:
-          min(
-            calc(100% - 20px),
-            var(--ez-max)
-          );
-      }
-
-      .ez-header-inner {
-        min-height: 68px;
-      }
-
-      .ez-brand-subtitle {
-        display: none;
-      }
-
-      .ez-hero {
-        padding-top: 25px;
-      }
-
-      .ez-hero-main {
-        min-height: 400px;
-
-        padding: 27px;
-      }
-
-      .ez-hero-title {
-        letter-spacing: -1px;
-      }
-
-      .ez-hero-text {
-        font-size: 15px;
-      }
-
-      .ez-side-grid {
-        grid-template-columns:
-          1fr;
-      }
-
-      .ez-news-grid {
         grid-template-columns:
           repeat(
             2,
             minmax(0, 1fr)
           );
 
-        gap: 12px;
       }
 
-      .ez-news-image {
-        height: 145px;
-      }
 
-      .ez-news-body {
-        padding: 13px;
-      }
+      .ez-dashboard-columns {
 
-      .ez-news-title {
-        font-size: 15px;
-      }
-
-      .ez-section-title {
-        font-size: 23px;
-      }
-
-      .ez-footer-inner {
-        flex-direction: column;
-
-        align-items: flex-start;
-      }
-    }
-
-    @media (max-width: 480px) {
-
-      .ez-logo {
-        width: 42px;
-        height: 42px;
-      }
-
-      .ez-brand-title {
-        font-size: 18px;
-      }
-
-      .ez-news-grid {
         grid-template-columns:
           1fr;
+
       }
 
-      .ez-news-image {
-        height: 190px;
-      }
-
-      .ez-breaking-time {
-        display: none;
-      }
     }
+
+
+    @media (max-width: 800px) {
+
+      .ez-admin-app {
+
+        display: block;
+
+      }
+
+
+      .ez-sidebar {
+
+        position:
+          sticky;
+
+        width: 100%;
+
+        min-height:
+          auto;
+
+        border-left:
+          0;
+
+        border-bottom:
+          1px solid var(--ez-border);
+
+        padding:
+          10px;
+
+      }
+
+
+      .ez-brand {
+
+        margin-bottom:
+          8px;
+
+      }
+
+
+      .ez-sidebar-nav {
+
+        flex-direction:
+          row;
+
+        overflow-x:
+          auto;
+
+      }
+
+
+      .ez-nav-button {
+
+        width:
+          auto;
+
+        min-width:
+          max-content;
+
+      }
+
+
+      .ez-main {
+
+        padding:
+          12px;
+
+      }
+
+
+      .ez-form-grid {
+
+        grid-template-columns:
+          1fr;
+
+      }
+
+
+      .ez-form-group-full {
+
+        grid-column:
+          auto;
+
+      }
+
+    }
+
+
+    @media (max-width: 520px) {
+
+      .ez-dashboard-grid {
+
+        grid-template-columns:
+          1fr 1fr;
+
+      }
+
+
+      .ez-topbar {
+
+        align-items:
+          flex-start;
+
+        flex-direction:
+          column;
+
+      }
+
+
+      .ez-stat-value {
+
+        font-size:
+          24px;
+
+      }
+
+    }
+
   </style>
+
 </head>
+
 
 <body>
 
-  <!-- ========================================================
-       HEADER
-       ======================================================== -->
 
-  <header class="ez-header">
+<div class="ez-admin-app">
 
-    <div class="ez-container ez-header-inner">
 
-      <a
-        href="/"
-        class="ez-brand"
-        aria-label="EZ MEDIA"
-      >
+  <!-- ====================================================
+       SIDEBAR
+       ==================================================== -->
 
-        <div class="ez-logo">
-          EZ
+  <aside class="ez-sidebar">
+
+
+    <div class="ez-brand">
+
+      <div class="ez-logo">
+        EZ
+      </div>
+
+      <div>
+
+        <div class="ez-brand-name">
+          EZ MEDIA
         </div>
 
-        <div>
+        <div class="ez-brand-version">
+          لوحة الإدارة 11.0
+        </div>
 
-          <div class="ez-brand-title">
-            EZ MEDIA
-          </div>
+      </div>
 
-          <div class="ez-brand-subtitle">
-            منصة إعلامية ذكية
-          </div>
+    </div>
+
+
+    <nav class="ez-sidebar-nav">
+
+
+      <button
+        class="ez-nav-button active"
+        data-section="dashboard"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ◈
+        </span>
+
+        لوحة التحكم
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="newsroom"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          📰
+        </span>
+
+        غرفة الأخبار
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="content"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ✎
+        </span>
+
+        المحتوى
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="media"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ◉
+        </span>
+
+        مكتبة الوسائط
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="live"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          📡
+        </span>
+
+        البث المباشر
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="breaking"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ⚡
+        </span>
+
+        الأخبار العاجلة
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="commercial"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ◇
+        </span>
+
+        الإعلانات والرعايات
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="ai"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ✦
+        </span>
+
+        الذكاء الاصطناعي
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="analytics"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ◫
+        </span>
+
+        التحليلات
+
+      </button>
+
+
+      <button
+        class="ez-nav-button"
+        data-section="system"
+        type="button"
+      >
+
+        <span class="ez-nav-icon">
+          ⚙
+        </span>
+
+        النظام
+
+      </button>
+
+
+    </nav>
+
+  </aside>
+
+
+  <!-- ====================================================
+       MAIN
+       ==================================================== -->
+
+  <main class="ez-main">
+
+
+    <header class="ez-topbar">
+
+      <div>
+
+        <h1
+          id="ez-page-title"
+          class="ez-page-title"
+        >
+          لوحة التحكم
+        </h1>
+
+        <p class="ez-page-subtitle">
+          مركز إدارة EZ MEDIA 11.0
+        </p>
+
+      </div>
+
+
+      <div class="ez-top-actions">
+
+        <div class="ez-status">
+
+          <span class="ez-status-dot"></span>
+
+          المنصة متصلة
 
         </div>
 
-      </a>
-
-
-      <nav
-        class="ez-nav"
-        aria-label="التنقل الرئيسي"
-      >
-
-        <a href="#live">
-          البث المباشر
-        </a>
-
-        <a href="#news">
-          الأخبار
-        </a>
-
-        <a href="#reports">
-          التقارير
-        </a>
-
-        <a href="#ai">
-          الذكاء الاصطناعي
-        </a>
-
-        <a href="#videos">
-          الفيديو
-        </a>
-
-        <a href="#categories">
-          الأقسام
-        </a>
-
-      </nav>
-
-
-      <div class="ez-header-actions">
 
         <button
-          id="ez-search-button"
-          class="ez-search-button"
+          id="ez-global-refresh"
+          class="ez-button"
           type="button"
-          aria-label="البحث"
-          title="البحث"
         >
-          🔎
+          تحديث
         </button>
 
       </div>
 
-    </div>
-
-  </header>
+    </header>
 
 
-  <!-- ========================================================
-       BREAKING BAR
-       ======================================================== -->
+    <!-- ==================================================
+         DASHBOARD
+         ================================================== -->
 
-  <div class="ez-breaking">
+    <section
+      id="section-dashboard"
+      class="ez-admin-section active"
+    >
 
-    <div class="ez-container ez-breaking-inner">
 
-      <span class="ez-breaking-label">
-        عاجل
-      </span>
+      <div class="ez-dashboard-grid">
 
-      <div
-        id="ez-breaking-content"
-        class="ez-breaking-content"
-      >
-        جاري تحميل الأخبار العاجلة...
+
+        <div class="ez-stat-card">
+
+          <div class="ez-stat-label">
+            إجمالي المحتوى
+          </div>
+
+          <div
+            id="dashboard-content-count"
+            class="ez-stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+
+        <div class="ez-stat-card">
+
+          <div class="ez-stat-label">
+            الوسائط
+          </div>
+
+          <div
+            id="dashboard-media-count"
+            class="ez-stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+
+        <div class="ez-stat-card">
+
+          <div class="ez-stat-label">
+            قنوات البث
+          </div>
+
+          <div
+            id="dashboard-live-count"
+            class="ez-stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+
+        <div class="ez-stat-card">
+
+          <div class="ez-stat-label">
+            الحملات
+          </div>
+
+          <div
+            id="dashboard-campaign-count"
+            class="ez-stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+
       </div>
 
-      <div
-        id="ez-breaking-time"
-        class="ez-breaking-time"
-      >
-        --
-      </div>
 
-    </div>
-
-  </div>
+      <div class="ez-dashboard-columns">
 
 
-  <main>
+        <div class="ez-panel">
 
-    <!-- ======================================================
-         HERO
-         ====================================================== -->
+          <div class="ez-panel-header">
 
-    <section class="ez-hero">
+            <h2 class="ez-panel-title">
+              آخر المحتوى
+            </h2>
 
-      <div class="ez-container">
-
-        <div class="ez-hero-grid">
-
-          <article class="ez-hero-main">
-
-            <div class="ez-hero-content">
-
-              <span class="ez-eyebrow">
-                EZ MEDIA 11.0
-              </span>
-
-              <h1 class="ez-hero-title">
-                الإعلام القادم يبدأ هنا
-              </h1>
-
-              <p class="ez-hero-text">
-                منصة إعلامية ذكية تجمع الأخبار والتقارير
-                والبث المباشر والوسائط والذكاء الاصطناعي
-                في منظومة إعلامية واحدة.
-              </p>
-
-              <div class="ez-hero-actions">
-
-                <a
-                  href="#live"
-                  class="ez-button ez-button-primary"
-                >
-                  شاهد البث المباشر
-                </a>
-
-                <a
-                  href="#news"
-                  class="ez-button"
-                >
-                  أحدث الأخبار
-                </a>
-
-              </div>
-
-            </div>
-
-          </article>
+          </div>
 
 
-          <div class="ez-side-grid">
+          <div class="ez-table-wrap">
 
-            <article class="ez-feature-card">
+            <table class="ez-table">
 
-              <div class="ez-feature-icon">
-                ◉
-              </div>
+              <thead>
 
-              <h3>
-                البث المباشر
-              </h3>
+                <tr>
 
-              <p>
-                مركز موحد لعرض مصادر البث المباشر
-                والقنوات والمصادر المرخصة.
-              </p>
+                  <th>
+                    العنوان
+                  </th>
 
-            </article>
+                  <th>
+                    النوع
+                  </th>
 
+                  <th>
+                    الحالة
+                  </th>
 
-            <article class="ez-feature-card">
+                  <th>
+                    التاريخ
+                  </th>
 
-              <div class="ez-feature-icon">
-                ✦
-              </div>
+                </tr>
 
-              <h3>
-                غرفة أخبار ذكية
-              </h3>
+              </thead>
 
-              <p>
-                الذكاء الاصطناعي يساعد في التحليل
-                والتحرير والتوزيع مع بقاء القرار التحريري
-                تحت المراجعة البشرية.
-              </p>
+              <tbody
+                id="dashboard-content-table"
+              >
 
-            </article>
+                <tr>
+
+                  <td
+                    colspan="4"
+                    style="text-align:center;"
+                  >
+                    جاري التحميل...
+                  </td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
 
           </div>
 
         </div>
 
+
+        <div class="ez-panel">
+
+          <div class="ez-panel-header">
+
+            <h2 class="ez-panel-title">
+              حالة النظام
+            </h2>
+
+          </div>
+
+
+          <div class="ez-panel-body">
+
+            <div
+              id="dashboard-system-status"
+              class="ez-empty"
+            >
+              جاري التحميل...
+            </div>
+
+          </div>
+
+        </div>
+
+
       </div>
+
 
     </section>
 
 
-    <!-- ======================================================
+    <!-- ==================================================
+         NEWSROOM
+         ================================================== -->
+
+    <section
+      id="section-newsroom"
+      class="ez-admin-section"
+      data-admin-section="newsroom"
+    >
+
+      <div
+        id="newsroom-section"
+      ></div>
+
+    </section>
+
+
+    <!-- ==================================================
+         CONTENT
+         ================================================== -->
+
+    <section
+      id="section-content"
+      class="ez-admin-section"
+      data-admin-section="content"
+    >
+
+      <div
+        id="content-section"
+      ></div>
+
+    </section>
+
+
+    <!-- ==================================================
+         MEDIA
+         ================================================== -->
+
+    <section
+      id="section-media"
+      class="ez-admin-section"
+      data-admin-section="media"
+    >
+
+      <div
+        id="media-section"
+      ></div>
+
+    </section>
+
+
+    <!-- ==================================================
          LIVE
-         ====================================================== -->
+         ================================================== -->
 
     <section
-      id="live"
-      class="ez-section"
+      id="section-live"
+      class="ez-admin-section"
+      data-admin-section="live"
     >
 
-      <div class="ez-container">
-
-        <div class="ez-section-header">
-
-          <div>
-
-            <h2 class="ez-section-title">
-              البث المباشر
-            </h2>
-
-            <p class="ez-section-description">
-              مركز البث المباشر في EZ MEDIA
-            </p>
-
-          </div>
-
-          <a
-            href="/live"
-            class="ez-section-link"
-          >
-            كل القنوات
-          </a>
-
-        </div>
-
-
-        <div class="ez-live-wrapper">
-
-          <div id="ez-live">
-
-            <div class="ez-loading">
-              جاري تحميل البث المباشر...
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
+      <div
+        id="admin-live-section"
+      ></div>
 
     </section>
 
 
-    <!-- ======================================================
-         NEWS
-         ====================================================== -->
+    <!-- ==================================================
+         BREAKING
+         ================================================== -->
 
     <section
-      id="news"
-      class="ez-section"
+      id="section-breaking"
+      class="ez-admin-section"
+      data-admin-section="breaking"
     >
 
-      <div class="ez-container">
-
-        <div class="ez-section-header">
-
-          <div>
-
-            <h2 class="ez-section-title">
-              أحدث الأخبار
-            </h2>
-
-            <p class="ez-section-description">
-              آخر المحتوى المنشور على المنصة
-            </p>
-
-          </div>
-
-          <a
-            href="/news"
-            class="ez-section-link"
-          >
-            المزيد
-          </a>
-
-        </div>
-
-
-        <div
-          id="ez-news-grid"
-          class="ez-news-grid"
-        >
-
-          <div class="ez-loading">
-            جاري تحميل الأخبار...
-          </div>
-
-        </div>
-
-      </div>
+      <div
+        id="admin-breaking-section"
+      ></div>
 
     </section>
 
 
-    <!-- ======================================================
-         REPORTS
-         ====================================================== -->
+    <!-- ==================================================
+         COMMERCIAL
+         ================================================== -->
 
     <section
-      id="reports"
-      class="ez-section"
+      id="section-commercial"
+      class="ez-admin-section"
+      data-admin-section="commercial"
     >
 
-      <div class="ez-container">
-
-        <div class="ez-section-header">
-
-          <div>
-
-            <h2 class="ez-section-title">
-              التقارير والتحليلات
-            </h2>
-
-            <p class="ez-section-description">
-              محتوى تحليلي وتقارير إعلامية
-            </p>
-
-          </div>
-
-          <a
-            href="/reports"
-            class="ez-section-link"
-          >
-            كل التقارير
-          </a>
-
-        </div>
-
-
-        <div
-          id="ez-reports-grid"
-          class="ez-news-grid"
-        >
-
-          <div class="ez-loading">
-            جاري تحميل التقارير...
-          </div>
-
-        </div>
-
-      </div>
+      <div
+        id="admin-commercial-section"
+      ></div>
 
     </section>
 
 
-    <!-- ======================================================
+    <!-- ==================================================
          AI
-         ====================================================== -->
+         ================================================== -->
 
     <section
-      id="ai"
-      class="ez-section"
+      id="section-ai"
+      class="ez-admin-section"
+      data-admin-section="ai"
     >
 
-      <div class="ez-container">
+      <div
+        id="admin-ai-section"
+      ></div>
 
-        <div class="ez-ai-panel">
+    </section>
 
-          <div class="ez-ai-content">
 
-            <h2 class="ez-ai-title">
-              الذكاء الاصطناعي في قلب EZ MEDIA
-            </h2>
+    <!-- ==================================================
+         ANALYTICS
+         ================================================== -->
 
-            <p class="ez-ai-text">
-              محرك ذكي يساعد المنصة في تحليل المحتوى،
-              إعداد العناوين والملخصات، تجهيز منشورات
-              التواصل الاجتماعي، اكتشاف المخاطر، وتنظيم
-              دورة المحتوى الإعلامي.
-            </p>
+    <section
+      id="section-analytics"
+      class="ez-admin-section"
+      data-admin-section="analytics"
+    >
 
-            <div class="ez-ai-status">
+      <div class="ez-panel">
 
-              <span
-                class="ez-ai-dot"
-                aria-hidden="true"
-              ></span>
+        <div class="ez-panel-header">
 
-              مركز الذكاء الاصطناعي جاهز
+          <h2 class="ez-panel-title">
+            التحليلات
+          </h2>
+
+        </div>
+
+        <div class="ez-panel-body">
+
+          <div class="ez-empty">
+
+            <div>
+
+              <div
+                style="
+                  font-size:42px;
+                  margin-bottom:10px;
+                "
+              >
+                ◫
+              </div>
+
+              <strong>
+                مركز التحليلات
+              </strong>
+
+              <p>
+                سيتم ربط التحليلات التفصيلية
+                مع المحتوى والبث والإعلانات
+                والتفاعل.
+              </p>
 
             </div>
 
@@ -1442,49 +1566,32 @@
     </section>
 
 
-    <!-- ======================================================
-         VIDEOS
-         ====================================================== -->
+    <!-- ==================================================
+         SYSTEM
+         ================================================== -->
 
     <section
-      id="videos"
-      class="ez-section"
+      id="section-system"
+      class="ez-admin-section"
+      data-admin-section="system"
     >
 
-      <div class="ez-container">
+      <div class="ez-panel">
 
-        <div class="ez-section-header">
+        <div class="ez-panel-header">
 
-          <div>
-
-            <h2 class="ez-section-title">
-              الفيديو
-            </h2>
-
-            <p class="ez-section-description">
-              أحدث الإنتاجات المرئية
-            </p>
-
-          </div>
-
-          <a
-            href="/videos"
-            class="ez-section-link"
-          >
-            كل الفيديوهات
-          </a>
+          <h2 class="ez-panel-title">
+            النظام
+          </h2>
 
         </div>
-
 
         <div
-          id="ez-videos-grid"
-          class="ez-news-grid"
+          id="system-panel"
+          class="ez-panel-body"
         >
 
-          <div class="ez-loading">
-            جاري تحميل الفيديو...
-          </div>
+          جاري تحميل حالة النظام...
 
         </div>
 
@@ -1492,184 +1599,972 @@
 
     </section>
 
-
-    <!-- ======================================================
-         CATEGORIES
-         ====================================================== -->
-
-    <section
-      id="categories"
-      class="ez-section"
-    >
-
-      <div class="ez-container">
-
-        <div class="ez-section-header">
-
-          <div>
-
-            <h2 class="ez-section-title">
-              أقسام EZ MEDIA
-            </h2>
-
-            <p class="ez-section-description">
-              منظومة إعلامية متعددة المجالات
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div class="ez-news-grid">
-
-          <a
-            href="/news"
-            class="ez-feature-card"
-          >
-
-            <div class="ez-feature-icon">
-              📰
-            </div>
-
-            <h3>
-              الأخبار
-            </h3>
-
-            <p>
-              الأخبار والتغطيات والمواد الصحفية.
-            </p>
-
-          </a>
-
-
-          <a
-            href="/reports"
-            class="ez-feature-card"
-          >
-
-            <div class="ez-feature-icon">
-              📊
-            </div>
-
-            <h3>
-              التقارير
-            </h3>
-
-            <p>
-              تقارير وتحليلات ومحتوى متخصص.
-            </p>
-
-          </a>
-
-
-          <a
-            href="/videos"
-            class="ez-feature-card"
-          >
-
-            <div class="ez-feature-icon">
-              🎬
-            </div>
-
-            <h3>
-              الفيديو
-            </h3>
-
-            <p>
-              إنتاجات الفيديو والتغطيات المرئية.
-            </p>
-
-          </a>
-
-
-          <a
-            href="/live"
-            class="ez-feature-card"
-          >
-
-            <div class="ez-feature-icon">
-              📡
-            </div>
-
-            <h3>
-              البث
-            </h3>
-
-            <p>
-              قنوات ومصادر البث المباشر.
-            </p>
-
-          </a>
-
-        </div>
-
-      </div>
-
-    </section>
 
   </main>
 
+</div>
 
-  <!-- ========================================================
-       FOOTER
-       ======================================================== -->
 
-  <footer class="ez-footer">
+<!-- ========================================================
+     LIBRARIES
+     ======================================================== -->
 
-    <div class="ez-container ez-footer-inner">
+<script
+  src="https://cdn.jsdelivr.net/npm/hls.js@1"
+></script>
+
+<script
+  src="https://cdn.dashjs.org/latest/dash.all.min.js"
+></script>
+
+
+<!-- ========================================================
+     ADMIN MODULES
+     ======================================================== -->
+
+<script src="/admin-content.js"></script>
+
+<script src="/admin-media.js"></script>
+
+<script src="/admin-live.js"></script>
+
+<script src="/admin-breaking.js"></script>
+
+<script src="/admin-commercial.js"></script>
+
+<script src="/admin-ai.js"></script>
+
+<script src="/admin-newsroom.js"></script>
+
+
+<!-- ========================================================
+     ADMIN CORE
+     ======================================================== -->
+
+<script>
+
+"use strict";
+
+
+(() => {
+
+
+  const state = {
+
+    activeSection:
+      "dashboard",
+
+    data: {
+
+      content: [],
+
+      media: [],
+
+      live: [],
+
+      commercial: null,
+
+      system: null
+
+    }
+
+  };
+
+
+  const sectionTitles = {
+
+    dashboard:
+      "لوحة التحكم",
+
+    newsroom:
+      "غرفة الأخبار الذكية",
+
+    content:
+      "إدارة المحتوى",
+
+    media:
+      "مكتبة الوسائط",
+
+    live:
+      "البث المباشر",
+
+    breaking:
+      "الأخبار العاجلة",
+
+    commercial:
+      "الإعلانات والرعايات",
+
+    ai:
+      "الذكاء الاصطناعي",
+
+    analytics:
+      "التحليلات",
+
+    system:
+      "النظام"
+
+  };
+
+
+  function qs(
+    selector
+  ) {
+
+    return document.querySelector(
+      selector
+    );
+
+  }
+
+
+  function escapeHtml(
+    value
+  ) {
+
+    return String(
+      value ?? ""
+    )
+      .replace(
+        /&/g,
+        "&amp;"
+      )
+      .replace(
+        /</g,
+        "&lt;"
+      )
+      .replace(
+        />/g,
+        "&gt;"
+      )
+      .replace(
+        /"/g,
+        "&quot;"
+      )
+      .replace(
+        /'/g,
+        "&#039;"
+      );
+
+  }
+
+
+  function getTitle(
+    item
+  ) {
+
+    return (
+      item?.headline ||
+      item?.title ||
+      item?.name ||
+      "بدون عنوان"
+    );
+
+  }
+
+
+  function getType(
+    item
+  ) {
+
+    return (
+      item?.content_type ||
+      item?.contentType ||
+      item?.type ||
+      "—"
+    );
+
+  }
+
+
+  function getStatus(
+    item
+  ) {
+
+    return (
+      item?.status ||
+      "—"
+    );
+
+  }
+
+
+  function getDate(
+    item
+  ) {
+
+    return (
+      item?.published_at ||
+      item?.publishedAt ||
+      item?.created_at ||
+      item?.createdAt ||
+      item?.updated_at ||
+      item?.updatedAt ||
+      null
+    );
+
+  }
+
+
+  function formatDate(
+    value
+  ) {
+
+    if (!value) {
+      return "—";
+    }
+
+    try {
+
+      return new Intl.DateTimeFormat(
+        "ar-SA",
+        {
+          dateStyle:
+            "medium"
+        }
+      ).format(
+        new Date(
+          value
+        )
+      );
+
+    } catch {
+
+      return "—";
+
+    }
+
+  }
+
+
+  async function api(
+    url,
+    options = {}
+  ) {
+
+    const response =
+      await fetch(
+        url,
+        {
+          ...options,
+
+          headers: {
+
+            Accept:
+              "application/json",
+
+            ...(options.body
+              ? {
+                  "Content-Type":
+                    "application/json"
+                }
+              : {}),
+
+            ...(options.headers || {})
+
+          }
+
+        }
+      );
+
+
+    const type =
+      response.headers.get(
+        "content-type"
+      ) || "";
+
+
+    let data;
+
+
+    if (
+      type.includes(
+        "application/json"
+      )
+    ) {
+
+      data =
+        await response.json();
+
+    } else {
+
+      data =
+        await response.text();
+
+    }
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        `HTTP ${response.status}`
+      );
+
+    }
+
+
+    return data;
+
+  }
+
+
+  function itemsFrom(
+    data
+  ) {
+
+    if (
+      Array.isArray(
+        data
+      )
+    ) {
+
+      return data;
+
+    }
+
+
+    if (
+      Array.isArray(
+        data?.items
+      )
+    ) {
+
+      return data.items;
+
+    }
+
+
+    if (
+      Array.isArray(
+        data?.content
+      )
+    ) {
+
+      return data.content;
+
+    }
+
+
+    if (
+      Array.isArray(
+        data?.data
+      )
+    ) {
+
+      return data.data;
+
+    }
+
+
+    if (
+      Array.isArray(
+        data?.results
+      )
+    ) {
+
+      return data.results;
+
+    }
+
+
+    return [];
+
+  }
+
+
+  /* ======================================================
+     التنقل
+     ====================================================== */
+
+  function activateSection(
+    name
+  ) {
+
+    state.activeSection =
+      name;
+
+
+    document
+      .querySelectorAll(
+        ".ez-nav-button"
+      )
+      .forEach(
+        button => {
+
+          button.classList.toggle(
+            "active",
+            button.dataset.section ===
+              name
+          );
+
+        }
+      );
+
+
+    document
+      .querySelectorAll(
+        ".ez-admin-section"
+      )
+      .forEach(
+        section => {
+
+          section.classList.toggle(
+            "active",
+            section.id ===
+              `section-${name}`
+          );
+
+        }
+      );
+
+
+    const title =
+      qs(
+        "#ez-page-title"
+      );
+
+
+    if (title) {
+
+      title.textContent =
+        sectionTitles[name] ||
+        "EZ MEDIA";
+
+    }
+
+  }
+
+
+  function setupNavigation() {
+
+    document
+      .querySelectorAll(
+        ".ez-nav-button"
+      )
+      .forEach(
+        button => {
+
+          button.addEventListener(
+            "click",
+            () => {
+
+              activateSection(
+                button.dataset.section
+              );
+
+            }
+          );
+
+        }
+      );
+
+  }
+
+
+  /* ======================================================
+     Dashboard
+     ====================================================== */
+
+  async function loadDashboard() {
+
+    const [
+      contentData,
+      mediaData,
+      liveData,
+      commercialData,
+      systemData
+    ] =
+      await Promise.allSettled([
+
+        api(
+          "/api/content?limit=100"
+        ),
+
+        api(
+          "/api/media?limit=100"
+        ),
+
+        api(
+          "/api/live?limit=100"
+        ),
+
+        api(
+          "/api/commercial/statistics"
+        ),
+
+        api(
+          "/api/system"
+        )
+
+      ]);
+
+
+    state.data.content =
+      contentData.status === "fulfilled"
+        ? itemsFrom(
+            contentData.value
+          )
+        : [];
+
+
+    state.data.media =
+      mediaData.status === "fulfilled"
+        ? itemsFrom(
+            mediaData.value
+          )
+        : [];
+
+
+    state.data.live =
+      liveData.status === "fulfilled"
+        ? itemsFrom(
+            liveData.value
+          )
+        : [];
+
+
+    state.data.commercial =
+      commercialData.status === "fulfilled"
+        ? commercialData.value
+        : null;
+
+
+    state.data.system =
+      systemData.status === "fulfilled"
+        ? systemData.value
+        : null;
+
+
+    renderDashboard();
+
+  }
+
+
+  function renderDashboard() {
+
+    const contentCount =
+      qs(
+        "#dashboard-content-count"
+      );
+
+
+    const mediaCount =
+      qs(
+        "#dashboard-media-count"
+      );
+
+
+    const liveCount =
+      qs(
+        "#dashboard-live-count"
+      );
+
+
+    const campaignCount =
+      qs(
+        "#dashboard-campaign-count"
+      );
+
+
+    if (contentCount) {
+
+      contentCount.textContent =
+        state.data.content.length;
+
+    }
+
+
+    if (mediaCount) {
+
+      mediaCount.textContent =
+        state.data.media.length;
+
+    }
+
+
+    if (liveCount) {
+
+      liveCount.textContent =
+        state.data.live.length;
+
+    }
+
+
+    if (campaignCount) {
+
+      const value =
+        state.data.commercial?.campaigns ??
+        state.data.commercial?.totalCampaigns ??
+        state.data.commercial?.data?.campaigns ??
+        0;
+
+
+      campaignCount.textContent =
+        value;
+
+    }
+
+
+    renderContentTable();
+
+    renderSystemStatus();
+
+  }
+
+
+  function renderContentTable() {
+
+    const tbody =
+      qs(
+        "#dashboard-content-table"
+      );
+
+
+    if (!tbody) {
+      return;
+    }
+
+
+    const items =
+      state.data.content
+        .slice(
+          0,
+          10
+        );
+
+
+    if (!items.length) {
+
+      tbody.innerHTML = `
+
+        <tr>
+
+          <td
+            colspan="4"
+            style="
+              text-align:center;
+              color:#60788a;
+            "
+          >
+            لا توجد مواد حتى الآن.
+          </td>
+
+        </tr>
+
+      `;
+
+      return;
+
+    }
+
+
+    tbody.innerHTML =
+      items
+        .map(
+          item => `
+
+            <tr>
+
+              <td>
+                ${escapeHtml(
+                  getTitle(item)
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  getType(item)
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  getStatus(item)
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  formatDate(
+                    getDate(item)
+                  )
+                )}
+              </td>
+
+            </tr>
+
+          `
+        )
+        .join("");
+
+  }
+
+
+  function renderSystemStatus() {
+
+    const box =
+      qs(
+        "#dashboard-system-status"
+      );
+
+
+    if (!box) {
+      return;
+    }
+
+
+    const system =
+      state.data.system;
+
+
+    if (!system) {
+
+      box.innerHTML = `
+
+        <div>
+          تعذر قراءة حالة النظام.
+        </div>
+
+      `;
+
+      return;
+
+    }
+
+
+    box.innerHTML = `
 
       <div>
 
-        <div class="ez-footer-brand">
-          EZ MEDIA 11.0
+        <div
+          style="
+            font-size:32px;
+            margin-bottom:8px;
+          "
+        >
+          ✓
         </div>
 
-        <div class="ez-footer-text">
-          منصة إعلامية ذكية متكاملة.
+        <strong>
+          EZ MEDIA يعمل
+        </strong>
+
+        <div
+          style="
+            margin-top:6px;
+            font-size:12px;
+          "
+        >
+          الإصدار:
+          ${escapeHtml(
+            system.version ||
+            "11.0.0"
+          )}
         </div>
 
       </div>
 
-
-      <div class="ez-footer-text">
-        © 2026 EZ MEDIA — جميع الحقوق محفوظة
-      </div>
-
-    </div>
-
-  </footer>
+    `;
 
 
-  <!-- ========================================================
-       LIBRARIES
-       ======================================================== -->
-
-  <script
-    src="https://cdn.jsdelivr.net/npm/hls.js@1"
-  ></script>
-
-  <script
-    src="https://cdn.dashjs.org/latest/dash.all.min.js"
-  ></script>
+    const systemPanel =
+      qs(
+        "#system-panel"
+      );
 
 
-  <!-- ========================================================
-       EZ MEDIA LIVE ENGINE
-       ======================================================== -->
+    if (systemPanel) {
 
-  <script
-    src="/live.js"
-  ></script>
+      systemPanel.innerHTML = `
+
+        <div
+          style="
+            display:grid;
+            gap:10px;
+          "
+        >
+
+          <div>
+            <strong>
+              المنصة:
+            </strong>
+
+            EZ MEDIA
+          </div>
+
+          <div>
+            <strong>
+              الإصدار:
+            </strong>
+
+            ${escapeHtml(
+              system.version ||
+              "11.0.0"
+            )}
+          </div>
+
+          <div>
+            <strong>
+              الحالة:
+            </strong>
+
+            ${escapeHtml(
+              system.status ||
+              "online"
+            )}
+          </div>
+
+          <div>
+            <strong>
+              الخادم:
+            </strong>
+
+            متصل
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+  }
 
 
-  <!-- ========================================================
-       EZ MEDIA HOME ENGINE
-       ======================================================== -->
+  /* ======================================================
+     Refresh
+     ====================================================== */
 
-  <script
-    src="/home.js"
-  ></script>
+  async function refresh() {
+
+    const button =
+      qs(
+        "#ez-global-refresh"
+      );
+
+
+    if (button) {
+
+      button.disabled =
+        true;
+
+      button.textContent =
+        "جاري التحديث...";
+
+    }
+
+
+    try {
+
+      await loadDashboard();
+
+
+      if (
+        window.EZMediaNewsroom
+      ) {
+
+        window.EZMediaNewsroom
+          .state
+          .contents;
+
+      }
+
+
+    } catch (error) {
+
+      console.error(
+        "EZ MEDIA admin refresh error:",
+        error
+      );
+
+    } finally {
+
+      if (button) {
+
+        button.disabled =
+          false;
+
+        button.textContent =
+          "تحديث";
+
+      }
+
+    }
+
+  }
+
+
+  /* ======================================================
+     Init
+     ====================================================== */
+
+  async function init() {
+
+    setupNavigation();
+
+    await loadDashboard();
+
+    activateSection(
+      "dashboard"
+    );
+
+
+    window.EZMediaAdmin = {
+
+      state,
+
+      refresh,
+
+      activateSection
+
+    };
+
+  }
+
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+      init()
+        .catch(
+          error => {
+
+            console.error(
+              "EZ MEDIA Admin initialization failed:",
+              error
+            );
+
+          }
+        );
+
+    },
+    {
+      once: true
+    }
+  );
+
+
+  const refreshButton =
+    qs(
+      "#ez-global-refresh"
+    );
+
+
+  if (refreshButton) {
+
+    refreshButton.addEventListener(
+      "click",
+      refresh
+    );
+
+  }
+
+
+})();
+
+</script>
+
 
 </body>
+
 </html>
