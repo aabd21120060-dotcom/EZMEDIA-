@@ -1,17 +1,20 @@
 {
   "name": "ez-media",
   "version": "11.0.0",
-  "private": true,
-  "type": "module",
-  "main": "src/server.js",
+  "description": "EZ MEDIA - AI Media Platform",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node --test"
   },
   "engines": {
-    "node": "20.x"
+    "node": ">=20"
   },
   "dependencies": {
     "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "express-rate-limit": "^8.2.1",
     "pg": "^8.16.3"
   }
 }
