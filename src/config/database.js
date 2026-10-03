@@ -2,41 +2,64 @@ import pg from "pg";
 
 const { Pool } = pg;
 
-function getDatabaseConfig() {
-  const connectionString =
+let pool = null;
+
+function getDatabaseUrl() {
+  return (
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL ||
-    "";
-
-  if (!connectionString) {
-    return null;
-  }
-
-  return {
-    connectionString,
-    ssl:
-      process.env.NODE_ENV === "production"
-        ? { rejectUnauthorized: false }
-        : false,
-    max: Number(process.env.PG_POOL_MAX || 10),
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  };
+    ""
+  ).trim();
 }
 
-const config = getDatabaseConfig();
+const databaseUrl = getDatabaseUrl();
 
-export const pool = config
-  ? new Pool(config)
-  : null;
+if (databaseUrl) {
+  try {
+    pool = new Pool({
+      connectionString: databaseUrl,
+
+      ssl:
+        process.env.NODE_ENV === "production"
+          ? { rejectUnauthorized: false }
+          : false,
+
+      max: Number(process.env.PG_POOL_MAX || 5),
+
+      idleTimeoutMillis: 30000,
+
+      connectionTimeoutMillis: 5000,
+    });
+
+    pool.on("error", (error) => {
+      console.error(
+        "[EZ MEDIA] PostgreSQL pool error:",
+        error.message
+      );
+    });
+  } catch (error) {
+    console.error(
+      "[EZ MEDIA] PostgreSQL initialization failed:",
+      error.message
+    );
+
+    pool = null;
+  }
+}
 
 export function isDatabaseConfigured() {
+  return Boolean(databaseUrl);
+}
+
+export function isDatabaseReady() {
   return Boolean(pool);
 }
 
 export async function query(text, params = []) {
   if (!pool) {
-    throw new Error("DATABASE_URL is not configured");
+    throw new Error(
+      "EZ MEDIA database is not configured"
+    );
   }
 
   return pool.query(text, params);
@@ -44,7 +67,9 @@ export async function query(text, params = []) {
 
 export async function transaction(callback) {
   if (!pool) {
-    throw new Error("DATABASE_URL is not configured");
+    throw new Error(
+      "EZ MEDIA database is not configured"
+    );
   }
 
   const client = await pool.connect();
@@ -58,7 +83,12 @@ export async function transaction(callback) {
 
     return result;
   } catch (error) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // تجاهل خطأ rollback
+    }
+
     throw error;
   } finally {
     client.release();
@@ -66,11 +96,21 @@ export async function transaction(callback) {
 }
 
 export async function checkDatabase() {
-  if (!pool) {
+  if (!databaseUrl) {
     return {
       configured: false,
       ready: false,
+      database: null,
       message: "DATABASE_URL is not configured",
+    };
+  }
+
+  if (!pool) {
+    return {
+      configured: true,
+      ready: false,
+      database: null,
+      message: "PostgreSQL pool could not be initialized",
     };
   }
 
@@ -93,6 +133,7 @@ export async function checkDatabase() {
     return {
       configured: true,
       ready: false,
+      database: null,
       message: error.message,
     };
   }
