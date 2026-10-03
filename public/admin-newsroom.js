@@ -1,26 +1,27 @@
 "use strict";
 
-/*
- * EZ MEDIA 11.0
- * غرفة الأخبار الذكية
- * الملف: public/admin-newsroom.js
- */
-
 (() => {
   const API = {
     content: "/api/content",
     ai: "/api/ai",
+    breaking: "/api/breaking",
     media: "/api/media",
-    breaking: "/api/breaking"
+    live: "/api/live"
   };
 
   const state = {
-    items: [],
-    filteredItems: [],
+    contents: [],
+    filtered: [],
+    breaking: [],
+    media: [],
+    live: [],
+    selectedContent: null,
     loading: false,
-    search: "",
-    type: "",
-    status: ""
+    filter: {
+      search: "",
+      type: "all",
+      status: "all"
+    }
   };
 
   const TYPES = {
@@ -32,7 +33,7 @@
     breaking: "عاجل"
   };
 
-  const STATUSES = {
+  const STATUS = {
     draft: "مسودة",
     review: "مراجعة",
     approved: "معتمد",
@@ -51,12 +52,12 @@
   }
 
   function formatDate(value) {
-    if (!value) return "غير محدد";
+    if (!value) return "—";
 
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
-      return "غير محدد";
+      return "—";
     }
 
     return new Intl.DateTimeFormat("ar-SA", {
@@ -65,69 +66,29 @@
     }).format(date);
   }
 
-  function getTypeLabel(type) {
-    return TYPES[type] || type || "محتوى";
-  }
-
-  function getStatusLabel(status) {
-    return STATUSES[status] || status || "غير محدد";
-  }
-
-  function statusClass(status) {
-    return `status-${String(status || "unknown").replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  }
-
-  function notify(message, type = "info") {
-    let box = document.getElementById("ez-newsroom-notification");
-
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "ez-newsroom-notification";
-
-      Object.assign(box.style, {
-        position: "fixed",
-        top: "24px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: "99999",
-        maxWidth: "calc(100vw - 32px)",
-        padding: "14px 20px",
-        borderRadius: "16px",
-        background: "#ffffff",
-        color: "#17324d",
-        border: "1px solid #d9eaf7",
-        boxShadow: "0 15px 45px rgba(27, 116, 170, 0.16)",
-        fontFamily: "inherit",
-        fontSize: "14px",
-        fontWeight: "700",
-        textAlign: "center"
-      });
-
-      document.body.appendChild(box);
+  function normalizeList(value) {
+    if (Array.isArray(value)) {
+      return value;
     }
 
-    box.textContent = message;
-
-    if (type === "success") {
-      box.style.borderColor = "#b7e7d1";
-    } else if (type === "error") {
-      box.style.borderColor = "#f1c1c1";
-    } else {
-      box.style.borderColor = "#d9eaf7";
+    if (Array.isArray(value?.items)) {
+      return value.items;
     }
 
-    clearTimeout(box._timer);
+    if (Array.isArray(value?.data)) {
+      return value.data;
+    }
 
-    box._timer = setTimeout(() => {
-      box.remove();
-    }, 3500);
+    return [];
   }
 
   async function request(url, options = {}) {
     const response = await fetch(url, {
+      credentials: "same-origin",
       ...options,
       headers: {
-        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
         ...(options.headers || {})
       }
     });
@@ -141,440 +102,554 @@
     }
 
     if (!response.ok) {
-      throw new Error(
+      const message =
         data?.message ||
         data?.error ||
-        `تعذر تنفيذ الطلب (${response.status})`
-      );
+        `فشل الطلب: ${response.status}`;
+
+      throw new Error(message);
     }
 
     return data;
   }
 
-  function normalizeContentResponse(data) {
-    if (Array.isArray(data)) {
-      return data;
-    }
-
-    if (Array.isArray(data?.items)) {
-      return data.items;
-    }
-
-    if (Array.isArray(data?.content)) {
-      return data.content;
-    }
-
-    if (Array.isArray(data?.data)) {
-      return data.data;
-    }
-
-    return [];
-  }
-
-  function getContainer() {
+  function findContainer() {
     return (
-      document.getElementById("newsroom-section") ||
+      document.querySelector("#newsroom-section") ||
+      document.querySelector("#admin-newsroom-section") ||
       document.querySelector('[data-admin-section="newsroom"]')
     );
   }
 
-  function renderShell() {
-    const container = getContainer();
+  function typeLabel(type) {
+    return TYPES[type] || type || "غير محدد";
+  }
 
-    if (!container) {
-      return null;
-    }
+  function statusLabel(status) {
+    return STATUS[status] || status || "غير محدد";
+  }
 
+  function statusClass(status) {
+    return `status-${String(status || "unknown").replace(
+      /[^a-z0-9_-]/gi,
+      "-"
+    )}`;
+  }
+
+  function applyFilters() {
+    const { search, type, status } = state.filter;
+
+    const normalizedSearch = search.trim().toLowerCase();
+
+    state.filtered = state.contents.filter((item) => {
+      const matchesType =
+        type === "all" ||
+        String(item.type || item.content_type || "").toLowerCase() === type;
+
+      const matchesStatus =
+        status === "all" ||
+        String(item.status || "").toLowerCase() === status;
+
+      if (!normalizedSearch) {
+        return matchesType && matchesStatus;
+      }
+
+      const searchable = [
+        item.title,
+        item.headline,
+        item.summary,
+        item.description,
+        item.category,
+        item.author_name,
+        item.slug
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        matchesType &&
+        matchesStatus &&
+        searchable.includes(normalizedSearch)
+      );
+    });
+  }
+
+  function renderShell(container) {
     container.innerHTML = `
-      <div id="ez-newsroom-app" dir="rtl">
+      <div class="ez-newsroom">
 
         <style>
-          #ez-newsroom-app {
-            width: 100%;
-            color: #17324d;
-            font-family: inherit;
+          .ez-newsroom {
+            direction: rtl;
+            font-family:
+              -apple-system,
+              BlinkMacSystemFont,
+              "SF Pro Display",
+              "Segoe UI",
+              Tahoma,
+              Arial,
+              sans-serif;
+            color: #16324a;
           }
 
-          #ez-newsroom-app * {
+          .ez-newsroom * {
             box-sizing: border-box;
           }
 
-          .ez-nr-header {
+          .ez-newsroom-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 16px;
-            margin-bottom: 22px;
-            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #dceefa;
+            border-radius: 24px;
+            background:
+              linear-gradient(
+                135deg,
+                #ffffff 0%,
+                #f5fbff 50%,
+                #eaf8ff 100%
+              );
+            box-shadow: 0 12px 35px rgba(67, 157, 210, 0.08);
           }
 
-          .ez-nr-title-wrap h2 {
-            margin: 0 0 7px;
-            font-size: 27px;
-            font-weight: 900;
-            letter-spacing: -0.4px;
-          }
-
-          .ez-nr-title-wrap p {
-            margin: 0;
-            color: #6c879d;
-            font-size: 14px;
-            line-height: 1.7;
-          }
-
-          .ez-nr-live-indicator {
-            display: inline-flex;
+          .ez-newsroom-title {
+            display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 9px 13px;
-            border-radius: 999px;
-            background: #effaff;
-            border: 1px solid #d8f0fb;
-            color: #1577a8;
-            font-size: 12px;
-            font-weight: 800;
+            gap: 14px;
           }
 
-          .ez-nr-live-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #28b779;
-            box-shadow: 0 0 0 5px rgba(40,183,121,.10);
-          }
-
-          .ez-nr-actions {
-            display: flex;
-            gap: 9px;
-            flex-wrap: wrap;
-          }
-
-          .ez-nr-btn {
-            border: 0;
-            border-radius: 13px;
-            padding: 11px 16px;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: .18s ease;
-          }
-
-          .ez-nr-btn:hover {
-            transform: translateY(-1px);
-          }
-
-          .ez-nr-btn-primary {
-            background: linear-gradient(135deg, #63c9f5, #3aa8df);
-            color: white;
-            box-shadow: 0 9px 24px rgba(58,168,223,.20);
-          }
-
-          .ez-nr-btn-light {
-            background: #f4fbff;
-            color: #26759c;
-            border: 1px solid #dceef7;
-          }
-
-          .ez-nr-stats {
+          .ez-newsroom-icon {
+            width: 52px;
+            height: 52px;
             display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 12px;
-            margin-bottom: 18px;
-          }
-
-          .ez-nr-stat {
-            background: #ffffff;
-            border: 1px solid #e2eef6;
-            border-radius: 18px;
-            padding: 16px;
-            box-shadow: 0 7px 28px rgba(29, 112, 155, .06);
-          }
-
-          .ez-nr-stat-label {
-            color: #7892a6;
-            font-size: 12px;
-            font-weight: 700;
-            margin-bottom: 7px;
-          }
-
-          .ez-nr-stat-value {
+            place-items: center;
+            border-radius: 17px;
+            background: linear-gradient(135deg, #e8f8ff, #cceeff);
+            color: #168dcc;
             font-size: 25px;
-            font-weight: 900;
-            color: #17324d;
+            box-shadow: inset 0 0 0 1px #c5e9f9;
           }
 
-          .ez-nr-toolbar {
-            display: grid;
-            grid-template-columns: 1.5fr 1fr 1fr auto;
-            gap: 10px;
-            margin-bottom: 15px;
+          .ez-newsroom-title h2 {
+            margin: 0;
+            font-size: 24px;
+            color: #123a55;
           }
 
-          .ez-nr-input,
-          .ez-nr-select {
-            width: 100%;
-            min-height: 44px;
-            border: 1px solid #dcebf4;
-            border-radius: 13px;
-            background: #ffffff;
-            color: #17324d;
-            padding: 0 13px;
-            outline: none;
-            font-family: inherit;
+          .ez-newsroom-title p {
+            margin: 5px 0 0;
+            color: #6b8799;
             font-size: 13px;
           }
 
-          .ez-nr-input:focus,
-          .ez-nr-select:focus {
-            border-color: #71c8ef;
-            box-shadow: 0 0 0 4px rgba(113,200,239,.11);
-          }
-
-          .ez-nr-table-wrap {
-            overflow-x: auto;
-            background: #ffffff;
-            border: 1px solid #e2eef6;
-            border-radius: 20px;
-            box-shadow: 0 7px 28px rgba(29,112,155,.06);
-          }
-
-          .ez-nr-table {
-            width: 100%;
-            min-width: 900px;
-            border-collapse: collapse;
-          }
-
-          .ez-nr-table th {
-            background: #f6fbfe;
-            color: #69869b;
-            font-size: 11px;
-            font-weight: 900;
-            text-align: right;
-            padding: 14px 15px;
-            border-bottom: 1px solid #e4eef5;
-            white-space: nowrap;
-          }
-
-          .ez-nr-table td {
-            padding: 14px 15px;
-            border-bottom: 1px solid #edf3f7;
-            font-size: 13px;
-            vertical-align: middle;
-          }
-
-          .ez-nr-table tr:last-child td {
-            border-bottom: 0;
-          }
-
-          .ez-nr-content-title {
-            max-width: 360px;
-            font-weight: 850;
-            color: #17324d;
-            line-height: 1.55;
-          }
-
-          .ez-nr-content-id {
-            color: #91a5b4;
-            font-size: 10px;
-            margin-top: 4px;
-            direction: ltr;
-            text-align: right;
-          }
-
-          .ez-nr-type {
-            display: inline-flex;
-            padding: 6px 9px;
-            border-radius: 9px;
-            background: #eef9fe;
-            color: #247aa3;
-            font-size: 11px;
-            font-weight: 800;
-          }
-
-          .ez-nr-status {
-            display: inline-flex;
-            padding: 6px 9px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 850;
-          }
-
-          .status-draft {
-            background: #f2f6f9;
-            color: #6f8494;
-          }
-
-          .status-review {
-            background: #fff7df;
-            color: #987019;
-          }
-
-          .status-approved {
-            background: #edf9f2;
-            color: #258253;
-          }
-
-          .status-scheduled {
-            background: #edf5ff;
-            color: #3470a6;
-          }
-
-          .status-published {
-            background: #e9faf4;
-            color: #16815b;
-          }
-
-          .status-archived {
-            background: #f3f3f3;
-            color: #777777;
-          }
-
-          .ez-nr-row-actions {
+          .ez-newsroom-actions {
             display: flex;
-            gap: 6px;
             flex-wrap: wrap;
+            gap: 8px;
           }
 
-          .ez-nr-mini-btn {
-            border: 1px solid #dcecf5;
+          .ez-newsroom-btn {
+            border: 1px solid #cfe8f5;
             background: #ffffff;
-            color: #32799b;
-            border-radius: 9px;
-            padding: 7px 9px;
-            font-family: inherit;
-            font-size: 10px;
-            font-weight: 800;
+            color: #176d9c;
+            padding: 10px 14px;
+            border-radius: 13px;
             cursor: pointer;
+            font-weight: 700;
+            transition: 0.2s ease;
           }
 
-          .ez-nr-mini-btn:hover {
+          .ez-newsroom-btn:hover {
+            transform: translateY(-1px);
             background: #f2fbff;
           }
 
-          .ez-nr-mini-btn.danger {
-            color: #a74d4d;
-            border-color: #f0d7d7;
+          .ez-newsroom-btn.primary {
+            border-color: #74c9ee;
+            background: linear-gradient(135deg, #dff6ff, #c8edff);
+            color: #0c6e9f;
           }
 
-          .ez-nr-empty {
-            padding: 55px 20px;
-            text-align: center;
-            color: #7b92a4;
+          .ez-newsroom-stats {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
           }
 
-          .ez-nr-empty strong {
-            display: block;
-            color: #38566d;
-            margin-bottom: 7px;
-            font-size: 16px;
+          .ez-newsroom-stat {
+            min-height: 105px;
+            padding: 16px;
+            border: 1px solid #dceefa;
+            border-radius: 20px;
+            background: #ffffff;
+            box-shadow: 0 8px 25px rgba(64, 150, 201, 0.06);
           }
 
-          .ez-nr-loading {
-            padding: 50px;
-            text-align: center;
-            color: #6f899b;
+          .ez-newsroom-stat-label {
+            color: #6f8999;
+            font-size: 12px;
+            margin-bottom: 10px;
+          }
+
+          .ez-newsroom-stat-value {
+            color: #126d9e;
+            font-size: 27px;
             font-weight: 800;
           }
 
-          .ez-nr-footer {
-            display: flex;
-            justify-content: space-between;
+          .ez-newsroom-toolbar {
+            display: grid;
+            grid-template-columns: minmax(240px, 1fr) 170px 170px auto;
             gap: 10px;
-            margin-top: 13px;
-            color: #8299a9;
-            font-size: 11px;
-            flex-wrap: wrap;
+            margin-bottom: 18px;
           }
 
-          @media (max-width: 1050px) {
-            .ez-nr-stats {
+          .ez-newsroom-input,
+          .ez-newsroom-select {
+            width: 100%;
+            min-height: 44px;
+            border: 1px solid #cfe6f3;
+            border-radius: 13px;
+            padding: 10px 13px;
+            background: #ffffff;
+            color: #254a61;
+            outline: none;
+          }
+
+          .ez-newsroom-input:focus,
+          .ez-newsroom-select:focus {
+            border-color: #63bee8;
+            box-shadow: 0 0 0 3px rgba(99, 190, 232, 0.12);
+          }
+
+          .ez-newsroom-list {
+            display: grid;
+            gap: 12px;
+          }
+
+          .ez-newsroom-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 15px;
+            padding: 18px;
+            border: 1px solid #dceefa;
+            border-radius: 20px;
+            background: #ffffff;
+            box-shadow: 0 8px 25px rgba(64, 150, 201, 0.05);
+          }
+
+          .ez-newsroom-card-main {
+            min-width: 0;
+          }
+
+          .ez-newsroom-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 9px;
+          }
+
+          .ez-newsroom-badge {
+            display: inline-flex;
+            align-items: center;
+            min-height: 25px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: #eef9ff;
+            color: #1674a5;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .ez-newsroom-badge.status-published {
+            background: #e8fbf3;
+            color: #16835e;
+          }
+
+          .ez-newsroom-badge.status-review {
+            background: #fff8e7;
+            color: #9b7411;
+          }
+
+          .ez-newsroom-badge.status-draft {
+            background: #f1f6f9;
+            color: #607b8c;
+          }
+
+          .ez-newsroom-card h3 {
+            margin: 0 0 7px;
+            font-size: 18px;
+            line-height: 1.5;
+            color: #143e58;
+          }
+
+          .ez-newsroom-card p {
+            margin: 0;
+            color: #6b8493;
+            line-height: 1.7;
+            font-size: 13px;
+          }
+
+          .ez-newsroom-date {
+            margin-top: 9px;
+            color: #8aa0ad;
+            font-size: 11px;
+          }
+
+          .ez-newsroom-card-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            min-width: 120px;
+          }
+
+          .ez-newsroom-card-actions button {
+            border: 1px solid #d1e8f4;
+            background: #ffffff;
+            color: #176d9c;
+            border-radius: 11px;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+          }
+
+          .ez-newsroom-card-actions button:hover {
+            background: #f1fbff;
+          }
+
+          .ez-newsroom-card-actions .danger {
+            color: #b24b62;
+          }
+
+          .ez-newsroom-empty {
+            padding: 45px 20px;
+            text-align: center;
+            border: 1px dashed #bcddeb;
+            border-radius: 20px;
+            background: #fbfeff;
+            color: #6e8998;
+          }
+
+          .ez-newsroom-loading {
+            padding: 35px;
+            text-align: center;
+            color: #6b8799;
+          }
+
+          .ez-newsroom-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(23, 77, 105, 0.22);
+            backdrop-filter: blur(8px);
+          }
+
+          .ez-newsroom-modal.open {
+            display: flex;
+          }
+
+          .ez-newsroom-modal-box {
+            width: min(900px, 100%);
+            max-height: 90vh;
+            overflow: auto;
+            border: 1px solid #d4edf8;
+            border-radius: 25px;
+            background: #ffffff;
+            box-shadow: 0 30px 80px rgba(33, 112, 153, 0.2);
+          }
+
+          .ez-newsroom-modal-head {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            padding: 18px 20px;
+            border-bottom: 1px solid #e2f0f6;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(10px);
+          }
+
+          .ez-newsroom-modal-head h3 {
+            margin: 0;
+            color: #123e59;
+          }
+
+          .ez-newsroom-close {
+            width: 38px;
+            height: 38px;
+            border: 0;
+            border-radius: 12px;
+            background: #eef9ff;
+            color: #176d9c;
+            cursor: pointer;
+            font-size: 20px;
+          }
+
+          .ez-newsroom-modal-body {
+            padding: 20px;
+          }
+
+          .ez-newsroom-form {
+            display: grid;
+            gap: 14px;
+          }
+
+          .ez-newsroom-form label {
+            display: grid;
+            gap: 7px;
+            color: #35586c;
+            font-size: 13px;
+            font-weight: 700;
+          }
+
+          .ez-newsroom-form textarea {
+            min-height: 180px;
+            resize: vertical;
+          }
+
+          .ez-newsroom-form-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 8px;
+            padding-top: 5px;
+          }
+
+          .ez-newsroom-alert {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            z-index: 100000;
+            max-width: 420px;
+            padding: 13px 16px;
+            border-radius: 14px;
+            border: 1px solid #cce8f5;
+            background: #ffffff;
+            color: #25536a;
+            box-shadow: 0 15px 45px rgba(40, 125, 165, 0.18);
+            display: none;
+          }
+
+          .ez-newsroom-alert.show {
+            display: block;
+          }
+
+          @media (max-width: 1100px) {
+            .ez-newsroom-stats {
               grid-template-columns: repeat(3, minmax(0, 1fr));
             }
 
-            .ez-nr-toolbar {
+            .ez-newsroom-toolbar {
               grid-template-columns: 1fr 1fr;
             }
           }
 
-          @media (max-width: 680px) {
-            .ez-nr-stats {
+          @media (max-width: 700px) {
+            .ez-newsroom-header {
+              flex-direction: column;
+              align-items: stretch;
+            }
+
+            .ez-newsroom-stats {
               grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
-            .ez-nr-toolbar {
+            .ez-newsroom-toolbar {
               grid-template-columns: 1fr;
             }
 
-            .ez-nr-title-wrap h2 {
-              font-size: 22px;
+            .ez-newsroom-card {
+              grid-template-columns: 1fr;
+            }
+
+            .ez-newsroom-card-actions {
+              flex-direction: row;
+              flex-wrap: wrap;
             }
           }
         </style>
 
-        <div class="ez-nr-header">
-          <div class="ez-nr-title-wrap">
-            <div class="ez-nr-live-indicator">
-              <span class="ez-nr-live-dot"></span>
-              غرفة الأخبار الذكية
+        <div class="ez-newsroom-header">
+          <div class="ez-newsroom-title">
+            <div class="ez-newsroom-icon">📰</div>
+            <div>
+              <h2>غرفة الأخبار الذكية</h2>
+              <p>مركز التحكم في دورة الخبر من الفكرة إلى النشر والتوزيع</p>
             </div>
-
-            <h2>مركز الأخبار والتحرير</h2>
-
-            <p>
-              إدارة دورة المحتوى من المسودة إلى المراجعة والاعتماد والنشر،
-              مع جاهزية الربط بمحرك الذكاء الاصطناعي.
-            </p>
           </div>
 
-          <div class="ez-nr-actions">
-            <button class="ez-nr-btn ez-nr-btn-light" id="ez-nr-refresh">
-              تحديث البيانات
+          <div class="ez-newsroom-actions">
+            <button class="ez-newsroom-btn" data-action="refresh">
+              تحديث
             </button>
 
-            <button class="ez-nr-btn ez-nr-btn-primary" id="ez-nr-new">
-              + إنشاء محتوى
+            <button class="ez-newsroom-btn" data-action="ai">
+              🤖 الذكاء الاصطناعي
+            </button>
+
+            <button class="ez-newsroom-btn primary" data-action="new">
+              + خبر جديد
             </button>
           </div>
         </div>
 
-        <div class="ez-nr-stats">
-          <div class="ez-nr-stat">
-            <div class="ez-nr-stat-label">إجمالي المحتوى</div>
-            <div class="ez-nr-stat-value" id="ez-nr-total">0</div>
+        <div class="ez-newsroom-stats">
+          <div class="ez-newsroom-stat">
+            <div class="ez-newsroom-stat-label">إجمالي المواد</div>
+            <div class="ez-newsroom-stat-value" data-stat="total">0</div>
           </div>
 
-          <div class="ez-nr-stat">
-            <div class="ez-nr-stat-label">مسودات</div>
-            <div class="ez-nr-stat-value" id="ez-nr-drafts">0</div>
+          <div class="ez-newsroom-stat">
+            <div class="ez-newsroom-stat-label">مسودات</div>
+            <div class="ez-newsroom-stat-value" data-stat="draft">0</div>
           </div>
 
-          <div class="ez-nr-stat">
-            <div class="ez-nr-stat-label">قيد المراجعة</div>
-            <div class="ez-nr-stat-value" id="ez-nr-review">0</div>
+          <div class="ez-newsroom-stat">
+            <div class="ez-newsroom-stat-label">قيد المراجعة</div>
+            <div class="ez-newsroom-stat-value" data-stat="review">0</div>
           </div>
 
-          <div class="ez-nr-stat">
-            <div class="ez-nr-stat-label">مجدول</div>
-            <div class="ez-nr-stat-value" id="ez-nr-scheduled">0</div>
+          <div class="ez-newsroom-stat">
+            <div class="ez-newsroom-stat-label">منشورة</div>
+            <div class="ez-newsroom-stat-value" data-stat="published">0</div>
           </div>
 
-          <div class="ez-nr-stat">
-            <div class="ez-nr-stat-label">منشور</div>
-            <div class="ez-nr-stat-value" id="ez-nr-published">0</div>
+          <div class="ez-newsroom-stat">
+            <div class="ez-newsroom-stat-label">عاجل</div>
+            <div class="ez-newsroom-stat-value" data-stat="breaking">0</div>
+          </div>
+
+          <div class="ez-newsroom-stat">
+            <div class="ez-newsroom-stat-label">مباشر الآن</div>
+            <div class="ez-newsroom-stat-value" data-stat="live">0</div>
           </div>
         </div>
 
-        <div class="ez-nr-toolbar">
+        <div class="ez-newsroom-toolbar">
           <input
-            id="ez-nr-search"
-            class="ez-nr-input"
+            class="ez-newsroom-input"
+            data-filter="search"
             type="search"
-            placeholder="ابحث في العناوين والوصف..."
+            placeholder="ابحث في الأخبار والعناوين والتقارير..."
+            autocomplete="off"
           />
 
-          <select id="ez-nr-type" class="ez-nr-select">
-            <option value="">كل أنواع المحتوى</option>
+          <select class="ez-newsroom-select" data-filter="type">
+            <option value="all">كل الأنواع</option>
             <option value="news">أخبار</option>
             <option value="report">تقارير</option>
             <option value="interview">مقابلات</option>
@@ -583,8 +658,8 @@
             <option value="breaking">عاجل</option>
           </select>
 
-          <select id="ez-nr-status" class="ez-nr-select">
-            <option value="">كل الحالات</option>
+          <select class="ez-newsroom-select" data-filter="status">
+            <option value="all">كل الحالات</option>
             <option value="draft">مسودة</option>
             <option value="review">مراجعة</option>
             <option value="approved">معتمد</option>
@@ -593,478 +668,730 @@
             <option value="archived">مؤرشف</option>
           </select>
 
-          <button class="ez-nr-btn ez-nr-btn-light" id="ez-nr-reset">
-            تصفير
+          <button class="ez-newsroom-btn" data-action="clear-filters">
+            مسح
           </button>
         </div>
 
-        <div class="ez-nr-table-wrap">
-          <div id="ez-nr-table-content">
-            <div class="ez-nr-loading">جاري تحميل غرفة الأخبار...</div>
+        <div class="ez-newsroom-list" data-list>
+          <div class="ez-newsroom-loading">
+            جارٍ تحميل غرفة الأخبار...
           </div>
         </div>
 
-        <div class="ez-nr-footer">
-          <span id="ez-nr-count">0 عنصر</span>
-          <span>EZ MEDIA 11.0 — غرفة الأخبار الذكية</span>
+        <div class="ez-newsroom-modal" data-modal>
+          <div class="ez-newsroom-modal-box">
+            <div class="ez-newsroom-modal-head">
+              <h3 data-modal-title>مادة إعلامية</h3>
+              <button class="ez-newsroom-close" data-action="close-modal">
+                ×
+              </button>
+            </div>
+
+            <div class="ez-newsroom-modal-body" data-modal-body></div>
+          </div>
         </div>
+
+        <div class="ez-newsroom-alert" data-alert></div>
       </div>
     `;
+  }
 
-    bindEvents();
+  function showAlert(message) {
+    const container = findContainer();
+    const alert = container?.querySelector("[data-alert]");
 
-    return container;
+    if (!alert) return;
+
+    alert.textContent = message;
+    alert.classList.add("show");
+
+    clearTimeout(alert._timer);
+
+    alert._timer = setTimeout(() => {
+      alert.classList.remove("show");
+    }, 3500);
   }
 
   function updateStats() {
-    const total = state.items.length;
+    const container = findContainer();
+    if (!container) return;
 
-    const drafts = state.items.filter(
-      item => item.status === "draft"
-    ).length;
-
-    const review = state.items.filter(
-      item => item.status === "review"
-    ).length;
-
-    const scheduled = state.items.filter(
-      item => item.status === "scheduled"
-    ).length;
-
-    const published = state.items.filter(
-      item => item.status === "published"
-    ).length;
-
-    const set = (id, value) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.textContent = value;
-      }
+    const counts = {
+      total: state.contents.length,
+      draft: 0,
+      review: 0,
+      published: 0,
+      breaking: 0,
+      live: state.live.filter(
+        (item) => String(item.status || "").toLowerCase() === "live"
+      ).length
     };
 
-    set("ez-nr-total", total);
-    set("ez-nr-drafts", drafts);
-    set("ez-nr-review", review);
-    set("ez-nr-scheduled", scheduled);
-    set("ez-nr-published", published);
-  }
+    state.contents.forEach((item) => {
+      const status = String(item.status || "").toLowerCase();
 
-  function applyFilters() {
-    const search = state.search.trim().toLowerCase();
+      if (status === "draft") counts.draft++;
+      if (status === "review") counts.review++;
+      if (status === "published") counts.published++;
 
-    state.filteredItems = state.items.filter(item => {
-      const title = String(
-        item.title ||
-        item.headline ||
-        item.name ||
-        ""
+      const type = String(
+        item.type || item.content_type || ""
       ).toLowerCase();
 
-      const description = String(
-        item.description ||
-        item.summary ||
-        item.excerpt ||
-        ""
-      ).toLowerCase();
-
-      const matchesSearch =
-        !search ||
-        title.includes(search) ||
-        description.includes(search);
-
-      const matchesType =
-        !state.type ||
-        item.content_type === state.type ||
-        item.type === state.type;
-
-      const matchesStatus =
-        !state.status ||
-        item.status === state.status;
-
-      return (
-        matchesSearch &&
-        matchesType &&
-        matchesStatus
-      );
+      if (type === "breaking") {
+        counts.breaking++;
+      }
     });
 
-    renderTable();
+    Object.entries(counts).forEach(([key, value]) => {
+      const element = container.querySelector(`[data-stat="${key}"]`);
+
+      if (element) {
+        element.textContent = value.toLocaleString("ar-SA");
+      }
+    });
   }
 
-  function renderTable() {
-    const wrapper = document.getElementById("ez-nr-table-content");
-    const count = document.getElementById("ez-nr-count");
+  function renderList() {
+    const container = findContainer();
+    if (!container) return;
 
-    if (!wrapper) return;
+    const list = container.querySelector("[data-list]");
 
-    if (count) {
-      count.textContent =
-        `${state.filteredItems.length} عنصر من أصل ${state.items.length}`;
-    }
+    if (!list) return;
 
-    if (!state.filteredItems.length) {
-      wrapper.innerHTML = `
-        <div class="ez-nr-empty">
-          <strong>لا توجد نتائج</strong>
-          لم يتم العثور على محتوى مطابق للبحث أو الفلاتر الحالية.
+    if (!state.filtered.length) {
+      list.innerHTML = `
+        <div class="ez-newsroom-empty">
+          <div style="font-size:38px;margin-bottom:10px;">📭</div>
+          <strong>لا توجد مواد مطابقة</strong>
+          <div style="margin-top:7px;">
+            جرّب تغيير البحث أو الفلاتر.
+          </div>
         </div>
       `;
+
       return;
     }
 
-    wrapper.innerHTML = `
-      <table class="ez-nr-table">
-        <thead>
-          <tr>
-            <th>المحتوى</th>
-            <th>النوع</th>
-            <th>الحالة</th>
-            <th>التاريخ</th>
-            <th>الإجراءات</th>
-          </tr>
-        </thead>
+    list.innerHTML = state.filtered
+      .map((item) => {
+        const id = escapeHtml(item.id);
+        const type = String(
+          item.type || item.content_type || "news"
+        ).toLowerCase();
 
-        <tbody>
-          ${state.filteredItems.map(item => renderRow(item)).join("")}
-        </tbody>
-      </table>
-    `;
+        const status = String(item.status || "draft").toLowerCase();
+
+        const title =
+          item.title ||
+          item.headline ||
+          "بدون عنوان";
+
+        const summary =
+          item.summary ||
+          item.description ||
+          "لا يوجد ملخص لهذه المادة.";
+
+        return `
+          <article class="ez-newsroom-card">
+            <div class="ez-newsroom-card-main">
+
+              <div class="ez-newsroom-card-meta">
+                <span class="ez-newsroom-badge">
+                  ${escapeHtml(typeLabel(type))}
+                </span>
+
+                <span class="ez-newsroom-badge ${escapeHtml(
+                  statusClass(status)
+                )}">
+                  ${escapeHtml(statusLabel(status))}
+                </span>
+
+                ${
+                  item.category
+                    ? `
+                      <span class="ez-newsroom-badge">
+                        ${escapeHtml(item.category)}
+                      </span>
+                    `
+                    : ""
+                }
+              </div>
+
+              <h3>${escapeHtml(title)}</h3>
+
+              <p>
+                ${escapeHtml(summary)}
+              </p>
+
+              <div class="ez-newsroom-date">
+                ${escapeHtml(
+                  formatDate(item.updated_at || item.created_at)
+                )}
+              </div>
+            </div>
+
+            <div class="ez-newsroom-card-actions">
+              <button data-action="view" data-id="${id}">
+                عرض
+              </button>
+
+              <button data-action="edit" data-id="${id}">
+                تعديل
+              </button>
+
+              <button data-action="analyze" data-id="${id}">
+                🤖 تحليل AI
+              </button>
+
+              ${
+                status === "draft"
+                  ? `
+                    <button data-action="review" data-id="${id}">
+                      إرسال للمراجعة
+                    </button>
+                  `
+                  : ""
+              }
+
+              ${
+                status === "review"
+                  ? `
+                    <button data-action="approve" data-id="${id}">
+                      اعتماد
+                    </button>
+                  `
+                  : ""
+              }
+
+              ${
+                status === "approved" || status === "scheduled"
+                  ? `
+                    <button data-action="publish" data-id="${id}">
+                      نشر
+                    </button>
+                  `
+                  : ""
+              }
+
+              ${
+                status === "published"
+                  ? `
+                    <button
+                      class="danger"
+                      data-action="archive"
+                      data-id="${id}"
+                    >
+                      أرشفة
+                    </button>
+                  `
+                  : ""
+              }
+            </div>
+          </article>
+        `;
+      })
+      .join("");
   }
 
-  function renderRow(item) {
-    const id = escapeHtml(item.id);
-
-    const title = escapeHtml(
-      item.title ||
-      item.headline ||
-      item.name ||
-      "بدون عنوان"
+  async function loadContents() {
+    const data = await request(
+      `${API.content}?limit=200`
     );
 
-    const type =
-      item.content_type ||
-      item.type ||
-      "news";
-
-    const status =
-      item.status ||
-      "draft";
-
-    const date =
-      item.updated_at ||
-      item.created_at ||
-      item.published_at;
-
-    return `
-      <tr>
-        <td>
-          <div class="ez-nr-content-title">
-            ${title}
-          </div>
-
-          <div class="ez-nr-content-id">
-            ${id}
-          </div>
-        </td>
-
-        <td>
-          <span class="ez-nr-type">
-            ${escapeHtml(getTypeLabel(type))}
-          </span>
-        </td>
-
-        <td>
-          <span class="ez-nr-status ${statusClass(status)}">
-            ${escapeHtml(getStatusLabel(status))}
-          </span>
-        </td>
-
-        <td>
-          ${escapeHtml(formatDate(date))}
-        </td>
-
-        <td>
-          <div class="ez-nr-row-actions">
-            <button
-              class="ez-nr-mini-btn"
-              data-action="view"
-              data-id="${id}"
-            >
-              عرض
-            </button>
-
-            <button
-              class="ez-nr-mini-btn"
-              data-action="edit"
-              data-id="${id}"
-            >
-              تعديل
-            </button>
-
-            <button
-              class="ez-nr-mini-btn"
-              data-action="ai"
-              data-id="${id}"
-            >
-              AI
-            </button>
-
-            ${
-              status !== "published"
-                ? `
-                  <button
-                    class="ez-nr-mini-btn"
-                    data-action="publish"
-                    data-id="${id}"
-                  >
-                    نشر
-                  </button>
-                `
-                : ""
-            }
-          </div>
-        </td>
-      </tr>
-    `;
+    state.contents = normalizeList(data);
+    applyFilters();
+    updateStats();
+    renderList();
   }
 
-  async function loadContent() {
+  async function loadBreaking() {
+    try {
+      const data = await request(API.breaking);
+      state.breaking = normalizeList(data);
+    } catch {
+      state.breaking = [];
+    }
+  }
+
+  async function loadMedia() {
+    try {
+      const data = await request(
+        `${API.media}?limit=200`
+      );
+
+      state.media = normalizeList(data);
+    } catch {
+      state.media = [];
+    }
+  }
+
+  async function loadLive() {
+    try {
+      const data = await request(
+        `${API.live}?limit=100`
+      );
+
+      state.live = normalizeList(data);
+    } catch {
+      state.live = [];
+    }
+  }
+
+  async function refresh() {
+    if (state.loading) return;
+
     state.loading = true;
 
-    const wrapper = document.getElementById("ez-nr-table-content");
+    const container = findContainer();
 
-    if (wrapper) {
-      wrapper.innerHTML = `
-        <div class="ez-nr-loading">
-          جاري تحديث غرفة الأخبار...
-        </div>
-      `;
+    if (container) {
+      const list = container.querySelector("[data-list]");
+
+      if (list) {
+        list.innerHTML = `
+          <div class="ez-newsroom-loading">
+            جارٍ تحديث غرفة الأخبار...
+          </div>
+        `;
+      }
     }
 
     try {
-      const data = await request(
-        `${API.content}?limit=100`
-      );
-
-      state.items = normalizeContentResponse(data);
+      await Promise.all([
+        loadContents(),
+        loadBreaking(),
+        loadMedia(),
+        loadLive()
+      ]);
 
       updateStats();
-      applyFilters();
+      renderList();
+
+      showAlert("تم تحديث غرفة الأخبار بنجاح.");
     } catch (error) {
-      console.error("EZ MEDIA newsroom:", error);
+      console.error("EZ MEDIA Newsroom:", error);
 
-      state.items = [];
-      state.filteredItems = [];
+      const list = container?.querySelector("[data-list]");
 
-      if (wrapper) {
-        wrapper.innerHTML = `
-          <div class="ez-nr-empty">
-            <strong>تعذر تحميل المحتوى</strong>
-            ${escapeHtml(error.message)}
+      if (list) {
+        list.innerHTML = `
+          <div class="ez-newsroom-empty">
+            تعذر تحميل بيانات غرفة الأخبار.
+            <br>
+            <small>${escapeHtml(error.message)}</small>
           </div>
         `;
       }
 
-      notify(error.message, "error");
+      showAlert("تعذر تحديث غرفة الأخبار.");
     } finally {
       state.loading = false;
     }
   }
 
-  async function openContent(id) {
-    try {
-      const data = await request(
-        `${API.content}/${encodeURIComponent(id)}`
-      );
+  function openModal(title, body) {
+    const container = findContainer();
+    if (!container) return;
 
-      const item = data?.item || data?.content || data?.data || data;
+    const modal = container.querySelector("[data-modal]");
+    const modalTitle = container.querySelector("[data-modal-title]");
+    const modalBody = container.querySelector("[data-modal-body]");
 
-      showContentModal(item);
-    } catch (error) {
-      notify(error.message, "error");
-    }
+    if (!modal || !modalTitle || !modalBody) return;
+
+    modalTitle.textContent = title;
+    modalBody.innerHTML = body;
+    modal.classList.add("open");
   }
 
-  function showContentModal(item) {
-    const existing = document.getElementById(
-      "ez-nr-content-modal"
+  function closeModal() {
+    const container = findContainer();
+
+    const modal = container?.querySelector("[data-modal]");
+
+    modal?.classList.remove("open");
+  }
+
+  function findContent(id) {
+    return state.contents.find(
+      (item) => String(item.id) === String(id)
     );
+  }
 
-    if (existing) {
-      existing.remove();
-    }
+  function viewContent(id) {
+    const item = findContent(id);
 
-    const title = item?.title || item?.headline || "";
-    const description =
-      item?.description ||
-      item?.summary ||
-      item?.body ||
-      "";
+    if (!item) return;
 
-    const modal = document.createElement("div");
+    state.selectedContent = item;
 
-    modal.id = "ez-nr-content-modal";
+    openModal(
+      item.title || item.headline || "المادة الإعلامية",
+      `
+        <div class="ez-newsroom-form">
 
-    Object.assign(modal.style, {
-      position: "fixed",
-      inset: "0",
-      zIndex: "99990",
-      background: "rgba(13, 51, 76, 0.25)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "18px",
-      direction: "rtl"
-    });
-
-    modal.innerHTML = `
-      <div style="
-        width:min(720px,100%);
-        max-height:90vh;
-        overflow:auto;
-        background:#fff;
-        border:1px solid #dcebf4;
-        border-radius:24px;
-        box-shadow:0 25px 80px rgba(20,100,140,.20);
-        padding:24px;
-        font-family:inherit;
-      ">
-        <div style="
-          display:flex;
-          justify-content:space-between;
-          gap:15px;
-          align-items:flex-start;
-          margin-bottom:18px;
-        ">
           <div>
-            <div style="
-              color:#2380a9;
-              font-size:11px;
-              font-weight:900;
-              margin-bottom:7px;
-            ">
-              معاينة المحتوى
-            </div>
-
-            <h3 style="
-              margin:0;
-              color:#17324d;
-              font-size:22px;
-              line-height:1.5;
-            ">
-              ${escapeHtml(title || "بدون عنوان")}
-            </h3>
+            <strong>العنوان</strong>
+            <p>${escapeHtml(
+              item.title || item.headline || "—"
+            )}</p>
           </div>
 
-          <button
-            id="ez-nr-modal-close"
-            style="
-              width:38px;
-              height:38px;
-              border:1px solid #dfedf5;
-              background:#f7fbfd;
-              color:#46748e;
-              border-radius:12px;
-              cursor:pointer;
-              font-size:18px;
-            "
-          >
-            ×
-          </button>
-        </div>
-
-        <div style="
-          color:#587488;
-          line-height:1.9;
-          white-space:pre-wrap;
-          font-size:14px;
-        ">
-          ${escapeHtml(description || "لا يوجد وصف أو ملخص.")}
-        </div>
-
-        <div style="
-          display:grid;
-          grid-template-columns:repeat(2,minmax(0,1fr));
-          gap:10px;
-          margin-top:22px;
-        ">
-          <div style="
-            padding:13px;
-            border:1px solid #e4eef5;
-            border-radius:14px;
-            background:#fafdff;
-          ">
-            <small style="color:#8198a9;">النوع</small>
-            <div style="font-weight:850;margin-top:5px;">
-              ${escapeHtml(
-                getTypeLabel(
-                  item?.content_type || item?.type
-                )
-              )}
-            </div>
+          <div>
+            <strong>الملخص</strong>
+            <p>${escapeHtml(
+              item.summary || item.description || "—"
+            )}</p>
           </div>
 
-          <div style="
-            padding:13px;
-            border:1px solid #e4eef5;
-            border-radius:14px;
-            background:#fafdff;
-          ">
-            <small style="color:#8198a9;">الحالة</small>
-            <div style="font-weight:850;margin-top:5px;">
-              ${escapeHtml(
-                getStatusLabel(item?.status)
-              )}
-            </div>
+          <div>
+            <strong>النوع</strong>
+            <p>${escapeHtml(
+              typeLabel(
+                item.type || item.content_type
+              )
+            )}</p>
           </div>
+
+          <div>
+            <strong>الحالة</strong>
+            <p>${escapeHtml(
+              statusLabel(item.status)
+            )}</p>
+          </div>
+
+          <div>
+            <strong>التصنيف</strong>
+            <p>${escapeHtml(
+              item.category || "—"
+            )}</p>
+          </div>
+
+          <div>
+            <strong>المعرّف</strong>
+            <p dir="ltr">${escapeHtml(item.id)}</p>
+          </div>
+
+          <div>
+            <strong>تاريخ الإنشاء</strong>
+            <p>${escapeHtml(
+              formatDate(item.created_at)
+            )}</p>
+          </div>
+
+          <div>
+            <strong>آخر تحديث</strong>
+            <p>${escapeHtml(
+              formatDate(item.updated_at)
+            )}</p>
+          </div>
+
         </div>
-      </div>
-    `;
+      `
+    );
+  }
 
-    document.body.appendChild(modal);
+  function openNewContent() {
+    openModal(
+      "إنشاء مادة إعلامية جديدة",
+      `
+        <form class="ez-newsroom-form" data-form="new-content">
 
-    document
-      .getElementById("ez-nr-modal-close")
-      ?.addEventListener("click", () => modal.remove());
+          <label>
+            العنوان
+            <input
+              class="ez-newsroom-input"
+              name="title"
+              required
+              placeholder="اكتب عنوان المادة"
+            />
+          </label>
 
-    modal.addEventListener("click", event => {
-      if (event.target === modal) {
-        modal.remove();
-      }
-    });
+          <label>
+            النوع
+            <select
+              class="ez-newsroom-select"
+              name="type"
+            >
+              <option value="news">خبر</option>
+              <option value="report">تقرير</option>
+              <option value="interview">مقابلة</option>
+              <option value="video">فيديو</option>
+              <option value="coverage">تغطية</option>
+              <option value="breaking">عاجل</option>
+            </select>
+          </label>
+
+          <label>
+            التصنيف
+            <input
+              class="ez-newsroom-input"
+              name="category"
+              placeholder="مثال: محلي، اقتصادي، رياضي..."
+            />
+          </label>
+
+          <label>
+            الملخص
+            <textarea
+              class="ez-newsroom-input"
+              name="summary"
+              placeholder="اكتب ملخص المادة..."
+            ></textarea>
+          </label>
+
+          <div class="ez-newsroom-form-actions">
+            <button
+              type="submit"
+              class="ez-newsroom-btn primary"
+            >
+              إنشاء المسودة
+            </button>
+
+            <button
+              type="button"
+              class="ez-newsroom-btn"
+              data-action="close-modal"
+            >
+              إلغاء
+            </button>
+          </div>
+
+        </form>
+      `
+    );
+  }
+
+  async function createContent(form) {
+    const formData = new FormData(form);
+
+    const payload = {
+      title: formData.get("title"),
+      type: formData.get("type"),
+      category: formData.get("category"),
+      summary: formData.get("summary"),
+      status: "draft"
+    };
+
+    try {
+      await request(API.content, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+
+      closeModal();
+
+      showAlert("تم إنشاء المسودة.");
+
+      await refresh();
+    } catch (error) {
+      console.error(error);
+
+      showAlert(
+        `تعذر إنشاء المادة: ${error.message}`
+      );
+    }
   }
 
   function editContent(id) {
-    const content =
-      state.items.find(item => String(item.id) === String(id));
+    const item = findContent(id);
 
-    if (!content) {
-      notify("لم يتم العثور على المحتوى.", "error");
-      return;
-    }
+    if (!item) return;
 
-    if (window.EZMediaAdminContent?.openEditor) {
-      window.EZMediaAdminContent.openEditor(content);
-      return;
-    }
+    openModal(
+      "تعديل المادة الإعلامية",
+      `
+        <form
+          class="ez-newsroom-form"
+          data-form="edit-content"
+          data-id="${escapeHtml(item.id)}"
+        >
 
-    if (window.EZMediaAdminContent?.edit) {
-      window.EZMediaAdminContent.edit(content);
-      return;
-    }
+          <label>
+            العنوان
+            <input
+              class="ez-newsroom-input"
+              name="title"
+              required
+              value="${escapeHtml(
+                item.title || item.headline || ""
+              )}"
+            />
+          </label>
 
-    notify(
-      "تم العثور على المحتوى، لكن محرر المحتوى غير متاح حاليًا.",
-      "info"
+          <label>
+            النوع
+            <select
+              class="ez-newsroom-select"
+              name="type"
+            >
+              ${Object.entries(TYPES)
+                .map(
+                  ([value, label]) => `
+                    <option
+                      value="${escapeHtml(value)}"
+                      ${
+                        String(
+                          item.type ||
+                            item.content_type ||
+                            ""
+                        ) === value
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${escapeHtml(label)}
+                    </option>
+                  `
+                )
+                .join("")}
+            </select>
+          </label>
+
+          <label>
+            التصنيف
+            <input
+              class="ez-newsroom-input"
+              name="category"
+              value="${escapeHtml(
+                item.category || ""
+              )}"
+            />
+          </label>
+
+          <label>
+            الملخص
+            <textarea
+              class="ez-newsroom-input"
+              name="summary"
+            >${escapeHtml(
+              item.summary ||
+                item.description ||
+                ""
+            )}</textarea>
+          </label>
+
+          <div class="ez-newsroom-form-actions">
+            <button
+              type="submit"
+              class="ez-newsroom-btn primary"
+            >
+              حفظ التعديلات
+            </button>
+
+            <button
+              type="button"
+              class="ez-newsroom-btn"
+              data-action="close-modal"
+            >
+              إلغاء
+            </button>
+          </div>
+
+        </form>
+      `
     );
   }
 
-  async function analyzeWithAI(id) {
-    try {
-      notify("جاري إرسال المحتوى إلى الذكاء الاصطناعي...");
+  async function updateContent(form) {
+    const id = form.dataset.id;
 
+    if (!id) return;
+
+    const formData = new FormData(form);
+
+    const payload = {
+      title: formData.get("title"),
+      type: formData.get("type"),
+      category: formData.get("category"),
+      summary: formData.get("summary")
+    };
+
+    try {
+      await request(
+        `${API.content}/${encodeURIComponent(id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        }
+      );
+
+      closeModal();
+
+      showAlert("تم حفظ التعديلات.");
+
+      await refresh();
+    } catch (error) {
+      console.error(error);
+
+      showAlert(
+        `تعذر حفظ التعديلات: ${error.message}`
+      );
+    }
+  }
+
+  async function changeStatus(id, action) {
+    const routes = {
+      review: `/submit-review`,
+      approve: `/approve`,
+      publish: `/publish`,
+      archive: `/archive`
+    };
+
+    const route = routes[action];
+
+    if (!route) return;
+
+    const messages = {
+      review: "تم إرسال المادة للمراجعة.",
+      approve: "تم اعتماد المادة.",
+      publish: "تم نشر المادة.",
+      archive: "تمت أرشفة المادة."
+    };
+
+    try {
+      await request(
+        `${API.content}/${encodeURIComponent(id)}${route}`,
+        {
+          method: "POST",
+          body: JSON.stringify({})
+        }
+      );
+
+      showAlert(messages[action]);
+
+      await refresh();
+    } catch (error) {
+      console.error(error);
+
+      showAlert(
+        `تعذر تنفيذ العملية: ${error.message}`
+      );
+    }
+  }
+
+  async function analyzeContent(id) {
+    const item = findContent(id);
+
+    if (!item) return;
+
+    openModal(
+      "تحليل الذكاء الاصطناعي",
+      `
+        <div class="ez-newsroom-loading">
+          🤖 جارٍ تحليل المادة بواسطة محرك الذكاء الاصطناعي...
+        </div>
+      `
+    );
+
+    try {
       const data = await request(
-        `${API.ai}/content/${encodeURIComponent(id)}/analyze`,
+        `${API.ai}/content/${encodeURIComponent(
+          id
+        )}/analyze`,
         {
           method: "POST",
           body: JSON.stringify({})
@@ -1077,428 +1404,313 @@
         data?.data ||
         data;
 
-      showAIResult(result);
-
-      notify(
-        "اكتمل تحليل المحتوى بالذكاء الاصطناعي.",
-        "success"
-      );
+      renderAIResult(result);
     } catch (error) {
-      notify(error.message, "error");
+      console.error(error);
+
+      openModal(
+        "تعذر تحليل المادة",
+        `
+          <div class="ez-newsroom-empty">
+            تعذر تنفيذ تحليل الذكاء الاصطناعي.
+            <br><br>
+            ${escapeHtml(error.message)}
+          </div>
+        `
+      );
     }
   }
 
-  function showAIResult(result) {
-    const existing = document.getElementById(
-      "ez-nr-ai-modal"
-    );
-
-    if (existing) {
-      existing.remove();
-    }
-
-    const modal = document.createElement("div");
-
-    modal.id = "ez-nr-ai-modal";
-
-    Object.assign(modal.style, {
-      position: "fixed",
-      inset: "0",
-      zIndex: "99991",
-      background: "rgba(13,51,76,.25)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "18px",
-      direction: "rtl"
-    });
-
-    const keywords = Array.isArray(result?.keywords)
+  function renderAIResult(result) {
+    const safeKeywords = Array.isArray(result?.keywords)
       ? result.keywords
       : [];
 
-    const socialPosts = result?.social_posts || {};
+    const socialPosts =
+      result?.social_posts || {};
 
-    modal.innerHTML = `
-      <div style="
-        width:min(820px,100%);
-        max-height:90vh;
-        overflow:auto;
-        background:#fff;
-        border:1px solid #dcebf4;
-        border-radius:24px;
-        box-shadow:0 25px 80px rgba(20,100,140,.20);
-        padding:24px;
-        font-family:inherit;
-      ">
+    openModal(
+      "نتيجة تحليل الذكاء الاصطناعي",
+      `
+        <div class="ez-newsroom-form">
 
-        <div style="
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          gap:15px;
-          margin-bottom:20px;
-        ">
           <div>
-            <div style="
-              color:#2380a9;
-              font-size:11px;
-              font-weight:900;
-              margin-bottom:5px;
-            ">
-              مركز الذكاء الاصطناعي
-            </div>
-
-            <h3 style="
-              margin:0;
-              color:#17324d;
-              font-size:22px;
-            ">
-              نتيجة التحليل
-            </h3>
+            <strong>العنوان المقترح</strong>
+            <p>${escapeHtml(
+              result?.headline || "—"
+            )}</p>
           </div>
 
-          <button
-            id="ez-nr-ai-close"
-            style="
-              width:38px;
-              height:38px;
-              border:1px solid #dfedf5;
-              background:#f7fbfd;
-              color:#46748e;
-              border-radius:12px;
-              cursor:pointer;
-              font-size:18px;
-            "
-          >
-            ×
-          </button>
+          <div>
+            <strong>الملخص</strong>
+            <p>${escapeHtml(
+              result?.summary || "—"
+            )}</p>
+          </div>
+
+          <div>
+            <strong>التصنيف</strong>
+            <p>${escapeHtml(
+              result?.category || "—"
+            )}</p>
+          </div>
+
+          <div>
+            <strong>الكلمات المفتاحية</strong>
+            <p>
+              ${
+                safeKeywords.length
+                  ? safeKeywords
+                      .map(
+                        (keyword) =>
+                          `<span class="ez-newsroom-badge">${escapeHtml(
+                            keyword
+                          )}</span>`
+                      )
+                      .join(" ")
+                  : "—"
+              }
+            </p>
+          </div>
+
+          <div>
+            <strong>منشورات التواصل الاجتماعي</strong>
+
+            <p>
+              <b>عام:</b>
+              ${escapeHtml(
+                socialPosts.general || "—"
+              )}
+            </p>
+
+            <p>
+              <b>X:</b>
+              ${escapeHtml(
+                socialPosts.x || "—"
+              )}
+            </p>
+
+            <p>
+              <b>Instagram:</b>
+              ${escapeHtml(
+                socialPosts.instagram || "—"
+              )}
+            </p>
+
+            <p>
+              <b>TikTok:</b>
+              ${escapeHtml(
+                socialPosts.tiktok || "—"
+              )}
+            </p>
+          </div>
+
+          <div>
+            <strong>وصف الفيديو</strong>
+            <p>${escapeHtml(
+              result?.video_description || "—"
+            )}</p>
+          </div>
+
+          <div>
+            <strong>ملاحظات المحرر</strong>
+            <p>${escapeHtml(
+              result?.editor_notes || "—"
+            )}</p>
+          </div>
+
+          <div>
+            <strong>مؤشرات المخاطر</strong>
+            <p>${escapeHtml(
+              Array.isArray(result?.risk_flags)
+                ? result.risk_flags.join("، ")
+                : result?.risk_flags || "لا توجد"
+            )}</p>
+          </div>
+
+          <div>
+            <strong>درجة الثقة</strong>
+            <p>${escapeHtml(
+              result?.confidence ?? "—"
+            )}</p>
+          </div>
+
         </div>
+      `
+    );
+  }
 
-        ${renderAIField("العنوان المقترح", result?.headline)}
+  function handleAction(action, id) {
+    switch (action) {
+      case "refresh":
+        refresh();
+        break;
 
-        ${renderAIField("الملخص", result?.summary)}
+      case "new":
+        openNewContent();
+        break;
 
-        ${renderAIField("التصنيف", result?.category)}
+      case "clear-filters": {
+        const container = findContainer();
 
-        ${
-          keywords.length
-            ? `
-              <div style="margin-top:15px;">
-                <div style="
-                  font-size:12px;
-                  color:#6f899b;
-                  font-weight:900;
-                  margin-bottom:8px;
-                ">
-                  الكلمات المفتاحية
-                </div>
+        state.filter = {
+          search: "",
+          type: "all",
+          status: "all"
+        };
 
-                <div style="
-                  display:flex;
-                  gap:7px;
-                  flex-wrap:wrap;
-                ">
-                  ${keywords.map(keyword => `
-                    <span style="
-                      background:#eef9fe;
-                      color:#247aa3;
-                      padding:7px 10px;
-                      border-radius:999px;
-                      font-size:11px;
-                      font-weight:800;
-                    ">
-                      ${escapeHtml(keyword)}
-                    </span>
-                  `).join("")}
-                </div>
-              </div>
-            `
-            : ""
-        }
+        const search =
+          container?.querySelector(
+            '[data-filter="search"]'
+          );
 
-        ${renderAIField(
-          "وصف الفيديو",
-          result?.video_description
-        )}
+        const type =
+          container?.querySelector(
+            '[data-filter="type"]'
+          );
 
-        ${renderAIField(
-          "ملاحظات التحرير",
-          result?.editor_notes
-        )}
+        const status =
+          container?.querySelector(
+            '[data-filter="status"]'
+          );
 
-        ${renderAIField(
-          "مخاطر المحتوى",
-          Array.isArray(result?.risk_flags)
-            ? result.risk_flags.join("، ")
-            : result?.risk_flags
-        )}
+        if (search) search.value = "";
+        if (type) type.value = "all";
+        if (status) status.value = "all";
 
-        ${renderAIField(
-          "درجة الثقة",
-          result?.confidence !== undefined
-            ? String(result.confidence)
-            : null
-        )}
+        applyFilters();
+        renderList();
+        break;
+      }
 
-        ${
-          Object.keys(socialPosts).length
-            ? `
-              <div style="margin-top:20px;">
-                <div style="
-                  font-size:12px;
-                  color:#6f899b;
-                  font-weight:900;
-                  margin-bottom:10px;
-                ">
-                  منشورات التواصل الاجتماعي
-                </div>
+      case "close-modal":
+        closeModal();
+        break;
 
-                ${Object.entries(socialPosts)
-                  .map(([platform, text]) => `
-                    <div style="
-                      border:1px solid #e4eef5;
-                      border-radius:14px;
-                      padding:13px;
-                      margin-bottom:9px;
-                      background:#fbfdff;
-                    ">
-                      <div style="
-                        color:#287ea4;
-                        font-weight:900;
-                        font-size:11px;
-                        margin-bottom:6px;
-                      ">
-                        ${escapeHtml(platform)}
-                      </div>
+      case "view":
+        viewContent(id);
+        break;
 
-                      <div style="
-                        color:#456578;
-                        line-height:1.8;
-                        white-space:pre-wrap;
-                        font-size:13px;
-                      ">
-                        ${escapeHtml(text)}
-                      </div>
-                    </div>
-                  `)
-                  .join("")}
-              </div>
-            `
-            : ""
-        }
+      case "edit":
+        editContent(id);
+        break;
 
-      </div>
-    `;
+      case "analyze":
+        analyzeContent(id);
+        break;
 
-    document.body.appendChild(modal);
+      case "review":
+      case "approve":
+      case "publish":
+      case "archive":
+        changeStatus(id, action);
+        break;
 
-    document
-      .getElementById("ez-nr-ai-close")
-      ?.addEventListener("click", () => modal.remove());
+      case "ai":
+        showAlert(
+          "حدد مادة من القائمة ثم اختر تحليل AI."
+        );
+        break;
 
-    modal.addEventListener("click", event => {
-      if (event.target === modal) {
-        modal.remove();
+      default:
+        break;
+    }
+  }
+
+  function bindEvents(container) {
+    container.addEventListener("click", (event) => {
+      const button = event.target.closest(
+        "[data-action]"
+      );
+
+      if (!button) return;
+
+      const action = button.dataset.action;
+      const id = button.dataset.id;
+
+      handleAction(action, id);
+    });
+
+    container.addEventListener("input", (event) => {
+      const filter =
+        event.target.dataset.filter;
+
+      if (filter !== "search") return;
+
+      state.filter.search = event.target.value;
+
+      applyFilters();
+      renderList();
+    });
+
+    container.addEventListener("change", (event) => {
+      const filter =
+        event.target.dataset.filter;
+
+      if (!filter) return;
+
+      state.filter[filter] = event.target.value;
+
+      applyFilters();
+      renderList();
+    });
+
+    container.addEventListener("submit", (event) => {
+      const form = event.target;
+
+      if (form.dataset.form === "new-content") {
+        event.preventDefault();
+        createContent(form);
+      }
+
+      if (form.dataset.form === "edit-content") {
+        event.preventDefault();
+        updateContent(form);
+      }
+    });
+
+    container.addEventListener("click", (event) => {
+      const modal = event.target.closest(
+        "[data-modal]"
+      );
+
+      if (
+        modal &&
+        event.target === modal
+      ) {
+        closeModal();
       }
     });
   }
 
-  function renderAIField(label, value) {
-    if (
-      value === undefined ||
-      value === null ||
-      value === ""
-    ) {
-      return "";
-    }
-
-    return `
-      <div style="
-        margin-top:14px;
-        border:1px solid #e4eef5;
-        border-radius:14px;
-        padding:13px;
-        background:#fbfdff;
-      ">
-        <div style="
-          color:#6f899b;
-          font-size:11px;
-          font-weight:900;
-          margin-bottom:6px;
-        ">
-          ${escapeHtml(label)}
-        </div>
-
-        <div style="
-          color:#294d63;
-          line-height:1.8;
-          font-size:13px;
-          white-space:pre-wrap;
-        ">
-          ${escapeHtml(value)}
-        </div>
-      </div>
-    `;
-  }
-
-  async function publishContent(id) {
-    const confirmed = window.confirm(
-      "هل تريد نشر هذا المحتوى الآن؟"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await request(
-        `${API.content}/${encodeURIComponent(id)}/publish`,
-        {
-          method: "POST",
-          body: JSON.stringify({})
-        }
-      );
-
-      notify(
-        "تم إرسال طلب نشر المحتوى بنجاح.",
-        "success"
-      );
-
-      await loadContent();
-    } catch (error) {
-      notify(error.message, "error");
-    }
-  }
-
-  function createContent() {
-    if (window.EZMediaAdminContent?.create) {
-      window.EZMediaAdminContent.create();
-      return;
-    }
-
-    if (window.EZMediaAdminContent?.openEditor) {
-      window.EZMediaAdminContent.openEditor();
-      return;
-    }
-
-    notify(
-      "محرر المحتوى غير متاح حاليًا.",
-      "info"
-    );
-  }
-
-  function bindEvents() {
-    document
-      .getElementById("ez-nr-refresh")
-      ?.addEventListener("click", loadContent);
-
-    document
-      .getElementById("ez-nr-new")
-      ?.addEventListener("click", createContent);
-
-    document
-      .getElementById("ez-nr-search")
-      ?.addEventListener("input", event => {
-        state.search = event.target.value;
-        applyFilters();
-      });
-
-    document
-      .getElementById("ez-nr-type")
-      ?.addEventListener("change", event => {
-        state.type = event.target.value;
-        applyFilters();
-      });
-
-    document
-      .getElementById("ez-nr-status")
-      ?.addEventListener("change", event => {
-        state.status = event.target.value;
-        applyFilters();
-      });
-
-    document
-      .getElementById("ez-nr-reset")
-      ?.addEventListener("click", () => {
-        state.search = "";
-        state.type = "";
-        state.status = "";
-
-        const search =
-          document.getElementById("ez-nr-search");
-
-        const type =
-          document.getElementById("ez-nr-type");
-
-        const status =
-          document.getElementById("ez-nr-status");
-
-        if (search) search.value = "";
-        if (type) type.value = "";
-        if (status) status.value = "";
-
-        applyFilters();
-      });
-
-    document.addEventListener(
-      "click",
-      event => {
-        const button =
-          event.target.closest(
-            "#ez-newsroom-app [data-action]"
-          );
-
-        if (!button) return;
-
-        const action = button.dataset.action;
-        const id = button.dataset.id;
-
-        if (!id) return;
-
-        if (action === "view") {
-          openContent(id);
-        }
-
-        if (action === "edit") {
-          editContent(id);
-        }
-
-        if (action === "ai") {
-          analyzeWithAI(id);
-        }
-
-        if (action === "publish") {
-          publishContent(id);
-        }
-      }
-    );
-  }
-
-  function initialize() {
-    const container = getContainer();
+  async function initialize() {
+    const container = findContainer();
 
     if (!container) {
       return false;
     }
 
-    renderShell();
-    loadContent();
+    renderShell(container);
+    bindEvents(container);
+
+    await refresh();
 
     return true;
   }
 
   window.EZMediaAdminNewsroom = {
     initialize,
-    refresh: loadContent,
+    refresh,
     getState: () => ({
       ...state,
-      items: [...state.items],
-      filteredItems: [...state.filteredItems]
+      contents: [...state.contents],
+      filtered: [...state.filtered]
     })
   };
 
-  if (document.readyState === "loading") {
+  if (
+    document.readyState === "loading"
+  ) {
     document.addEventListener(
       "DOMContentLoaded",
       initialize,
