@@ -3,7 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import requestId from "./middleware/request-id.js";
 
@@ -16,14 +15,17 @@ import healthRouter from "./routes/health.js";
 import statusRouter from "./routes/status.js";
 import apiRouter from "./routes/api.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 
 app.disable("x-powered-by");
 
 app.set("trust proxy", 1);
+
+/*
+ * ================================
+ * Security
+ * ================================
+ */
 
 app.use(
   helmet({
@@ -33,10 +35,17 @@ app.use(
   })
 );
 
+/*
+ * ================================
+ * CORS
+ * ================================
+ */
+
 app.use(
   cors({
     origin: true,
     credentials: true,
+
     methods: [
       "GET",
       "POST",
@@ -45,6 +54,7 @@ app.use(
       "DELETE",
       "OPTIONS"
     ],
+
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -52,6 +62,12 @@ app.use(
     ]
   })
 );
+
+/*
+ * ================================
+ * Body Parser
+ * ================================
+ */
 
 app.use(
   express.json({
@@ -66,7 +82,19 @@ app.use(
   })
 );
 
+/*
+ * ================================
+ * Request ID
+ * ================================
+ */
+
 app.use(requestId);
+
+/*
+ * ================================
+ * Logging
+ * ================================
+ */
 
 app.use(
   morgan(
@@ -74,42 +102,105 @@ app.use(
   )
 );
 
+/*
+ * ================================
+ * Public Directory
+ * ================================
+ *
+ * Railway:
+ *
+ * /app/public
+ *
+ * وهذا هو المسار الصحيح للواجهة
+ */
+
 const publicDirectory = path.resolve(
-  __dirname,
-  "../../public"
+  process.cwd(),
+  "public"
 );
+
+/*
+ * ================================
+ * Static Files
+ * ================================
+ */
 
 app.use(
   express.static(publicDirectory)
 );
 
 /*
- * الصفحة الرئيسية
- * يتم تقديم واجهة EZ MEDIA من public/index.html
+ * ================================
+ * EZ MEDIA Homepage
+ * ================================
  */
+
 app.get("/", (req, res) => {
   res.sendFile(
-    path.join(publicDirectory, "index.html")
+    path.join(
+      publicDirectory,
+      "index.html"
+    )
   );
 });
+
+/*
+ * ================================
+ * Health
+ * ================================
+ */
 
 app.use(
   "/health",
   healthRouter
 );
 
+/*
+ * ================================
+ * Status
+ * ================================
+ */
+
 app.use(
   "/status",
   statusRouter
 );
+
+/*
+ * ================================
+ * API
+ * ================================
+ */
 
 app.use(
   "/api",
   apiRouter
 );
 
-app.use(notFoundHandler);
+/*
+ * ================================
+ * 404
+ * ================================
+ */
 
-app.use(errorHandler);
+app.use(
+  notFoundHandler
+);
+
+/*
+ * ================================
+ * Error Handler
+ * ================================
+ */
+
+app.use(
+  errorHandler
+);
+
+/*
+ * ================================
+ * Export
+ * ================================
+ */
 
 export default app;
