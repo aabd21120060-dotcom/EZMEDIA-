@@ -1,3 +1,5 @@
+<script src="/live.js"></script>
+<script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
 <script src="/live.js"></script>
 "use strict";
