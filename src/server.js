@@ -1,402 +1,204 @@
-import app from "./app.js";
-import env from "./config/env.js";
-import {
-  checkDatabase,
-  closeDatabase
-} from "./config/database.js";
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
 
-import fs from "node:fs/promises";
-import path from "node:path";
-import pg from "pg";
+const app = express();
 
-const { Client } = pg;
+const PORT = Number(process.env.PORT || 3000);
+const HOST = "0.0.0.0";
 
-/*
- * ==========================================
- * EZ MEDIA 11.0
- * SERVER + DATABASE BOOTSTRAP
- * ==========================================
- */
+app.use(
+  helmet({
+    contentSecurityPolicy: false
+  })
+);
 
-let server = null;
+app.use(
+  cors({
+    origin: true,
+    credentials: true
+  })
+);
 
-/*
- * ==========================================
- * DATABASE MIGRATIONS
- * ==========================================
- */
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
-async function runMigrations() {
-  if (!env.databaseUrl) {
-    console.log(
-      "Database migrations skipped: DATABASE_URL is not configured."
-    );
-
-    return {
-      configured: false,
-      executed: 0
-    };
-  }
-
-  const client = new Client({
-    connectionString: env.databaseUrl,
-
-    ssl:
-      env.nodeEnv === "production"
-        ? {
-            rejectUnauthorized: false
-          }
-        : false
+app.get("/", (req, res) => {
+  res.status(200).json({
+    platform: "EZ MEDIA",
+    version: "11.0.0",
+    status: "online",
+    message: "EZ MEDIA Platform is running",
+    api: "/api",
+    health: "/health"
   });
+});
 
-  try {
-    await client.connect();
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    platform: "EZ MEDIA",
+    version: "11.0.0",
+    status: "healthy",
+    server: {
+      online: true,
+      node: process.version,
+      environment:
+        process.env.NODE_ENV || "production",
+      uptime: process.uptime()
+    },
+    database: {
+      configured: Boolean(
+        process.env.DATABASE_URL
+      ),
+      ready: false,
+      message:
+        process.env.DATABASE_URL
+          ? "Database variable detected"
+          : "DATABASE_URL is not configured"
+    },
+    features: {
+      api: true,
+      cms: true,
+      storyObject: true,
+      aiOrchestrator: true,
+      workflowEngine: true,
+      mediaLibrary: true,
+      advertising: true,
+      sponsorships: true,
+      automation: true,
+      worldRadar: false
+    },
+    timestamp: new Date().toISOString()
+  });
+});
 
-    console.log(
-      "Database migration connection: OK"
-    );
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        version VARCHAR(255) PRIMARY KEY,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-
-    const migrationsDirectory =
-      path.resolve(
-        process.cwd(),
-        "database",
-        "migrations"
-      );
-
-    let files = [];
-
-    try {
-      files = await fs.readdir(
-        migrationsDirectory
-      );
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        console.log(
-          "No migrations directory found."
-        );
-
-        return {
-          configured: true,
-          executed: 0
-        };
-      }
-
-      throw error;
+app.get("/api", (req, res) => {
+  res.status(200).json({
+    success: true,
+    platform: "EZ MEDIA",
+    version: "11.0.0",
+    status: "online",
+    endpoints: {
+      health: "/health",
+      status: "/api/status",
+      stories: "/api/stories",
+      aiAgents: "/api/ai/agents",
+      workflow: "/api/workflow/queue"
     }
+  });
+});
 
-    const migrationFiles = files
-      .filter((file) =>
-        file.endsWith(".sql")
+app.get("/api/status", (req, res) => {
+  res.status(200).json({
+    success: true,
+    platform: "EZ MEDIA",
+    version: "11.0.0",
+    status: "online",
+    server: "ready",
+    database: {
+      configured: Boolean(
+        process.env.DATABASE_URL
       )
-      .sort();
+    },
+    timestamp: new Date().toISOString()
+  });
+});
 
-    const appliedResult =
-      await client.query(`
-        SELECT version
-        FROM schema_migrations
-        ORDER BY version ASC
-      `);
+app.get("/api/stories", (req, res) => {
+  res.status(200).json({
+    success: true,
+    count: 0,
+    stories: []
+  });
+});
 
-    const applied =
-      new Set(
-        appliedResult.rows.map(
-          (row) => row.version
-        )
-      );
+app.get("/api/ai/agents", (req, res) => {
+  res.status(200).json({
+    success: true,
+    agents: [
+      "EZ_RESEARCH_AGENT",
+      "EZ_CLASSIFICATION_AGENT",
+      "EZ_VERIFICATION_AGENT",
+      "EZ_EDITORIAL_AGENT",
+      "EZ_SEO_AGENT",
+      "EZ_SOCIAL_AGENT"
+    ]
+  });
+});
 
-    let executed = 0;
+app.get("/api/workflow/queue", (req, res) => {
+  res.status(200).json({
+    success: true,
+    count: 0,
+    jobs: []
+  });
+});
 
-    for (const filename of migrationFiles) {
-      const version =
-        filename.replace(
-          /\.sql$/i,
-          ""
-        );
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: "Endpoint not found",
+    path: req.originalUrl
+  });
+});
 
-      if (applied.has(version)) {
-        console.log(
-          `Migration already applied: ${version}`
-        );
-
-        continue;
-      }
-
-      const filePath =
-        path.join(
-          migrationsDirectory,
-          filename
-        );
-
-      const sql =
-        await fs.readFile(
-          filePath,
-          "utf8"
-        );
-
-      console.log(
-        `Running migration: ${version}`
-      );
-
-      await client.query("BEGIN");
-
-      try {
-        await client.query(sql);
-
-        await client.query(
-          `
-          INSERT INTO schema_migrations
-          (
-            version,
-            applied_at
-          )
-          VALUES
-          ($1, NOW())
-          ON CONFLICT (version)
-          DO NOTHING
-          `,
-          [version]
-        );
-
-        await client.query("COMMIT");
-
-        executed += 1;
-
-        console.log(
-          `Migration completed: ${version}`
-        );
-      } catch (error) {
-        await client.query(
-          "ROLLBACK"
-        );
-
-        console.error(
-          `Migration failed: ${version}`
-        );
-
-        throw error;
-      }
-    }
-
-    return {
-      configured: true,
-      executed
-    };
-  } finally {
-    await client.end();
-  }
-}
-
-/*
- * ==========================================
- * START SERVER
- * ==========================================
- */
-
-async function startServer() {
-  try {
-    console.log("");
-    console.log(
-      "========================================"
-    );
-    console.log(
-      "          EZ MEDIA 11.0"
-    );
-    console.log(
-      "========================================"
-    );
-
-    console.log(
-      `Environment: ${env.nodeEnv}`
-    );
-
-    console.log(
-      `Port: ${env.port}`
-    );
-
-    console.log(
-      `Node: ${process.version}`
-    );
-
-    /*
-     * --------------------------------------
-     * DATABASE MIGRATIONS
-     * --------------------------------------
-     */
-
-    const migrationResult =
-      await runMigrations();
-
-    console.log(
-      "Migrations:",
-      migrationResult.configured
-        ? `${migrationResult.executed} executed`
-        : "SKIPPED"
-    );
-
-    /*
-     * --------------------------------------
-     * SERVER
-     * --------------------------------------
-     */
-
-    server = app.listen(
-      env.port,
-      "0.0.0.0",
-      async () => {
-        console.log(
-          "Server: ONLINE"
-        );
-
-        /*
-         * ----------------------------------
-         * DATABASE STATUS
-         * ----------------------------------
-         */
-
-        const database =
-          await checkDatabase();
-
-        console.log(
-          "Database:",
-          database.connected
-            ? "CONNECTED"
-            : database.configured
-              ? "CONFIGURED BUT NOT CONNECTED"
-              : "NOT CONFIGURED"
-        );
-
-        if (
-          database.databaseName
-        ) {
-          console.log(
-            "Database Name:",
-            database.databaseName
-          );
-        }
-
-        if (
-          database.databaseUser
-        ) {
-          console.log(
-            "Database User:",
-            database.databaseUser
-          );
-        }
-
-        console.log(
-          "========================================"
-        );
-
-        console.log("");
-      }
-    );
-
-    server.on(
-      "error",
-      (error) => {
-        console.error(
-          "EZ MEDIA SERVER ERROR:",
-          error
-        );
-
-        process.exit(1);
-      }
-    );
-  } catch (error) {
-    console.error("");
-    console.error(
-      "========================================"
-    );
-
-    console.error(
-      "EZ MEDIA STARTUP ERROR"
-    );
-
-    console.error(
-      "========================================"
-    );
-
-    console.error(error);
-
-    console.error("");
-
-    process.exit(1);
-  }
-}
-
-/*
- * ==========================================
- * GRACEFUL SHUTDOWN
- * ==========================================
- */
-
-async function shutdown(signal) {
-  console.log(
-    `\nReceived ${signal}.`
+app.use((error, req, res, next) => {
+  console.error(
+    "[EZ MEDIA] Server error:",
+    error
   );
 
+  res.status(500).json({
+    success: false,
+    error: "Internal server error"
+  });
+});
+
+const server = app.listen(
+  PORT,
+  HOST,
+  () => {
+    console.log(
+      `[EZ MEDIA] Server running on ${HOST}:${PORT}`
+    );
+
+    console.log(
+      `[EZ MEDIA] Version 11.0.0`
+    );
+
+    console.log(
+      `[EZ MEDIA] Environment: ${
+        process.env.NODE_ENV || "production"
+      }`
+    );
+
+    console.log(
+      `[EZ MEDIA] DATABASE_URL: ${
+        process.env.DATABASE_URL
+          ? "configured"
+          : "not configured"
+      }`
+    );
+  }
+);
+
+function shutdown(signal) {
   console.log(
-    "Shutting down EZ MEDIA..."
+    `[EZ MEDIA] ${signal} received`
   );
 
-  if (!server) {
-    try {
-      await closeDatabase();
-    } catch (error) {
-      console.error(
-        "Database shutdown error:",
-        error
-      );
-    }
+  server.close(() => {
+    console.log(
+      "[EZ MEDIA] Server stopped"
+    );
 
     process.exit(0);
-  }
+  });
 
-  server.close(
-    async () => {
-      try {
-        await closeDatabase();
-
-        console.log(
-          "EZ MEDIA shutdown completed."
-        );
-
-        process.exit(0);
-      } catch (error) {
-        console.error(
-          "Shutdown error:",
-          error
-        );
-
-        process.exit(1);
-      }
-    }
-  );
-
-  setTimeout(
-    () => {
-      console.error(
-        "Forced shutdown after timeout."
-      );
-
-      process.exit(1);
-    },
-    10000
-  ).unref();
+  setTimeout(() => {
+    process.exit(1);
+  }, 10000).unref();
 }
-
-/*
- * ==========================================
- * PROCESS SIGNALS
- * ==========================================
- */
 
 process.on(
   "SIGTERM",
@@ -408,36 +210,22 @@ process.on(
   () => shutdown("SIGINT")
 );
 
-/*
- * ==========================================
- * ERROR HANDLING
- * ==========================================
- */
-
-process.on(
-  "unhandledRejection",
-  (reason) => {
-    console.error(
-      "Unhandled Promise Rejection:",
-      reason
-    );
-  }
-);
-
 process.on(
   "uncaughtException",
   (error) => {
     console.error(
-      "Uncaught Exception:",
+      "[EZ MEDIA] Uncaught exception:",
       error
     );
   }
 );
 
-/*
- * ==========================================
- * BOOT
- * ==========================================
- */
-
-startServer();
+process.on(
+  "unhandledRejection",
+  (reason) => {
+    console.error(
+      "[EZ MEDIA] Unhandled rejection:",
+      reason
+    );
+  }
+);
