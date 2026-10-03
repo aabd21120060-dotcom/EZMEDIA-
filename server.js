@@ -1,3 +1,4 @@
+const { initializeDatabase } = require("./src/database/init");
 app.use(
   express.static(
     path.join(__dirname, "public")
@@ -444,7 +445,6 @@ app.use(
 /* =========================================================
    SERVER START
 ========================================================= */
-
 const server = app.listen(
   PORT,
   "0.0.0.0",
@@ -452,21 +452,13 @@ const server = app.listen(
     console.log(
       JSON.stringify({
         platform: PLATFORM,
-
         version: VERSION,
-
         status: "online",
-
         port: PORT,
-
         node: process.version,
-
         environment:
-          process.env.NODE_ENV ||
-          "development",
-
-        timestamp:
-          new Date().toISOString()
+          process.env.NODE_ENV || "development",
+        timestamp: new Date().toISOString()
       })
     );
   }
