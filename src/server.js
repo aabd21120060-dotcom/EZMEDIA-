@@ -1,3 +1,14 @@
+const { initializeDatabase } = require("./src/database/init");
+const { initializeMediaDatabase } = require("./src/database/media-init");
+app.use("/api/commercial", commercialRoutes);
+app.use("/api/content", contentRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/media", mediaRoutes);
+app.use("/api/live", liveRoutes);
+app.use("/api/breaking", breakingRoutes);
+app.use("/api/storage", storageRoutes);
+app.use("/api/upload", uploadRoutes);
+const commercialRoutes = require("./src/routes/commercial");
 import express from "express";
 import pg from "pg";
 
