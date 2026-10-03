@@ -1,5 +1,6 @@
+const storageRoutes =
+  require("./src/routes/storage");
 "use strict";
-
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
