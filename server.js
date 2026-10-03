@@ -1,7 +1,6 @@
 const contentRoutes = require("./src/routes/content");
 const { health: databaseHealth } = require("./src/database/db");
 "use strict";
-
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
