@@ -59,6 +59,7 @@ ON cms_content(is_breaking);
 CREATE INDEX IF NOT EXISTS idx_cms_content_featured
 ON cms_content(is_featured);
 
+
 CREATE TABLE IF NOT EXISTS cms_content_tags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -76,6 +77,7 @@ ON cms_content_tags(content_id);
 
 CREATE INDEX IF NOT EXISTS idx_cms_content_tags_tag
 ON cms_content_tags(tag);
+
 
 CREATE TABLE IF NOT EXISTS cms_content_revisions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -99,6 +101,7 @@ CREATE TABLE IF NOT EXISTS cms_content_revisions (
 
 CREATE INDEX IF NOT EXISTS idx_cms_revisions_content
 ON cms_content_revisions(content_id);
+
 
 CREATE TABLE IF NOT EXISTS cms_content_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
