@@ -2,12 +2,15 @@
   "name": "ez-media",
   "version": "11.0.0",
   "private": true,
-  "main": "src/server.cjs",
+  "type": "module",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.cjs"
+    "start": "node src/server.js"
   },
   "engines": {
     "node": "20.x"
   },
-  "dependencies": {}
+  "dependencies": {
+    "express": "^5.1.0"
+  }
 }
