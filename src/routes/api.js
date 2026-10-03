@@ -1,147 +1,297 @@
 import express from "express";
-
-import {
-  createStory,
-  getStory,
-  updateStory,
-} from "../core/story-object.js";
-
-import {
-  orchestrateStory,
-  getAgents,
-} from "../core/ai-orchestrator.js";
-
-import {
-  enqueueJob,
-  getNextJobs,
-} from "../core/workflow-engine.js";
+import crypto from "node:crypto";
 
 const router = express.Router();
 
-router.post("/stories", async (req, res) => {
+const stories = new Map();
+const jobs = [];
+
+function id() {
+  return crypto.randomUUID();
+}
+
+router.get("/", (req, res) => {
+  res.json({
+    success: true,
+    platform: "EZ MEDIA",
+    version: "11.0.0",
+    api: "online"
+  });
+});
+
+router.get("/status", (req, res) => {
+  res.json({
+    success: true,
+    platform: "EZ MEDIA",
+    version: "11.0.0",
+    status: "online",
+    modules: {
+      api: true,
+      cms: true,
+      storyObject: true,
+      aiOrchestrator: true,
+      workflowEngine: true,
+      audit: true,
+      worldRadar: false
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+router.post("/stories", (req, res) => {
   try {
-    const story = await createStory({
-      ...req.body,
-      createdBy: req.user?.id || "api",
-    });
+    const story = {
+      id: id(),
+      storyKey: `EZ-${Date.now()}`,
+
+      title: req.body?.title || null,
+      subtitle: req.body?.subtitle || null,
+      summary: req.body?.summary || null,
+      body: req.body?.body || null,
+
+      contentType:
+        req.body?.contentType || "news",
+
+      language:
+        req.body?.language || "ar",
+
+      status: "draft",
+
+      primaryCategory: null,
+      secondaryCategories: [],
+      topics: [],
+
+      country: null,
+      region: null,
+      city: null,
+      district: null,
+      place: null,
+
+      confidenceScore: 0,
+      importanceScore: 0,
+
+      breakingCandidate: false,
+
+      ai: {
+        status: "queued",
+        agents: []
+      },
+
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    stories.set(story.id, story);
 
     res.status(201).json({
       success: true,
-      story,
+      story
     });
   } catch (error) {
+    console.error(
+      "[EZ MEDIA] Story creation error:",
+      error
+    );
+
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error.message
     });
   }
 });
 
-router.get("/stories/:id", async (req, res) => {
-  try {
-    const story = await getStory(req.params.id);
+router.get("/stories", (req, res) => {
+  res.json({
+    success: true,
+    count: stories.size,
+    stories: Array.from(stories.values())
+  });
+});
+
+router.get("/stories/:id", (req, res) => {
+  const story = stories.get(req.params.id);
+
+  if (!story) {
+    return res.status(404).json({
+      success: false,
+      error: "Story not found"
+    });
+  }
+
+  res.json({
+    success: true,
+    story
+  });
+});
+
+router.patch("/stories/:id", (req, res) => {
+  const story = stories.get(req.params.id);
+
+  if (!story) {
+    return res.status(404).json({
+      success: false,
+      error: "Story not found"
+    });
+  }
+
+  const allowedFields = [
+    "title",
+    "subtitle",
+    "summary",
+    "body",
+    "contentType",
+    "primaryCategory",
+    "secondaryCategories",
+    "topics",
+    "country",
+    "region",
+    "city",
+    "district",
+    "place",
+    "confidenceScore",
+    "importanceScore",
+    "breakingCandidate",
+    "status"
+  ];
+
+  for (const field of allowedFields) {
+    if (req.body?.[field] !== undefined) {
+      story[field] = req.body[field];
+    }
+  }
+
+  story.updatedAt =
+    new Date().toISOString();
+
+  stories.set(story.id, story);
+
+  res.json({
+    success: true,
+    story
+  });
+});
+
+router.post(
+  "/stories/:id/orchestrate",
+  (req, res) => {
+    const story = stories.get(req.params.id);
 
     if (!story) {
       return res.status(404).json({
         success: false,
-        error: "Story not found",
+        error: "Story not found"
       });
     }
 
-    res.json({
-      success: true,
-      story,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
+    const agents = [
+      "EZ_RESEARCH_AGENT",
+      "EZ_CLASSIFICATION_AGENT",
+      "EZ_VERIFICATION_AGENT",
+      "EZ_EDITORIAL_AGENT",
+      "EZ_SEO_AGENT",
+      "EZ_SOCIAL_AGENT"
+    ];
 
-router.patch("/stories/:id", async (req, res) => {
-  try {
-    const story = await updateStory(
-      req.params.id,
-      req.body
-    );
+    const runs = agents.map((agent) => ({
+      id: id(),
+      agent,
+      status: "queued",
+      createdAt: new Date().toISOString()
+    }));
 
-    res.json({
-      success: true,
-      story,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
+    story.ai = {
+      status: "queued",
+      agents: runs
+    };
 
-router.post("/stories/:id/orchestrate", async (req, res) => {
-  try {
-    const story = await getStory(req.params.id);
+    story.status = "researching";
+    story.updatedAt =
+      new Date().toISOString();
 
-    if (!story) {
-      return res.status(404).json({
-        success: false,
-        error: "Story not found",
-      });
-    }
-
-    const result = await orchestrateStory(story);
+    stories.set(story.id, story);
 
     res.json({
       success: true,
-      result,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-router.post("/workflow/jobs", async (req, res) => {
-  try {
-    const job = await enqueueJob(req.body);
-
-    res.status(201).json({
-      success: true,
-      job,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
+      storyId: story.id,
+      orchestration: {
+        status: "queued",
+        runs
+      }
     });
   }
-});
-
-router.get("/workflow/queue", async (req, res) => {
-  try {
-    const jobs = await getNextJobs(
-      Number(req.query.limit || 10)
-    );
-
-    res.json({
-      success: true,
-      jobs,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
+);
 
 router.get("/ai/agents", (req, res) => {
   res.json({
     success: true,
-    agents: getAgents(),
+    agents: [
+      {
+        id: "EZ_RESEARCH_AGENT",
+        name: "البحث",
+        status: "ready"
+      },
+      {
+        id: "EZ_CLASSIFICATION_AGENT",
+        name: "التصنيف",
+        status: "ready"
+      },
+      {
+        id: "EZ_VERIFICATION_AGENT",
+        name: "التحقق",
+        status: "ready"
+      },
+      {
+        id: "EZ_EDITORIAL_AGENT",
+        name: "التحرير",
+        status: "ready"
+      },
+      {
+        id: "EZ_SEO_AGENT",
+        name: "SEO",
+        status: "ready"
+      },
+      {
+        id: "EZ_SOCIAL_AGENT",
+        name: "التوزيع الاجتماعي",
+        status: "ready"
+      }
+    ]
+  });
+});
+
+router.post("/workflow/jobs", (req, res) => {
+  const job = {
+    id: id(),
+
+    jobType:
+      req.body?.jobType ||
+      "content.process",
+
+    priority:
+      Number(req.body?.priority || 50),
+
+    status: "queued",
+
+    payload:
+      req.body?.payload || {},
+
+    createdAt:
+      new Date().toISOString()
+  };
+
+  jobs.push(job);
+
+  res.status(201).json({
+    success: true,
+    job
+  });
+});
+
+router.get("/workflow/queue", (req, res) => {
+  res.json({
+    success: true,
+    count: jobs.length,
+    jobs
   });
 });
 
