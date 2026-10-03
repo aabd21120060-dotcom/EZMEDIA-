@@ -15,15 +15,20 @@ import healthRouter from "./routes/health.js";
 import statusRouter from "./routes/status.js";
 import apiRouter from "./routes/api.js";
 import authRouter from "./routes/auth.js";
+import platformRouter from "./routes/platform.js";
 
 const app = express();
 
+/*
+ * ==========================================
+ * EZ MEDIA 11.0
+ * APPLICATION CORE
+ * ==========================================
+ */
+
 app.disable("x-powered-by");
 
-app.set(
-  "trust proxy",
-  1
-);
+app.set("trust proxy", 1);
 
 /*
  * ==========================================
@@ -38,6 +43,12 @@ app.use(
     }
   })
 );
+
+/*
+ * ==========================================
+ * CORS
+ * ==========================================
+ */
 
 app.use(
   cors({
@@ -102,25 +113,20 @@ app.use(
 
 /*
  * ==========================================
- * PUBLIC DIRECTORY
+ * STATIC FILES
  * ==========================================
  */
 
 const publicDirectory =
-  path.resolve(
-    process.cwd(),
-    "public"
-  );
+  path.resolve(process.cwd(), "public");
 
 app.use(
-  express.static(
-    publicDirectory
-  )
+  express.static(publicDirectory)
 );
 
 /*
  * ==========================================
- * HOME
+ * MAIN WEBSITE
  * ==========================================
  */
 
@@ -182,6 +188,23 @@ app.use(
 
 /*
  * ==========================================
+ * PLATFORM API
+ * ==========================================
+ *
+ * /api/platform/sections/full
+ * /api/platform/ai
+ * /api/platform/admin/overview
+ * /api/platform/health
+ *
+ */
+
+app.use(
+  "/api/platform",
+  platformRouter
+);
+
+/*
+ * ==========================================
  * 404
  * ==========================================
  */
@@ -192,7 +215,7 @@ app.use(
 
 /*
  * ==========================================
- * ERROR HANDLER
+ * GLOBAL ERROR HANDLER
  * ==========================================
  */
 
