@@ -1,3 +1,4 @@
+const aiRoutes = require("./src/routes/ai");
 const contentRoutes = require("./src/routes/content");
 const { health: databaseHealth } = require("./src/database/db");
 "use strict";
