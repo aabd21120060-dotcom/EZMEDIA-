@@ -1,3 +1,10 @@
+app.use(
+  express.static(
+    path.join(__dirname, "public")
+  )
+);
+const app = express();
+const path = require("path");
 /**
  * EZ MEDIA 11.0
  * Main Server
@@ -114,7 +121,6 @@ app.use((req, res, next) => {
 /* =========================================================
    ROOT
 ========================================================= */
-
 app.get("/", (req, res) => {
   res.json({
     platform: PLATFORM,
@@ -125,6 +131,7 @@ app.get("/", (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
 
 /* =========================================================
    BASIC API
