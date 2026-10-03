@@ -2,164 +2,2481 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
-  <title>EZ MEDIA</title>
+  <title>EZ MEDIA 11.0 | منصة إعلامية رقمية ذكية</title>
 
   <meta
     name="description"
-    content="EZ MEDIA - Smart Digital Media Platform"
+    content="EZ MEDIA 11.0 — منصة إعلامية رقمية ذكية للأخبار والمحتوى والفيديو والصوت والبث والتغطيات والإعلانات والرعايات."
   >
 
+  <meta name="theme-color" content="#0aa7d8">
+
   <style>
+    :root {
+      --primary: #08a6d8;
+      --primary-dark: #087da8;
+      --cyan: #5ce5ff;
+      --ice: #e9fbff;
+      --ice-2: #f5fdff;
+      --white: #ffffff;
+      --text: #123442;
+      --muted: #6b8792;
+      --border: #d8edf4;
+      --shadow: 0 18px 50px rgba(17, 147, 180, 0.10);
+      --radius: 24px;
+    }
+
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
-      margin: 0;
       font-family:
         -apple-system,
         BlinkMacSystemFont,
         "Segoe UI",
+        Tahoma,
         Arial,
         sans-serif;
 
       background:
+        radial-gradient(
+          circle at 10% 5%,
+          rgba(92, 229, 255, 0.20),
+          transparent 28%
+        ),
         linear-gradient(
-          135deg,
-          #ffffff 0%,
-          #f1fbff 45%,
-          #e4f7ff 100%
+          180deg,
+          #f8feff 0%,
+          #eefbff 45%,
+          #ffffff 100%
         );
 
+      color: var(--text);
       min-height: 100vh;
-      color: #123;
+      line-height: 1.7;
     }
 
-    main {
-      min-height: 100vh;
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font-family: inherit;
+    }
+
+    /* =========================
+       TOP BAR
+    ========================= */
+
+    .top-bar {
+      min-height: 38px;
+      padding: 7px 5%;
+      background:
+        linear-gradient(
+          90deg,
+          #078ebd,
+          #08afd9,
+          #63e7ff
+        );
+
+      color: white;
 
       display: flex;
-
+      justify-content: space-between;
       align-items: center;
 
-      justify-content: center;
+      gap: 20px;
 
-      padding: 30px;
+      font-size: 13px;
+      font-weight: 700;
     }
 
-    .container {
-      width: 100%;
-      max-width: 900px;
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
 
-      text-align: center;
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(255,255,255,.9);
+    }
 
-      background: rgba(255,255,255,.82);
+    /* =========================
+       NAVIGATION
+    ========================= */
 
-      border: 1px solid rgba(120,200,235,.3);
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
 
-      border-radius: 28px;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(18px);
 
-      padding: 55px 30px;
+      border-bottom: 1px solid var(--border);
+
+      padding: 14px 5%;
+
+      display: flex;
+      align-items: center;
+      gap: 25px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      min-width: max-content;
+    }
+
+    .brand-mark {
+      width: 43px;
+      height: 43px;
+
+      border-radius: 14px;
+
+      display: grid;
+      place-items: center;
+
+      background:
+        linear-gradient(
+          135deg,
+          #08a4d5,
+          #6deaff
+        );
+
+      color: white;
+
+      font-weight: 1000;
+      font-size: 17px;
 
       box-shadow:
-        0 20px 60px
-        rgba(80,170,210,.16);
+        0 8px 25px rgba(8,164,213,.22);
     }
 
-    h1 {
-      margin: 0;
-
-      font-size: clamp(
-        42px,
-        8vw,
-        78px
-      );
-
-      letter-spacing: 2px;
+    .brand-name {
+      font-size: 24px;
+      font-weight: 1000;
+      letter-spacing: .5px;
 
       background:
         linear-gradient(
           90deg,
-          #159dcc,
-          #61d7ff
+          #078cb9,
+          #18c5ee
         );
 
       -webkit-background-clip: text;
-
       background-clip: text;
-
       color: transparent;
     }
 
-    p {
-      font-size: 20px;
+    .main-nav {
+      flex: 1;
 
-      line-height: 1.8;
-
-      color: #47616d;
-    }
-
-    .status {
-      display: inline-flex;
-
+      display: flex;
       align-items: center;
+      justify-content: center;
 
-      gap: 10px;
-
-      margin-top: 20px;
-
-      padding: 12px 20px;
-
-      border-radius: 999px;
-
-      background: #effcff;
-
-      color: #0784ae;
-
-      font-weight: 700;
+      gap: 20px;
     }
 
-    .dot {
-      width: 10px;
-      height: 10px;
+    .main-nav a {
+      color: #476672;
+      font-size: 14px;
+      font-weight: 800;
+
+      transition: .2s;
+    }
+
+    .main-nav a:hover {
+      color: var(--primary);
+    }
+
+    .nav-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      border: 1px solid var(--border);
+      background: white;
+
+      border-radius: 14px;
+
+      padding: 10px 14px;
+
+      font-weight: 850;
+      color: #345762;
+
+      cursor: pointer;
+    }
+
+    .nav-btn.primary {
+      background:
+        linear-gradient(
+          90deg,
+          #079bc9,
+          #52dfff
+        );
+
+      border: none;
+      color: white;
+    }
+
+    /* =========================
+       MAIN
+    ========================= */
+
+    main {
+      max-width: 1450px;
+      margin: auto;
+      padding: 25px 5% 70px;
+    }
+
+    /* =========================
+       HERO
+    ========================= */
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.4fr .75fr;
+
+      gap: 18px;
+
+      margin-top: 12px;
+    }
+
+    .hero-main {
+      min-height: 500px;
+
+      padding: 50px;
+
+      border-radius: 34px;
+
+      border: 1px solid #d4eef5;
+
+      background:
+        radial-gradient(
+          circle at 85% 20%,
+          rgba(93,230,255,.35),
+          transparent 28%
+        ),
+        linear-gradient(
+          135deg,
+          #dcf9ff,
+          #ffffff 52%,
+          #e4faff
+        );
+
+      box-shadow: var(--shadow);
+
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+
+      overflow: hidden;
+
+      position: relative;
+    }
+
+    .hero-main::after {
+      content: "";
+
+      position: absolute;
+
+      width: 250px;
+      height: 250px;
+
+      left: -100px;
+      top: -100px;
 
       border-radius: 50%;
 
-      background: #22b8e6;
+      background:
+        radial-gradient(
+          circle,
+          rgba(8,170,220,.14),
+          transparent 70%
+        );
+    }
+
+    .hero-tag {
+      width: max-content;
+
+      padding: 8px 15px;
+
+      border-radius: 100px;
+
+      background: rgba(255,255,255,.85);
+
+      border: 1px solid #d5edf4;
+
+      color: #078dbb;
+
+      font-size: 13px;
+
+      font-weight: 950;
+
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero h1 {
+      position: relative;
+      z-index: 2;
+
+      font-size: clamp(
+        42px,
+        6vw,
+        76px
+      );
+
+      line-height: 1.05;
+
+      margin: 18px 0 12px;
+
+      font-weight: 1000;
+
+      max-width: 850px;
+    }
+
+    .hero h1 span {
+      color: var(--primary);
+    }
+
+    .hero-description {
+      position: relative;
+      z-index: 2;
+
+      max-width: 800px;
+
+      font-size: 18px;
+
+      color: var(--muted);
+
+      line-height: 2;
+
+      margin-bottom: 25px;
+    }
+
+    .hero-actions {
+      position: relative;
+      z-index: 2;
+
+      display: flex;
+      flex-wrap: wrap;
+
+      gap: 10px;
+    }
+
+    .button {
+      display: inline-flex;
+
+      align-items: center;
+      justify-content: center;
+
+      gap: 8px;
+
+      padding: 13px 19px;
+
+      border-radius: 15px;
+
+      border: 1px solid var(--border);
+
+      background: white;
+
+      font-weight: 900;
+
+      cursor: pointer;
+
+      transition: .2s;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+    }
+
+    .button-primary {
+      background:
+        linear-gradient(
+          90deg,
+          #069bca,
+          #51dcfa
+        );
+
+      border: none;
+
+      color: white;
 
       box-shadow:
-        0 0 12px
-        rgba(34,184,230,.7);
+        0 10px 25px rgba(8,165,214,.20);
+    }
+
+    .button-light {
+      color: #3d6673;
+    }
+
+    /* =========================
+       HERO SIDE
+    ========================= */
+
+    .hero-side {
+      display: grid;
+      gap: 15px;
+    }
+
+    .smart-card {
+      background: rgba(255,255,255,.93);
+
+      border: 1px solid var(--border);
+
+      border-radius: var(--radius);
+
+      padding: 25px;
+
+      box-shadow: var(--shadow);
+
+      min-height: 150px;
+
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .smart-label {
+      color: #078eb9;
+
+      font-size: 13px;
+
+      font-weight: 950;
+    }
+
+    .smart-card h3 {
+      font-size: 21px;
+
+      margin: 7px 0;
+    }
+
+    .smart-card p {
+      color: var(--muted);
+
+      font-size: 14px;
+    }
+
+    .live-card {
+      background:
+        linear-gradient(
+          135deg,
+          #e1faff,
+          #ffffff
+        );
+
+      border-color: #bce9f5;
+    }
+
+    /* =========================
+       SECTION
+    ========================= */
+
+    .section {
+      margin-top: 55px;
+    }
+
+    .section-heading {
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: flex-end;
+
+      gap: 20px;
+
+      margin-bottom: 17px;
+    }
+
+    .section-title {
+      font-size: 30px;
+
+      font-weight: 1000;
+    }
+
+    .section-description {
+      margin-top: 3px;
+
+      color: var(--muted);
+
+      font-size: 14px;
+    }
+
+    .view-all {
+      color: var(--primary-dark);
+
+      font-weight: 900;
+
+      font-size: 14px;
+    }
+
+    /* =========================
+       CONTENT CARDS
+    ========================= */
+
+    .content-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(4, 1fr);
+
+      gap: 15px;
+    }
+
+    .content-card {
+      background: white;
+
+      border: 1px solid var(--border);
+
+      border-radius: var(--radius);
+
+      overflow: hidden;
+
+      box-shadow:
+        0 10px 35px rgba(15,120,150,.06);
+
+      transition: .2s;
+    }
+
+    .content-card:hover {
+      transform: translateY(-4px);
+
+      box-shadow:
+        0 18px 40px rgba(15,120,150,.12);
+    }
+
+    .content-image {
+      height: 145px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #d9f8ff,
+          #f7feff
+        );
+
+      display: grid;
+
+      place-items: center;
+
+      color: #0a9cc9;
+
+      font-size: 42px;
+
+      font-weight: 1000;
+    }
+
+    .content-body {
+      padding: 18px;
+    }
+
+    .content-type {
+      color: var(--primary);
+
+      font-size: 12px;
+
+      font-weight: 950;
+    }
+
+    .content-body h3 {
+      font-size: 18px;
+
+      margin: 7px 0;
+    }
+
+    .content-body p {
+      color: var(--muted);
+
+      font-size: 13px;
+
+      line-height: 1.8;
+    }
+
+    /* =========================
+       30 SECTIONS
+    ========================= */
+
+    .section-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(5, 1fr);
+
+      gap: 11px;
+    }
+
+    .section-tile {
+      min-height: 105px;
+
+      padding: 18px;
+
+      background: rgba(255,255,255,.94);
+
+      border: 1px solid var(--border);
+
+      border-radius: 18px;
+
+      display: flex;
+
+      flex-direction: column;
+
+      justify-content: center;
+
+      gap: 3px;
+
+      transition: .2s;
+    }
+
+    .section-tile:hover {
+      border-color: #8eddf2;
+
+      transform: translateY(-3px);
+
+      background: #faffff;
+    }
+
+    .section-number {
+      color: #8aa8b2;
+
+      font-size: 11px;
+
+      font-weight: 900;
+    }
+
+    .section-tile strong {
+      font-size: 16px;
+    }
+
+    .section-tile small {
+      color: var(--muted);
+
+      font-size: 11px;
+    }
+
+    /* =========================
+       SMART SYSTEM
+    ========================= */
+
+    .smart-system {
+      display: grid;
+
+      grid-template-columns:
+        repeat(4, 1fr);
+
+      gap: 14px;
+    }
+
+    .system-card {
+      background: white;
+
+      border: 1px solid var(--border);
+
+      border-radius: 22px;
+
+      padding: 24px;
+
+      box-shadow: var(--shadow);
+    }
+
+    .system-icon {
+      width: 45px;
+      height: 45px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 14px;
+
+      background: var(--ice);
+
+      color: var(--primary);
+
+      font-weight: 1000;
+
+      margin-bottom: 12px;
+    }
+
+    .system-card h3 {
+      margin-bottom: 6px;
+    }
+
+    .system-card p {
+      color: var(--muted);
+
+      font-size: 13px;
+
+      line-height: 1.8;
+    }
+
+    /* =========================
+       PLATFORMS
+    ========================= */
+
+    .platform-grid {
+      display: flex;
+
+      flex-wrap: wrap;
+
+      gap: 10px;
+    }
+
+    .platform-card {
+      flex: 1 1 160px;
+
+      background: white;
+
+      border: 1px solid var(--border);
+
+      border-radius: 17px;
+
+      padding: 17px;
+
+      text-align: center;
+
+      font-weight: 900;
+
+      transition: .2s;
+    }
+
+    .platform-card:hover {
+      transform: translateY(-3px);
+
+      border-color: #8eddf2;
+    }
+
+    .platform-card span {
+      display: block;
+
+      color: var(--primary);
+
+      font-size: 12px;
+
+      margin-top: 4px;
+    }
+
+    /* =========================
+       ADS + SPONSORS
+    ========================= */
+
+    .business-grid {
+      display: grid;
+
+      grid-template-columns:
+        1fr 1fr;
+
+      gap: 15px;
+    }
+
+    .business-card {
+      padding: 30px;
+
+      border-radius: 27px;
+
+      border: 1px solid var(--border);
+
+      background:
+        linear-gradient(
+          135deg,
+          #ffffff,
+          #e9fbff
+        );
+
+      box-shadow: var(--shadow);
+    }
+
+    .business-card h3 {
+      font-size: 24px;
+
+      margin: 8px 0;
+    }
+
+    .business-card p {
+      color: var(--muted);
+
+      line-height: 1.9;
+    }
+
+    .business-list {
+      margin-top: 15px;
+
+      display: grid;
+
+      gap: 8px;
+    }
+
+    .business-list div {
+      background: rgba(255,255,255,.75);
+
+      border: 1px solid var(--border);
+
+      padding: 9px 12px;
+
+      border-radius: 11px;
+
+      font-size: 13px;
+
+      font-weight: 750;
+    }
+
+    /* =========================
+       ADMIN
+    ========================= */
+
+    .admin-panel {
+      background:
+        linear-gradient(
+          135deg,
+          #ffffff,
+          #e8faff
+        );
+
+      border: 1px solid var(--border);
+
+      border-radius: 30px;
+
+      padding: 30px;
+
+      box-shadow: var(--shadow);
+    }
+
+    .admin-header {
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 20px;
+
+      align-items: center;
+
+      margin-bottom: 22px;
+    }
+
+    .admin-status {
+      padding: 8px 12px;
+
+      background: #eafff8;
+
+      border: 1px solid #c8f1df;
+
+      border-radius: 99px;
+
+      color: #15865e;
+
+      font-size: 12px;
+
+      font-weight: 900;
+    }
+
+    .admin-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(4, 1fr);
+
+      gap: 11px;
+    }
+
+    .admin-item {
+      background: white;
+
+      border: 1px solid var(--border);
+
+      border-radius: 16px;
+
+      padding: 17px;
+
+      font-weight: 850;
+    }
+
+    .admin-item small {
+      display: block;
+
+      color: var(--muted);
+
+      font-weight: 600;
+
+      margin-top: 4px;
+    }
+
+    /* =========================
+       ABOUT
+    ========================= */
+
+    .about {
+      display: grid;
+
+      grid-template-columns:
+        1.2fr .8fr;
+
+      gap: 15px;
+    }
+
+    .about-main,
+    .about-side {
+      background: white;
+
+      border: 1px solid var(--border);
+
+      border-radius: 27px;
+
+      padding: 30px;
+
+      box-shadow: var(--shadow);
+    }
+
+    .about-main h2 {
+      font-size: 30px;
+
+      margin-bottom: 10px;
+    }
+
+    .about-main p,
+    .about-side p {
+      color: var(--muted);
+
+      line-height: 2;
+    }
+
+    /* =========================
+       FOOTER
+    ========================= */
+
+    footer {
+      margin-top: 20px;
+
+      background:
+        linear-gradient(
+          180deg,
+          #eefbff,
+          #e3f8fd
+        );
+
+      border-top: 1px solid var(--border);
+
+      padding: 45px 5% 25px;
+    }
+
+    .footer-inner {
+      max-width: 1450px;
+
+      margin: auto;
+
+      display: grid;
+
+      grid-template-columns:
+        1.4fr 1fr 1fr 1fr;
+
+      gap: 30px;
+    }
+
+    .footer-brand {
+      font-size: 25px;
+
+      font-weight: 1000;
+
+      color: var(--primary);
+    }
+
+    .footer-column h4 {
+      margin-bottom: 12px;
+    }
+
+    .footer-column a {
+      display: block;
+
+      color: var(--muted);
+
+      margin: 5px 0;
+
+      font-size: 13px;
+    }
+
+    .footer-bottom {
+      max-width: 1450px;
+
+      margin: 30px auto 0;
+
+      padding-top: 18px;
+
+      border-top: 1px solid #cfe8ef;
+
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 15px;
+
+      color: #66828d;
+
+      font-size: 12px;
+    }
+
+    /* =========================
+       MOBILE
+    ========================= */
+
+    @media (max-width: 1100px) {
+
+      .main-nav {
+        display: none;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .content-grid {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+
+      .section-grid {
+        grid-template-columns:
+          repeat(3, 1fr);
+      }
+
+      .smart-system {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+
+      .admin-grid {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+
+      .footer-inner {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 700px) {
+
+      .top-bar {
+        display: none;
+      }
+
+      .navbar {
+        padding: 11px 4%;
+      }
+
+      .nav-actions .nav-btn:not(.primary) {
+        display: none;
+      }
+
+      .brand-name {
+        font-size: 21px;
+      }
+
+      main {
+        padding:
+          18px 4% 50px;
+      }
+
+      .hero-main {
+        min-height: 450px;
+
+        padding: 30px 24px;
+      }
+
+      .hero h1 {
+        font-size: 43px;
+      }
+
+      .hero-description {
+        font-size: 15px;
+      }
+
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-grid {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+
+      .smart-system {
+        grid-template-columns: 1fr;
+      }
+
+      .business-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .about {
+        grid-template-columns: 1fr;
+      }
+
+      .admin-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-bottom {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 430px) {
+
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h1 {
+        font-size: 38px;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+      }
+
+      .button {
+        width: 100%;
+      }
     }
   </style>
 </head>
 
 <body>
 
+  <!-- =========================
+       TOP BAR
+  ========================== -->
+
+  <div class="top-bar">
+
+    <div>
+      EZ MEDIA 11.0 — منصة إعلامية رقمية ذكية
+    </div>
+
+    <div class="system-status">
+      <span class="status-dot"></span>
+      النظام يعمل
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       NAVIGATION
+  ========================== -->
+
+  <header class="navbar">
+
+    <a href="/" class="brand">
+
+      <div class="brand-mark">
+        EZ
+      </div>
+
+      <div class="brand-name">
+        EZ MEDIA
+      </div>
+
+    </a>
+
+
+    <nav class="main-nav">
+
+      <a href="#news">الأخبار</a>
+
+      <a href="#content">المحتوى</a>
+
+      <a href="#sections">الأقسام</a>
+
+      <a href="#platforms">منصاتي</a>
+
+      <a href="#smart">الذكاء</a>
+
+      <a href="#business">الإعلانات والرعايات</a>
+
+      <a href="#admin">الإدارة</a>
+
+    </nav>
+
+
+    <div class="nav-actions">
+
+      <a
+        href="#live"
+        class="nav-btn primary"
+      >
+        🔴 البث المباشر
+      </a>
+
+    </div>
+
+  </header>
+
+
+  <!-- =========================
+       MAIN
+  ========================== -->
+
   <main>
 
-    <section class="container">
 
-      <h1>EZ MEDIA</h1>
+    <!-- HERO -->
 
-      <p>
-        منصة إعلامية رقمية ذكية
-      </p>
+    <section
+      class="hero"
+      id="news"
+    >
 
-      <div class="status">
-        <span class="dot"></span>
-        النظام يعمل
+      <div class="hero-main">
+
+        <span class="hero-tag">
+          الجيل الجديد من الإعلام الرقمي
+        </span>
+
+        <h1>
+          الإعلام
+          <span>يبدأ من هنا.</span>
+        </h1>
+
+        <p class="hero-description">
+
+          EZ MEDIA منصة إعلامية رقمية قابلة للتوسع،
+          تجمع الأخبار والمحتوى والفيديو والصوت
+          والتغطيات والفعاليات والبث المباشر
+          والإعلانات والرعايات والأتمتة في منظومة واحدة.
+
+        </p>
+
+        <div class="hero-actions">
+
+          <a
+            href="#sections"
+            class="button button-primary"
+          >
+            استكشف المنصة
+          </a>
+
+          <a
+            href="#content"
+            class="button button-light"
+          >
+            استعرض المحتوى
+          </a>
+
+        </div>
+
+      </div>
+
+
+      <div class="hero-side">
+
+
+        <div class="smart-card">
+
+          <span class="smart-label">
+            الأخبار
+          </span>
+
+          <h3>
+            مركز الأخبار والمحتوى
+          </h3>
+
+          <p>
+            مساحة مخصصة للأخبار والتقارير
+            والتحرير والجدولة والنشر.
+          </p>
+
+        </div>
+
+
+        <div
+          class="smart-card live-card"
+          id="live"
+        >
+
+          <span class="smart-label">
+            🔴 مباشر
+          </span>
+
+          <h3>
+            البث المباشر
+          </h3>
+
+          <p>
+            مركز للفعاليات والتغطيات
+            والبث الإعلامي المباشر.
+          </p>
+
+        </div>
+
+
+        <div class="smart-card">
+
+          <span class="smart-label">
+            SMART
+          </span>
+
+          <h3>
+            الأتمتة الإعلامية
+          </h3>
+
+          <p>
+            من المصدر إلى المعالجة والتصنيف
+            والمراجعة والنشر والتحليل.
+          </p>
+
+        </div>
+
       </div>
 
     </section>
 
+
+    <!-- =========================
+         CONTENT
+    ========================== -->
+
+    <section
+      class="section"
+      id="content"
+    >
+
+      <div class="section-heading">
+
+        <div>
+
+          <h2 class="section-title">
+            مركز المحتوى
+          </h2>
+
+          <p class="section-description">
+            المساحات الأساسية لمنظومة EZ MEDIA.
+          </p>
+
+        </div>
+
+        <a
+          href="#sections"
+          class="view-all"
+        >
+          جميع الأقسام ←
+        </a>
+
+      </div>
+
+
+      <div class="content-grid">
+
+
+        <article class="content-card">
+
+          <div class="content-image">
+            NEWS
+          </div>
+
+          <div class="content-body">
+
+            <span class="content-type">
+              أخبار وتقارير
+            </span>
+
+            <h3>
+              الأخبار والتحرير
+            </h3>
+
+            <p>
+              إنشاء المحتوى وتصنيفه
+              ومراجعته وجدولته ونشره.
+            </p>
+
+          </div>
+
+        </article>
+
+
+        <article class="content-card">
+
+          <div class="content-image">
+            VIDEO
+          </div>
+
+          <div class="content-body">
+
+            <span class="content-type">
+              فيديو وإنتاج
+            </span>
+
+            <h3>
+              الإنتاج المرئي
+            </h3>
+
+            <p>
+              إدارة الفيديوهات والتغطيات
+              والمشاريع الإنتاجية.
+            </p>
+
+          </div>
+
+        </article>
+
+
+        <article class="content-card">
+
+          <div class="content-image">
+            AUDIO
+          </div>
+
+          <div class="content-body">
+
+            <span class="content-type">
+              صوت وبودكاست
+            </span>
+
+            <h3>
+              المحتوى الصوتي
+            </h3>
+
+            <p>
+              برامج وحلقات وبودكاست
+              ومحتوى صوتي.
+            </p>
+
+          </div>
+
+        </article>
+
+
+        <article class="content-card">
+
+          <div class="content-image">
+            LIVE
+          </div>
+
+          <div class="content-body">
+
+            <span class="content-type">
+              تغطيات وفعاليات
+            </span>
+
+            <h3>
+              الميدان والبث
+            </h3>
+
+            <p>
+              تغطية الفعاليات والأحداث
+              وإدارة البث المباشر.
+            </p>
+
+          </div>
+
+        </article>
+
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         30 SECTIONS
+    ========================== -->
+
+    <section
+      class="section"
+      id="sections"
+    >
+
+      <div class="section-heading">
+
+        <div>
+
+          <h2 class="section-title">
+            أقسام EZ MEDIA
+          </h2>
+
+          <p class="section-description">
+            30 قسمًا رئيسيًا، والفروع والمحتوى
+            تظهر داخل كل قسم.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="section-grid">
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">01</span>
+
+          <strong>الأخبار</strong>
+
+          <small>News</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">02</span>
+
+          <strong>الإعلام</strong>
+
+          <small>Media</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">03</span>
+
+          <strong>المحتوى</strong>
+
+          <small>Content</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">04</span>
+
+          <strong>الفيديو</strong>
+
+          <small>Video</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">05</span>
+
+          <strong>الصوتيات</strong>
+
+          <small>Audio</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">06</span>
+
+          <strong>البودكاست</strong>
+
+          <small>Podcast</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#live">
+
+          <span class="section-number">07</span>
+
+          <strong>البث المباشر</strong>
+
+          <small>Live</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">08</span>
+
+          <strong>التغطيات</strong>
+
+          <small>Coverage</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">09</span>
+
+          <strong>الفعاليات</strong>
+
+          <small>Events</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">10</span>
+
+          <strong>التقارير</strong>
+
+          <small>Reports</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">11</span>
+
+          <strong>المقابلات</strong>
+
+          <small>Interviews</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">12</span>
+
+          <strong>التقنية</strong>
+
+          <small>Technology</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">13</span>
+
+          <strong>الذكاء الاصطناعي</strong>
+
+          <small>AI</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">14</span>
+
+          <strong>المنصات الرقمية</strong>
+
+          <small>Digital Platforms</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">15</span>
+
+          <strong>السوشيال ميديا</strong>
+
+          <small>Social Media</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">16</span>
+
+          <strong>الترند</strong>
+
+          <small>Trending</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">17</span>
+
+          <strong>السفر</strong>
+
+          <small>Travel</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">18</span>
+
+          <strong>السياحة</strong>
+
+          <small>Tourism</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">19</span>
+
+          <strong>الرياضة</strong>
+
+          <small>Sports</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">20</span>
+
+          <strong>الاقتصاد</strong>
+
+          <small>Economy</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">21</span>
+
+          <strong>الأعمال</strong>
+
+          <small>Business</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">22</span>
+
+          <strong>الإعلانات</strong>
+
+          <small>Advertising</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#business">
+
+          <span class="section-number">23</span>
+
+          <strong>الرعايات</strong>
+
+          <small>Sponsorships</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">24</span>
+
+          <strong>التجارة</strong>
+
+          <small>Commerce</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">25</span>
+
+          <strong>الخدمات</strong>
+
+          <small>Services</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">26</span>
+
+          <strong>الهوية الرقمية</strong>
+
+          <small>Digital Identity</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">27</span>
+
+          <strong>صانع المحتوى</strong>
+
+          <small>Creator</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#admin">
+
+          <span class="section-number">28</span>
+
+          <strong>فريق EZ MEDIA</strong>
+
+          <small>Team</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#">
+
+          <span class="section-number">29</span>
+
+          <strong>المكتبة الرقمية</strong>
+
+          <small>Library</small>
+
+        </a>
+
+
+        <a class="section-tile" href="#about">
+
+          <span class="section-number">30</span>
+
+          <strong>عن EZ MEDIA</strong>
+
+          <small>About</small>
+
+        </a>
+
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         SMART PLATFORM
+    ========================== -->
+
+    <section
+      class="section"
+      id="smart"
+    >
+
+      <div class="section-heading">
+
+        <div>
+
+          <h2 class="section-title">
+            المنصة الذكية
+          </h2>
+
+          <p class="section-description">
+            منظومة قابلة للربط مع API وقاعدة البيانات والأتمتة.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="smart-system">
+
+
+        <div class="system-card">
+
+          <div class="system-icon">
+            01
+          </div>
+
+          <h3>
+            جلب المحتوى
+          </h3>
+
+          <p>
+            استقبال المحتوى من المصادر
+            والملفات والمنصات المرتبطة.
+          </p>
+
+        </div>
+
+
+        <div class="system-card">
+
+          <div class="system-icon">
+            02
+          </div>
+
+          <h3>
+            المعالجة والتصنيف
+          </h3>
+
+          <p>
+            تنظيم المحتوى وتصنيفه وربطه
+            بالأقسام والفروع والوسوم.
+          </p>
+
+        </div>
+
+
+        <div class="system-card">
+
+          <div class="system-icon">
+            03
+          </div>
+
+          <h3>
+            المراجعة والنشر
+          </h3>
+
+          <p>
+            دورة محتوى تبدأ بالمسودة
+            وتنتهي بالنشر والجدولة.
+          </p>
+
+        </div>
+
+
+        <div class="system-card">
+
+          <div class="system-icon">
+            04
+          </div>
+
+          <h3>
+            التحليل
+          </h3>
+
+          <p>
+            متابعة الأداء والنتائج
+            والتفاعل والمحتوى المنشور.
+          </p>
+
+        </div>
+
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         PLATFORMS
+    ========================== -->
+
+    <section
+      class="section"
+      id="platforms"
+    >
+
+      <div class="section-heading">
+
+        <div>
+
+          <h2 class="section-title">
+            منصاتي
+          </h2>
+
+          <p class="section-description">
+            مركز الحسابات والنشر والتحليلات الاجتماعية.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="platform-grid">
+
+
+        <div class="platform-card">
+          Snapchat
+          <span>حساب ومنشورات وتحليلات</span>
+        </div>
+
+
+        <div class="platform-card">
+          TikTok
+          <span>حساب ومنشورات وتحليلات</span>
+        </div>
+
+
+        <div class="platform-card">
+          Instagram
+          <span>حساب ومنشورات وتحليلات</span>
+        </div>
+
+
+        <div class="platform-card">
+          YouTube
+          <span>فيديو وقناة وتحليلات</span>
+        </div>
+
+
+        <div class="platform-card">
+          X
+          <span>نشر ومتابعة المحتوى</span>
+        </div>
+
+
+        <div class="platform-card">
+          LinkedIn
+          <span>نشر وإدارة المحتوى</span>
+        </div>
+
+
+        <div class="platform-card">
+          Facebook
+          <span>نشر وإدارة المحتوى</span>
+        </div>
+
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         ADS & SPONSORSHIPS
+    ========================== -->
+
+    <section
+      class="section"
+      id="business"
+    >
+
+      <div class="section-heading">
+
+        <div>
+
+          <h2 class="section-title">
+            الإعلانات والرعايات
+          </h2>
+
+          <p class="section-description">
+            منظومة تجارية قابلة للإدارة والتوزيع والتحليل.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="business-grid">
+
+
+        <div class="business-card">
+
+          <span class="smart-label">
+            SMART ADS
+          </span>
+
+          <h3>
+            الإعلانات الذكية
+          </h3>
+
+          <p>
+            إدارة الحملات الإعلانية ومواقع العرض
+            والجدولة وقياس الأداء من لوحة واحدة.
+          </p>
+
+          <div class="business-list">
+
+            <div>
+              الحملات الإعلانية
+            </div>
+
+            <div>
+              مواقع الإعلانات
+            </div>
+
+            <div>
+              جدولة الحملات
+            </div>
+
+            <div>
+              الإحصائيات والتحليلات
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div class="business-card">
+
+          <span class="smart-label">
+            SPONSORSHIPS
+          </span>
+
+          <h3>
+            الرعايات والشراكات
+          </h3>
+
+          <p>
+            إدارة الرعاة والبرامج والمبادرات
+            وربط الرعاية بالأقسام والفعاليات.
+          </p>
+
+          <div class="business-list">
+
+            <div>
+              إدارة الرعاة
+            </div>
+
+            <div>
+              الحملات والرعايات
+            </div>
+
+            <div>
+              العقود والفرص
+            </div>
+
+            <div>
+              تقارير الرعاية
+            </div>
+
+          </div>
+
+        </div>
+
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         ADMIN
+    ========================== -->
+
+    <section
+      class="section"
+      id="admin"
+    >
+
+      <div class="section-heading">
+
+        <div>
+
+          <h2 class="section-title">
+            إدارة EZ MEDIA
+          </h2>
+
+          <p class="section-description">
+            لوحة الإدارة المركزية للمنصة.
+          </p>
+
+        </div>
+
+        <span class="admin-status">
+          النظام الأساسي جاهز
+        </span>
+
+      </div>
+
+
+      <div class="admin-panel">
+
+
+        <div class="admin-header">
+
+          <div>
+
+            <h3>
+              مركز التحكم
+            </h3>
+
+            <p class="section-description">
+              جميع العمليات الإدارية في مكان واحد.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="admin-grid">
+
+
+          <div class="admin-item">
+            المحتوى
+            <small>
+              إنشاء وتحرير ونشر
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            الأقسام
+            <small>
+              الأقسام والفروع
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            مكتبة الوسائط
+            <small>
+              صور وفيديو وصوت وملفات
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            الإعلانات
+            <small>
+              الحملات والإحصائيات
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            الرعايات
+            <small>
+              الرعاة والبرامج
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            منصاتي
+            <small>
+              الحسابات والنشر
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            البث المباشر
+            <small>
+              الأحداث والبث
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            الأتمتة
+            <small>
+              العمليات الذكية
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            الموظفون
+            <small>
+              الفريق والصلاحيات
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            الجدولة
+            <small>
+              مواعيد النشر
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            التحليلات
+            <small>
+              التقارير والأداء
+            </small>
+          </div>
+
+
+          <div class="admin-item">
+            سجل النشاط
+            <small>
+              العمليات والتغييرات
+            </small>
+          </div>
+
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         ABOUT
+    ========================== -->
+
+    <section
+      class="section"
+      id="about"
+    >
+
+      <div class="about">
+
+
+        <div class="about-main">
+
+          <span class="smart-label">
+            EZ MEDIA 11.0
+          </span>
+
+          <h2>
+            منصة إعلامية قابلة للتوسع
+          </h2>
+
+          <p>
+            تم تصميم EZ MEDIA لتكون أساسًا لمنظومة
+            إعلامية رقمية متكاملة، بحيث يمكن ربط
+            الواجهة مع PostgreSQL وAPI ولوحة الإدارة
+            والمحتوى والمكتبة والأتمتة والنشر
+            والحسابات الاجتماعية والبث المباشر.
+          </p>
+
+        </div>
+
+
+        <div class="about-side">
+
+          <h3>
+            البنية المستقبلية
+          </h3>
+
+          <p>
+            واجهة المستخدم → API →
+            PostgreSQL → التخزين →
+            الأتمتة → النشر →
+            التحليلات.
+          </p>
+
+        </div>
+
+
+      </div>
+
+    </section>
+
+
   </main>
+
+
+  <!-- =========================
+       FOOTER
+  ========================== -->
+
+  <footer>
+
+    <div class="footer-inner">
+
+
+      <div>
+
+        <div class="footer-brand">
+          EZ MEDIA
+        </div>
+
+        <p class="section-description">
+          منصة إعلامية رقمية ذكية قابلة للتوسع.
+        </p>
+
+      </div>
+
+
+      <div class="footer-column">
+
+        <h4>
+          المنصة
+        </h4>
+
+        <a href="#news">
+          الأخبار
+        </a>
+
+        <a href="#content">
+          المحتوى
+        </a>
+
+        <a href="#sections">
+          الأقسام
+        </a>
+
+        <a href="#live">
+          البث المباشر
+        </a>
+
+      </div>
+
+
+      <div class="footer-column">
+
+        <h4>
+          الأعمال
+        </h4>
+
+        <a href="#business">
+          الإعلانات
+        </a>
+
+        <a href="#business">
+          الرعايات
+        </a>
+
+        <a href="#platforms">
+          منصاتي
+        </a>
+
+      </div>
+
+
+      <div class="footer-column">
+
+        <h4>
+          الإدارة
+        </h4>
+
+        <a href="#admin">
+          لوحة الإدارة
+        </a>
+
+        <a href="#smart">
+          الأتمتة
+        </a>
+
+        <a href="#about">
+          عن EZ MEDIA
+        </a>
+
+      </div>
+
+
+    </div>
+
+
+    <div class="footer-bottom">
+
+      <span>
+        © 2026 EZ MEDIA — جميع الحقوق محفوظة
+      </span>
+
+      <span>
+        الإصدار 11.0.0
+      </span>
+
+    </div>
+
+  </footer>
+
 
 </body>
 </html>
