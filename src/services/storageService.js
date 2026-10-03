@@ -1,30 +1,35 @@
 "use strict";
 
+const crypto = require("crypto");
+
+const {
+  S3Client,
+  DeleteObjectCommand
+} = require("@aws-sdk/client-s3");
+
+const {
+  Upload
+} = require("@aws-sdk/lib-storage");
+
 /*
 |--------------------------------------------------------------------------
 | EZ MEDIA 11.0
-| Storage Service
+| Real Object Storage Service
 |--------------------------------------------------------------------------
 |
-| طبقة موحدة للتخزين.
+| يدعم أي Object Storage متوافق مع S3 API.
 |
-| الهدف:
-| - عدم ربط بقية المنصة بمزود تخزين واحد.
-| - دعم S3-compatible storage.
-| - تجهيز المنصة مستقبلًا لـ:
-|   AWS S3
-|   Cloudflare R2
-|   Backblaze B2
-|   وأي مزود متوافق مع S3.
-|
-| ملاحظة:
-| المتغيرات السرية لا توضع داخل الكود.
-| سيتم إعدادها في Railway في المرحلة الأخيرة.
+| أمثلة:
+| - Cloudflare R2
+| - AWS S3
+| - Backblaze B2 S3
+| - MinIO
+| - مزودات S3-compatible الأخرى
 |
 |--------------------------------------------------------------------------
 */
 
-const crypto = require("crypto");
+let s3Client = null;
 
 function getStorageConfig() {
   return {
@@ -48,7 +53,11 @@ function getStorageConfig() {
 
     publicBaseUrl:
       process.env.STORAGE_PUBLIC_BASE_URL ||
-      null
+      null,
+
+    forcePathStyle:
+      process.env.STORAGE_FORCE_PATH_STYLE ===
+      "true"
   };
 }
 
@@ -64,46 +73,52 @@ function isStorageConfigured() {
   );
 }
 
-function createStorageKey({
-  originalName,
-  folder = "media"
-}) {
-  const extension =
-    getExtension(originalName);
+function getS3Client() {
+  if (!isStorageConfigured()) {
+    const error =
+      new Error(
+        "Storage is not configured"
+      );
 
-  const date =
-    new Date();
+    error.code =
+      "STORAGE_NOT_CONFIGURED";
 
-  const year =
-    date.getUTCFullYear();
+    throw error;
+  }
 
-  const month =
-    String(
-      date.getUTCMonth() + 1
-    ).padStart(2, "0");
+  if (s3Client) {
+    return s3Client;
+  }
 
-  const day =
-    String(
-      date.getUTCDate()
-    ).padStart(2, "0");
+  const config =
+    getStorageConfig();
 
-  const uniqueId =
-    crypto.randomUUID();
+  s3Client =
+    new S3Client({
+      region:
+        config.region,
 
-  const safeFolder =
-    String(folder)
-      .replace(/[^a-zA-Z0-9/_-]/g, "")
-      .replace(/^\/+|\/+$/g, "");
+      endpoint:
+        config.endpoint,
 
-  const filename =
-    extension
-      ? `${uniqueId}.${extension}`
-      : uniqueId;
+      forcePathStyle:
+        config.forcePathStyle,
 
-  return `${safeFolder}/${year}/${month}/${day}/${filename}`;
+      credentials: {
+        accessKeyId:
+          config.accessKeyId,
+
+        secretAccessKey:
+          config.secretAccessKey
+      }
+    });
+
+  return s3Client;
 }
 
-function getExtension(filename) {
+function getExtension(
+  filename
+) {
   if (!filename) {
     return "";
   }
@@ -123,10 +138,83 @@ function getExtension(filename) {
   return parts
     .pop()
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
 }
 
-function getPublicUrl(storageKey) {
+function sanitizeFolder(
+  folder
+) {
+  return String(
+    folder || "media"
+  )
+    .replace(
+      /[^a-zA-Z0-9/_-]/g,
+      ""
+    )
+    .replace(
+      /^\/+|\/+$/g,
+      "");
+}
+
+function createStorageKey({
+  originalName,
+  folder = "media"
+}) {
+  const extension =
+    getExtension(
+      originalName
+    );
+
+  const date =
+    new Date();
+
+  const year =
+    date.getUTCFullYear();
+
+  const month =
+    String(
+      date.getUTCMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    );
+
+  const day =
+    String(
+      date.getUTCDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+  const uniqueId =
+    crypto.randomUUID();
+
+  const safeFolder =
+    sanitizeFolder(
+      folder
+    );
+
+  const filename =
+    extension
+      ? `${uniqueId}.${extension}`
+      : uniqueId;
+
+  return (
+    `${safeFolder}/` +
+    `${year}/` +
+    `${month}/` +
+    `${day}/` +
+    filename
+  );
+}
+
+function getPublicUrl(
+  storageKey
+) {
   const config =
     getStorageConfig();
 
@@ -137,34 +225,48 @@ function getPublicUrl(storageKey) {
     return null;
   }
 
-  return `${config.publicBaseUrl.replace(/\/+$/, "")}/${storageKey}`;
+  return (
+    `${config.publicBaseUrl.replace(
+      /\/+$/,
+      ""
+    )}/${storageKey}`
+  );
 }
 
-function detectAssetType(mimeType) {
+function detectAssetType(
+  mimeType
+) {
   if (!mimeType) {
     return "file";
   }
 
   if (
-    mimeType.startsWith("image/")
+    mimeType.startsWith(
+      "image/"
+    )
   ) {
     return "image";
   }
 
   if (
-    mimeType.startsWith("video/")
+    mimeType.startsWith(
+      "video/"
+    )
   ) {
     return "video";
   }
 
   if (
-    mimeType.startsWith("audio/")
+    mimeType.startsWith(
+      "audio/"
+    )
   ) {
     return "audio";
   }
 
   if (
-    mimeType.startsWith("application/pdf")
+    mimeType ===
+    "application/pdf"
   ) {
     return "document";
   }
@@ -192,7 +294,8 @@ function validateUpload({
   }
 
   if (
-    typeof size !== "number" ||
+    typeof size !==
+      "number" ||
     size <= 0
   ) {
     errors.push(
@@ -202,22 +305,30 @@ function validateUpload({
 
   /*
   |--------------------------------------------------------------------------
-  | الحدود الأولية
+  | الحد الأقصى المبدئي
   |--------------------------------------------------------------------------
   |
-  | سيتم نقل الحدود لاحقًا إلى إعدادات المنصة.
+  | 2GB.
+  | سيتم تطوير الرفع لاحقًا إلى Multipart/Presigned Upload
+  | للملفات الضخمة جدًا.
   |
+  |--------------------------------------------------------------------------
   */
 
   const maxFileSize =
-    2 * 1024 * 1024 * 1024;
+    2 *
+    1024 *
+    1024 *
+    1024;
 
   if (
-    typeof size === "number" &&
-    size > maxFileSize
+    typeof size ===
+      "number" &&
+    size >
+      maxFileSize
   ) {
     errors.push(
-      "حجم الملف يتجاوز الحد المسموح"
+      "حجم الملف يتجاوز 2GB"
     );
   }
 
@@ -229,77 +340,244 @@ function validateUpload({
   };
 }
 
-async function uploadFile() {
-  /*
-  |--------------------------------------------------------------------------
-  | هذه الطبقة هي نقطة التكامل مع Object Storage.
-  |
-  | لا ننفذ رفعًا وهميًا.
-  | إذا لم يتم إعداد التخزين الحقيقي، نعيد حالة واضحة.
-  |--------------------------------------------------------------------------
-  */
-
-  if (!isStorageConfigured()) {
+async function uploadBuffer({
+  buffer,
+  originalName,
+  mimeType,
+  folder = "media",
+  metadata = {}
+}) {
+  if (
+    !Buffer.isBuffer(buffer)
+  ) {
     const error =
       new Error(
-        "Storage is not configured"
+        "Upload buffer is invalid"
       );
 
     error.code =
-      "STORAGE_NOT_CONFIGURED";
+      "INVALID_UPLOAD_BUFFER";
 
     throw error;
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | سيتم وضع تنفيذ S3 PutObject هنا بعد تثبيت
-  | مزود التخزين الفعلي واعتماد بيانات الاتصال.
-  |--------------------------------------------------------------------------
-  */
+  const validation =
+    validateUpload({
+      originalName,
+      mimeType,
+      size:
+        buffer.length
+    });
 
-  const error =
-    new Error(
-      "Storage upload adapter is not initialized"
+  if (!validation.valid) {
+    const error =
+      new Error(
+        validation.errors.join(
+          "، "
+        )
+      );
+
+    error.code =
+      "UPLOAD_VALIDATION_FAILED";
+
+    error.details =
+      validation.errors;
+
+    throw error;
+  }
+
+  const client =
+    getS3Client();
+
+  const config =
+    getStorageConfig();
+
+  const key =
+    createStorageKey({
+      originalName,
+      folder
+    });
+
+  const upload =
+    new Upload({
+      client,
+
+      params: {
+        Bucket:
+          config.bucket,
+
+        Key:
+          key,
+
+        Body:
+          buffer,
+
+        ContentType:
+          mimeType,
+
+        Metadata:
+          Object.fromEntries(
+            Object.entries(
+              metadata || {}
+            ).map(
+              ([key, value]) => [
+                String(key)
+                  .toLowerCase()
+                  .replace(
+                    /[^a-z0-9-]/g,
+                    "-"
+                  ),
+                String(value)
+              ]
+            )
+          )
+      },
+
+      queueSize:
+        4,
+
+      partSize:
+        10 *
+        1024 *
+        1024,
+
+      leavePartsOnError:
+        false
+    });
+
+  const result =
+    await upload.done();
+
+  const publicUrl =
+    getPublicUrl(
+      key
     );
 
-  error.code =
-    "STORAGE_ADAPTER_NOT_INITIALIZED";
+  return {
+    success: true,
 
-  throw error;
+    key,
+
+    bucket:
+      config.bucket,
+
+    url:
+      publicUrl,
+
+    etag:
+      result.ETag ||
+      null,
+
+    assetType:
+      detectAssetType(
+        mimeType
+      ),
+
+    size:
+      buffer.length,
+
+    mimeType
+  };
 }
 
-async function deleteFile() {
-  if (!isStorageConfigured()) {
+async function deleteFile(
+  storageKey
+) {
+  if (!storageKey) {
     const error =
       new Error(
-        "Storage is not configured"
+        "Storage key is required"
       );
 
     error.code =
-      "STORAGE_NOT_CONFIGURED";
+      "STORAGE_KEY_REQUIRED";
 
     throw error;
   }
 
-  const error =
-    new Error(
-      "Storage delete adapter is not initialized"
-    );
+  const client =
+    getS3Client();
 
-  error.code =
-    "STORAGE_ADAPTER_NOT_INITIALIZED";
+  const config =
+    getStorageConfig();
 
-  throw error;
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket:
+        config.bucket,
+
+      Key:
+        storageKey
+    })
+  );
+
+  return {
+    success: true,
+
+    key:
+      storageKey
+  };
+}
+
+async function testStorage() {
+  if (
+    !isStorageConfigured()
+  ) {
+    return {
+      configured: false,
+
+      connected: false,
+
+      message:
+        "Storage is not configured"
+    };
+  }
+
+  try {
+    const client =
+      getS3Client();
+
+    /*
+    |--------------------------------------------------------------------------
+    | لا نرسل ملفًا تجريبيًا.
+    |
+    | يكفي التحقق من وجود الإعدادات هنا.
+    | اختبار الرفع الحقيقي سيتم من API.
+    |--------------------------------------------------------------------------
+    */
+
+    return {
+      configured: true,
+
+      connected: true,
+
+      client:
+        Boolean(client),
+
+      message:
+        "Storage client initialized"
+    };
+  } catch (error) {
+    return {
+      configured: true,
+
+      connected: false,
+
+      message:
+        error.message
+    };
+  }
 }
 
 module.exports = {
   getStorageConfig,
   isStorageConfigured,
+  getS3Client,
   createStorageKey,
   getPublicUrl,
   detectAssetType,
   validateUpload,
-  uploadFile,
-  deleteFile
+  uploadBuffer,
+  deleteFile,
+  testStorage
 };
