@@ -173,7 +173,8 @@ async function initializeDatabase() {
 
   return {
     success: true,
-    message: "EZ MEDIA database initialized"
+    message:
+      "EZ MEDIA database initialized"
   };
 }
 
