@@ -1,11 +1,10 @@
 {
-  "name": "ez-media-11",
+  "name": "ez-media",
   "version": "11.0.1",
   "description": "EZ MEDIA - Smart Digital Media Platform",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": "20.x"
