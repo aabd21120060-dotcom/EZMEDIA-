@@ -1,13 +1,17 @@
 "use strict";
 
-const express = require("express");
+const express =
+  require("express");
 
 const {
   createBreakingNews,
   listBreakingNews
-} = require("../services/mediaService");
+} = require(
+  "../services/mediaService"
+);
 
-const router = express.Router();
+const router =
+  express.Router();
 
 router.get(
   "/",
@@ -17,14 +21,19 @@ router.get(
         await listBreakingNews();
 
       return res.json({
-        success: true,
-        data: news
+        success:
+          true,
+
+        data:
+          news
       });
     } catch (error) {
       console.error(error);
 
       return res.status(503).json({
-        success: false,
+        success:
+          false,
+
         error:
           error.code ||
           "BREAKING_NEWS_ERROR"
@@ -37,11 +46,18 @@ router.post(
   "/",
   async (req, res) => {
     try {
-      if (!req.body.title) {
+      if (
+        !req.body.title
+      ) {
         return res.status(400).json({
-          success: false,
+          success:
+            false,
+
           error:
-            "TITLE_REQUIRED"
+            "TITLE_REQUIRED",
+
+          message:
+            "عنوان الخبر مطلوب"
         });
       }
 
@@ -51,14 +67,19 @@ router.post(
         );
 
       return res.status(201).json({
-        success: true,
-        data: news
+        success:
+          true,
+
+        data:
+          news
       });
     } catch (error) {
       console.error(error);
 
       return res.status(503).json({
-        success: false,
+        success:
+          false,
+
         error:
           error.code ||
           "BREAKING_NEWS_ERROR"
@@ -67,4 +88,5 @@ router.post(
   }
 );
 
-module.exports = router;
+module.exports =
+  router;
