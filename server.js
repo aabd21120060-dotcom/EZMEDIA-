@@ -1,17 +1,9 @@
-const { initializeDatabase } = require("./src/database/init");
-app.use(
-  express.static(
-    path.join(__dirname, "public")
-  )
-);
-const app = express();
-const path = require("path");
 /**
  * EZ MEDIA 11.0
- * Main Server
+ * AI Media Platform
  *
  * Node.js 20+
- * Express 5
+ * Express 5+
  */
 
 "use strict";
@@ -21,10 +13,12 @@ const cors = require("cors");
 const helmet = require("helmet");
 const compression = require("compression");
 const crypto = require("crypto");
+const path = require("path");
 
 const contentRoutes = require("./src/routes/content");
 const aiRoutes = require("./src/routes/ai");
 const { health: databaseHealth } = require("./src/database/db");
+const { initializeDatabase } = require("./src/database/init");
 
 const app = express();
 
@@ -33,11 +27,19 @@ const PORT = Number(process.env.PORT) || 3000;
 const PLATFORM = "EZ MEDIA";
 const VERSION = "11.0.0";
 
-/* =========================================================
-   SECURITY
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| BASIC SETTINGS
+|--------------------------------------------------------------------------
+*/
 
 app.disable("x-powered-by");
+
+/*
+|--------------------------------------------------------------------------
+| SECURITY
+|--------------------------------------------------------------------------
+*/
 
 app.use(
   helmet({
@@ -56,9 +58,11 @@ app.use(
 
 app.use(compression());
 
-/* =========================================================
-   BODY PARSING
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| BODY PARSING
+|--------------------------------------------------------------------------
+*/
 
 app.use(
   express.json({
@@ -73,9 +77,23 @@ app.use(
   })
 );
 
-/* =========================================================
-   REQUEST ID
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| STATIC FILES
+|--------------------------------------------------------------------------
+*/
+
+app.use(
+  express.static(
+    path.join(__dirname, "public")
+  )
+);
+
+/*
+|--------------------------------------------------------------------------
+| REQUEST ID
+|--------------------------------------------------------------------------
+*/
 
 app.use((req, res, next) => {
   const requestId =
@@ -92,9 +110,11 @@ app.use((req, res, next) => {
   next();
 });
 
-/* =========================================================
-   REQUEST LOGGING
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| REQUEST LOGGING
+|--------------------------------------------------------------------------
+*/
 
 app.use((req, res, next) => {
   const startedAt = Date.now();
@@ -111,7 +131,8 @@ app.use((req, res, next) => {
         path: req.originalUrl,
         status: res.statusCode,
         durationMs: duration,
-        timestamp: new Date().toISOString()
+        timestamp:
+          new Date().toISOString()
       })
     );
   });
@@ -119,119 +140,195 @@ app.use((req, res, next) => {
   next();
 });
 
-/* =========================================================
-   ROOT
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| HOME
+|--------------------------------------------------------------------------
+*/
+
 app.get("/", (req, res) => {
-  res.json({
-    platform: PLATFORM,
-    version: VERSION,
-    status: "online",
-    message: "EZ MEDIA 11.0 يعمل بنجاح",
-    requestId: req.requestId,
-    timestamp: new Date().toISOString()
-  });
+  res.sendFile(
+    path.join(
+      __dirname,
+      "public",
+      "index.html"
+    )
+  );
 });
 
+/*
+|--------------------------------------------------------------------------
+| ADMIN
+|--------------------------------------------------------------------------
+*/
 
-/* =========================================================
-   BASIC API
-========================================================= */
+app.get("/admin", (req, res) => {
+  res.sendFile(
+    path.join(
+      __dirname,
+      "public",
+      "admin.html"
+    )
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| BASIC API
+|--------------------------------------------------------------------------
+*/
 
 app.get("/api", (req, res) => {
   res.json({
     platform: PLATFORM,
     version: VERSION,
     status: "online",
+
     api: true,
-    requestId: req.requestId,
+
+    requestId:
+      req.requestId,
+
     endpoints: {
+      home: "/",
+      admin: "/admin",
       health: "/health",
-      database: "/api/system/database",
-      content: "/api/content",
-      ai: "/api/ai"
-    }
-  });
-});
 
-/* =========================================================
-   HEALTH CHECK
-========================================================= */
+      system:
+        "/api/system",
 
-app.get("/health", async (req, res) => {
-  let database;
+      database:
+        "/api/system/database",
 
-  try {
-    database = await databaseHealth();
-  } catch (error) {
-    database = {
-      configured: Boolean(
-        process.env.DATABASE_URL
-      ),
-      connected: false,
-      databaseName: null,
-      error: error.message
-    };
-  }
+      content:
+        "/api/content",
 
-  const databaseReady =
-    database.configured &&
-    database.connected;
-
-  res.status(200).json({
-    platform: PLATFORM,
-    version: VERSION,
-
-    status: "online",
-
-    server: {
-      online: true,
-      node: process.version,
-      environment:
-        process.env.NODE_ENV || "development"
+      ai:
+        "/api/ai"
     },
-
-    database: {
-      configured:
-        Boolean(database.configured),
-
-      connected:
-        Boolean(database.connected),
-
-      ready:
-        Boolean(databaseReady),
-
-      databaseName:
-        database.databaseName || null,
-
-      serverTime:
-        database.serverTime || null
-    },
-
-    services: {
-      api: true,
-      cms: true,
-      ai: Boolean(
-        process.env.AI_API_KEY
-      ),
-      media: true,
-      live: true,
-      advertising: true,
-      sponsorships: true,
-      automation: true,
-      analytics: true
-    },
-
-    requestId: req.requestId,
 
     timestamp:
       new Date().toISOString()
   });
 });
 
-/* =========================================================
-   DATABASE HEALTH
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| HEALTH
+|--------------------------------------------------------------------------
+*/
+
+app.get(
+  "/health",
+  async (req, res) => {
+    let database;
+
+    try {
+      database =
+        await databaseHealth();
+    } catch (error) {
+      database = {
+        configured:
+          Boolean(
+            process.env.DATABASE_URL
+          ),
+
+        connected: false,
+
+        databaseName: null,
+
+        error:
+          error.message
+      };
+    }
+
+    const databaseReady =
+      Boolean(
+        database.configured &&
+        database.connected
+      );
+
+    res.status(200).json({
+      platform: PLATFORM,
+
+      version: VERSION,
+
+      status: "online",
+
+      server: {
+        online: true,
+
+        node:
+          process.version,
+
+        environment:
+          process.env.NODE_ENV ||
+          "development",
+
+        uptime:
+          process.uptime()
+      },
+
+      database: {
+        configured:
+          Boolean(
+            database.configured
+          ),
+
+        connected:
+          Boolean(
+            database.connected
+          ),
+
+        ready:
+          databaseReady,
+
+        databaseName:
+          database.databaseName ||
+          null,
+
+        serverTime:
+          database.serverTime ||
+          null
+      },
+
+      services: {
+        api: true,
+
+        cms: true,
+
+        ai:
+          Boolean(
+            process.env.AI_API_KEY
+          ),
+
+        media: true,
+
+        live: true,
+
+        advertising: true,
+
+        sponsorships: true,
+
+        automation: true,
+
+        analytics: true
+      },
+
+      requestId:
+        req.requestId,
+
+      timestamp:
+        new Date().toISOString()
+    });
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| DATABASE HEALTH
+|--------------------------------------------------------------------------
+*/
 
 app.get(
   "/api/system/database",
@@ -245,7 +342,13 @@ app.get(
 
         platform: PLATFORM,
 
-        database
+        database,
+
+        requestId:
+          req.requestId,
+
+        timestamp:
+          new Date().toISOString()
       });
     } catch (error) {
       return res.status(503).json({
@@ -265,10 +368,12 @@ app.get(
 
           databaseName: null,
 
-          error: error.message
+          error:
+            error.message
         },
 
-        requestId: req.requestId,
+        requestId:
+          req.requestId,
 
         timestamp:
           new Date().toISOString()
@@ -277,27 +382,11 @@ app.get(
   }
 );
 
-/* =========================================================
-   CMS
-========================================================= */
-
-app.use(
-  "/api/content",
-  contentRoutes
-);
-
-/* =========================================================
-   AI ENGINE
-========================================================= */
-
-app.use(
-  "/api/ai",
-  aiRoutes
-);
-
-/* =========================================================
-   SYSTEM INFORMATION
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| SYSTEM
+|--------------------------------------------------------------------------
+*/
 
 app.get(
   "/api/system",
@@ -318,7 +407,10 @@ app.get(
 
         ready: false,
 
-        error: error.message
+        databaseName: null,
+
+        error:
+          error.message
       };
     }
 
@@ -330,13 +422,17 @@ app.get(
       status: "online",
 
       server: {
-        node: process.version,
+        online: true,
+
+        node:
+          process.version,
 
         environment:
           process.env.NODE_ENV ||
           "development",
 
-        uptime: process.uptime()
+        uptime:
+          process.uptime()
       },
 
       database,
@@ -356,6 +452,26 @@ app.get(
           "gpt-5"
       },
 
+      modules: {
+        cms: true,
+
+        newsroom: true,
+
+        mediaLibrary: true,
+
+        liveBroadcast: true,
+
+        advertising: true,
+
+        sponsorships: true,
+
+        analytics: true,
+
+        automation: true,
+
+        aiNewsroom: true
+      },
+
       requestId:
         req.requestId,
 
@@ -365,32 +481,62 @@ app.get(
   }
 );
 
-/* =========================================================
-   404
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| CMS
+|--------------------------------------------------------------------------
+*/
 
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
+app.use(
+  "/api/content",
+  contentRoutes
+);
 
-    error: "NOT_FOUND",
+/*
+|--------------------------------------------------------------------------
+| AI
+|--------------------------------------------------------------------------
+*/
 
-    message:
-      "المسار المطلوب غير موجود",
+app.use(
+  "/api/ai",
+  aiRoutes
+);
 
-    path: req.originalUrl,
+/*
+|--------------------------------------------------------------------------
+| 404
+|--------------------------------------------------------------------------
+*/
 
-    requestId:
-      req.requestId,
+app.use(
+  (req, res) => {
+    res.status(404).json({
+      success: false,
 
-    timestamp:
-      new Date().toISOString()
-  });
-});
+      error:
+        "NOT_FOUND",
 
-/* =========================================================
-   GLOBAL ERROR HANDLER
-========================================================= */
+      message:
+        "المسار المطلوب غير موجود",
+
+      path:
+        req.originalUrl,
+
+      requestId:
+        req.requestId,
+
+      timestamp:
+        new Date().toISOString()
+    });
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| GLOBAL ERROR HANDLER
+|--------------------------------------------------------------------------
+*/
 
 app.use(
   (
@@ -401,7 +547,8 @@ app.use(
   ) => {
     console.error(
       JSON.stringify({
-        type: "server_error",
+        type:
+          "server_error",
 
         requestId:
           req.requestId,
@@ -417,12 +564,15 @@ app.use(
       })
     );
 
-    if (res.headersSent) {
+    if (
+      res.headersSent
+    ) {
       return next(error);
     }
 
     res.status(
-      error.statusCode || 500
+      error.statusCode ||
+        500
     ).json({
       success: false,
 
@@ -442,36 +592,165 @@ app.use(
   }
 );
 
-/* =========================================================
-   SERVER START
-========================================================= */
-const server = app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log(
+/*
+|--------------------------------------------------------------------------
+| SERVER
+|--------------------------------------------------------------------------
+*/
+
+let server = null;
+
+/*
+|--------------------------------------------------------------------------
+| STARTUP
+|--------------------------------------------------------------------------
+*/
+
+async function startServer() {
+  try {
+    /*
+    |--------------------------------------------------------------------------
+    | DATABASE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      process.env.DATABASE_URL
+    ) {
+      try {
+        await initializeDatabase();
+
+        console.log(
+          JSON.stringify({
+            type:
+              "database_initialized",
+
+            platform:
+              PLATFORM,
+
+            version:
+              VERSION,
+
+            status:
+              "ready",
+
+            timestamp:
+              new Date().toISOString()
+          })
+        );
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            type:
+              "database_initialization_error",
+
+            platform:
+              PLATFORM,
+
+            error:
+              error.message,
+
+            timestamp:
+              new Date().toISOString()
+          })
+        );
+      }
+    } else {
+      console.log(
+        JSON.stringify({
+          type:
+            "database_skipped",
+
+          platform:
+            PLATFORM,
+
+          message:
+            "DATABASE_URL is not configured",
+
+          timestamp:
+            new Date().toISOString()
+        })
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP SERVER
+    |--------------------------------------------------------------------------
+    */
+
+    server =
+      app.listen(
+        PORT,
+        "0.0.0.0",
+        () => {
+          console.log(
+            JSON.stringify({
+              platform:
+                PLATFORM,
+
+              version:
+                VERSION,
+
+              status:
+                "online",
+
+              port:
+                PORT,
+
+              node:
+                process.version,
+
+              environment:
+                process.env.NODE_ENV ||
+                "development",
+
+              timestamp:
+                new Date().toISOString()
+            })
+          );
+        }
+      );
+  } catch (error) {
+    console.error(
       JSON.stringify({
-        platform: PLATFORM,
-        version: VERSION,
-        status: "online",
-        port: PORT,
-        node: process.version,
-        environment:
-          process.env.NODE_ENV || "development",
-        timestamp: new Date().toISOString()
+        type:
+          "startup_error",
+
+        platform:
+          PLATFORM,
+
+        error:
+          error.message,
+
+        stack:
+          error.stack,
+
+        timestamp:
+          new Date().toISOString()
       })
     );
+
+    process.exit(1);
   }
-);
+}
 
-/* =========================================================
-   GRACEFUL SHUTDOWN
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| GRACEFUL SHUTDOWN
+|--------------------------------------------------------------------------
+*/
 
-async function shutdown(signal) {
+async function shutdown(
+  signal
+) {
   console.log(
     `${signal} received. Shutting down EZ MEDIA...`
   );
+
+  if (!server) {
+    process.exit(0);
+  }
 
   server.close(() => {
     console.log(
@@ -490,19 +769,23 @@ async function shutdown(signal) {
   }, 10000).unref();
 }
 
+/*
+|--------------------------------------------------------------------------
+| PROCESS EVENTS
+|--------------------------------------------------------------------------
+*/
+
 process.on(
   "SIGTERM",
-  () => shutdown("SIGTERM")
+  () =>
+    shutdown("SIGTERM")
 );
 
 process.on(
   "SIGINT",
-  () => shutdown("SIGINT")
+  () =>
+    shutdown("SIGINT")
 );
-
-/* =========================================================
-   UNHANDLED ERRORS
-========================================================= */
 
 process.on(
   "unhandledRejection",
@@ -523,5 +806,19 @@ process.on(
     );
   }
 );
+
+/*
+|--------------------------------------------------------------------------
+| START
+|--------------------------------------------------------------------------
+*/
+
+startServer();
+
+/*
+|--------------------------------------------------------------------------
+| EXPORT
+|--------------------------------------------------------------------------
+*/
 
 module.exports = app;
