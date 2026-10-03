@@ -1,2092 +1,359 @@
-const aiRoutes = require("./src/routes/ai");
-const contentRoutes = require("./src/routes/content");
-const { health: databaseHealth } = require("./src/database/db");
+/**
+ * EZ MEDIA 11.0
+ * Main Server
+ *
+ * Node.js 20+
+ * Express 5
+ */
+
 "use strict";
+
 const express = require("express");
-const path = require("path");
-const crypto = require("crypto");
-const compression = require("compression");
 const cors = require("cors");
 const helmet = require("helmet");
-const jwt = require("jsonwebtoken");
-const { Pool } = require("pg");
+const compression = require("compression");
+const crypto = require("crypto");
+
+const contentRoutes = require("./src/routes/content");
+const aiRoutes = require("./src/routes/ai");
+const { health: databaseHealth } = require("./src/database/db");
 
 const app = express();
 
-const PORT = Number(process.env.PORT || 3000);
-const HOST = "0.0.0.0";
+const PORT = Number(process.env.PORT) || 3000;
 
 const PLATFORM = "EZ MEDIA";
-const VERSION = "11.1.0";
+const VERSION = "11.0.0";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  "EZ_MEDIA_CHANGE_THIS_SECRET_BEFORE_PRODUCTION";
+/* =========================================================
+   SECURITY
+========================================================= */
 
 app.disable("x-powered-by");
-app.set("trust proxy", 1);
 
 app.use(
   helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false
+    crossOriginResourcePolicy: {
+      policy: "cross-origin"
+    }
   })
 );
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true
+  })
+);
 
 app.use(compression());
 
-app.use(express.json({
-  limit: "20mb"
-}));
+/* =========================================================
+   BODY PARSING
+========================================================= */
 
-app.use(express.urlencoded({
-  extended: true,
-  limit: "20mb"
-}));
+app.use(
+  express.json({
+    limit: "10mb"
+  })
+);
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "10mb"
+  })
+);
 
 /* =========================================================
    REQUEST ID
 ========================================================= */
 
 app.use((req, res, next) => {
-  req.requestId =
+  const requestId =
     req.headers["x-request-id"] ||
     crypto.randomUUID();
 
+  req.requestId = requestId;
+
   res.setHeader(
     "X-Request-ID",
-    req.requestId
+    requestId
   );
 
   next();
 });
 
 /* =========================================================
-   DATABASE
+   REQUEST LOGGING
 ========================================================= */
 
-let pool = null;
-let databaseConnected = false;
+app.use((req, res, next) => {
+  const startedAt = Date.now();
 
-if (process.env.DATABASE_URL) {
+  res.on("finish", () => {
+    const duration =
+      Date.now() - startedAt;
 
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-
-    ssl:
-      process.env.NODE_ENV === "production"
-        ? { rejectUnauthorized: false }
-        : false,
-
-    max: 10,
-
-    idleTimeoutMillis: 30000,
-
-    connectionTimeoutMillis: 5000
-  });
-
-  pool.on("error", error => {
-    console.error(
-      "[DATABASE]",
-      error.message
+    console.log(
+      JSON.stringify({
+        type: "http_request",
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl,
+        status: res.statusCode,
+        durationMs: duration,
+        timestamp: new Date().toISOString()
+      })
     );
   });
-}
 
-async function checkDatabase() {
-
-  if (!pool) {
-    return false;
-  }
-
-  try {
-
-    await pool.query("SELECT NOW()");
-
-    databaseConnected = true;
-
-    return true;
-
-  } catch (error) {
-
-    databaseConnected = false;
-
-    console.error(
-      "[DATABASE]",
-      error.message
-    );
-
-    return false;
-  }
-}
-
-async function dbQuery(sql, params = []) {
-
-  if (!pool) {
-    return null;
-  }
-
-  return pool.query(sql, params);
-}
-
-/* =========================================================
-   MEMORY FALLBACK
-========================================================= */
-
-const memory = {
-
-  users: [],
-
-  content: [],
-
-  media: [],
-
-  live: [],
-
-  advertisements: [],
-
-  sponsorships: [],
-
-  schedules: [],
-
-  automationRuns: [],
-
-  newsSources: [],
-
-  aiJobs: [],
-
-  analytics: [],
-
-  auditLogs: []
-
-};
-
-/* =========================================================
-   ADMIN
-========================================================= */
-
-memory.users.push({
-
-  id: "admin",
-
-  name: "مدير المنصة",
-
-  email: "admin@ezmedia.local",
-
-  password: "change-me",
-
-  role: "admin",
-
-  status: "active",
-
-  createdAt: new Date().toISOString()
-
+  next();
 });
 
 /* =========================================================
-   HELPERS
+   ROOT
 ========================================================= */
 
-function id(prefix) {
-
-  return (
-    prefix +
-    "_" +
-    crypto.randomUUID()
-  );
-
-}
-
-function now() {
-
-  return new Date().toISOString();
-
-}
-
-function slugify(value = "") {
-
-  return String(value)
-
-    .trim()
-
-    .toLowerCase()
-
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-
-    .replace(/^-+|-+$/g, "")
-
-    .slice(0, 120);
-
-}
+app.get("/", (req, res) => {
+  res.json({
+    platform: PLATFORM,
+    version: VERSION,
+    status: "online",
+    message: "EZ MEDIA 11.0 يعمل بنجاح",
+    requestId: req.requestId,
+    timestamp: new Date().toISOString()
+  });
+});
 
 /* =========================================================
-   AUTH
+   BASIC API
 ========================================================= */
 
-function auth(required = true) {
-
-  return (req, res, next) => {
-
-    const header =
-      req.headers.authorization || "";
-
-    if (!header.startsWith("Bearer ")) {
-
-      if (!required) {
-
-        req.user = null;
-
-        return next();
-
-      }
-
-      return res.status(401).json({
-
-        success: false,
-
-        error: "Authentication required",
-
-        requestId: req.requestId
-
-      });
-
+app.get("/api", (req, res) => {
+  res.json({
+    platform: PLATFORM,
+    version: VERSION,
+    status: "online",
+    api: true,
+    requestId: req.requestId,
+    endpoints: {
+      health: "/health",
+      database: "/api/system/database",
+      content: "/api/content",
+      ai: "/api/ai"
     }
-
-    const token =
-      header.substring(7);
-
-    try {
-
-      req.user = jwt.verify(
-        token,
-        JWT_SECRET
-      );
-
-      next();
-
-    } catch {
-
-      return res.status(401).json({
-
-        success: false,
-
-        error: "Invalid or expired token",
-
-        requestId: req.requestId
-
-      });
-
-    }
-
-  };
-
-}
-
-function role(...roles) {
-
-  return (req, res, next) => {
-
-    if (!req.user) {
-
-      return res.status(401).json({
-
-        success: false,
-
-        error: "Authentication required"
-
-      });
-
-    }
-
-    if (!roles.includes(req.user.role)) {
-
-      return res.status(403).json({
-
-        success: false,
-
-        error: "Insufficient permissions"
-
-      });
-
-    }
-
-    next();
-
-  };
-
-}
+  });
+});
 
 /* =========================================================
-   AUDIT
+   HEALTH CHECK
 ========================================================= */
 
-async function audit(
-  req,
-  action,
-  entity,
-  entityId,
-  details = {}
-) {
+app.get("/health", async (req, res) => {
+  let database;
 
-  const record = {
+  try {
+    database = await databaseHealth();
+  } catch (error) {
+    database = {
+      configured: Boolean(
+        process.env.DATABASE_URL
+      ),
+      connected: false,
+      databaseName: null,
+      error: error.message
+    };
+  }
 
-    id: id("audit"),
+  const databaseReady =
+    database.configured &&
+    database.connected;
 
-    action,
+  res.status(200).json({
+    platform: PLATFORM,
+    version: VERSION,
 
-    entity,
+    status: "online",
 
-    entityId,
+    server: {
+      online: true,
+      node: process.version,
+      environment:
+        process.env.NODE_ENV || "development"
+    },
+
+    database: {
+      configured:
+        Boolean(database.configured),
+
+      connected:
+        Boolean(database.connected),
+
+      ready:
+        Boolean(databaseReady),
+
+      databaseName:
+        database.databaseName || null,
+
+      serverTime:
+        database.serverTime || null
+    },
+
+    services: {
+      api: true,
+      cms: true,
+      ai: Boolean(
+        process.env.AI_API_KEY
+      ),
+      media: true,
+      live: true,
+      advertising: true,
+      sponsorships: true,
+      automation: true,
+      analytics: true
+    },
 
     requestId: req.requestId,
 
-    details,
+    timestamp:
+      new Date().toISOString()
+  });
+});
 
-    createdAt: now()
+/* =========================================================
+   DATABASE HEALTH
+========================================================= */
 
-  };
-
-  if (pool) {
-
+app.get(
+  "/api/system/database",
+  async (req, res) => {
     try {
-
-      await dbQuery(
-
-        `
-        INSERT INTO audit_logs
-        (
-          id,
-          action,
-          entity,
-          entity_id,
-          request_id,
-          details,
-          created_at
-        )
-        VALUES
-        ($1,$2,$3,$4,$5,$6,$7)
-        `,
-
-        [
-
-          record.id,
-
-          record.action,
-
-          record.entity,
-
-          record.entityId,
-
-          record.requestId,
-
-          JSON.stringify(
-            record.details
-          ),
-
-          record.createdAt
-
-        ]
-
-      );
-
-    } catch (error) {
-
-      console.error(
-        "[AUDIT]",
-        error.message
-      );
-
-    }
-
-  } else {
-
-    memory.auditLogs.unshift(
-      record
-    );
-
-  }
-
-}
-
-/* =========================================================
-   HEALTH
-========================================================= */
-
-app.get(
-  "/health",
-  async (req, res) => {
-
-    const connected =
-      await checkDatabase();
-
-    res.json({
-
-      platform: PLATFORM,
-
-      version: VERSION,
-
-      status:
-        connected || !pool
-          ? "online"
-          : "degraded",
-
-      server: {
-
-        online: true,
-
-        node: process.version,
-
-        environment:
-          process.env.NODE_ENV ||
-          "production",
-
-        uptime:
-          process.uptime()
-
-      },
-
-      database: {
-
-        configured:
-          Boolean(pool),
-
-        connected,
-
-        mode:
-          pool
-            ? "postgresql"
-            : "memory",
-
-        message:
-          pool
-            ? (
-              connected
-                ? "PostgreSQL connected"
-                : "PostgreSQL unavailable"
-            )
-            : "DATABASE_URL is not configured"
-
-      },
-
-      modules: {
-
-        api: true,
-
-        cms: true,
-
-        ai: true,
-
-        media: true,
-
-        live: true,
-
-        advertising: true,
-
-        sponsorships: true,
-
-        automation: true,
-
-        analytics: true,
-
-        search: true,
-
-        authentication: true,
-
-        audit: true
-
-      },
-
-      requestId:
-        req.requestId,
-
-      timestamp:
-        now()
-
-    });
-
-  }
-);
-
-/* =========================================================
-   API INFO
-========================================================= */
-
-app.get(
-  "/api",
-  (req, res) => {
-
-    res.json({
-
-      platform: PLATFORM,
-
-      version: VERSION,
-
-      status: "online",
-
-      endpoints: [
-
-        "/health",
-
-        "/api/auth/login",
-
-        "/api/dashboard",
-
-        "/api/content",
-
-        "/api/news",
-
-        "/api/ai",
-
-        "/api/media",
-
-        "/api/live",
-
-        "/api/advertising",
-
-        "/api/sponsorships",
-
-        "/api/search",
-
-        "/api/analytics",
-
-        "/api/admin"
-
-      ]
-
-    });
-
-  }
-);
-
-/* =========================================================
-   LOGIN
-========================================================= */
-
-app.post(
-  "/api/auth/login",
-  async (req, res) => {
-
-    const {
-      email,
-      password
-    } = req.body || {};
-
-    if (!email || !password) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        error:
-          "email and password are required"
-
-      });
-
-    }
-
-    let user = null;
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-          `
-          SELECT
-            id,
-            name,
-            email,
-            role,
-            password_hash
-          FROM users
-          WHERE email = $1
-          LIMIT 1
-          `,
-          [email]
-        );
-
-      user =
-        result.rows[0];
-
-      if (
-        !user ||
-        user.password_hash !== password
-      ) {
-
-        return res.status(401).json({
-
-          success: false,
-
-          error:
-            "Invalid credentials"
-
-        });
-
-      }
-
-    } else {
-
-      user =
-        memory.users.find(
-          item =>
-            item.email === email &&
-            item.password === password
-        );
-
-      if (!user) {
-
-        return res.status(401).json({
-
-          success: false,
-
-          error:
-            "Invalid credentials"
-
-        });
-
-      }
-
-    }
-
-    const token =
-      jwt.sign(
-
-        {
-
-          id: user.id,
-
-          email: user.email,
-
-          role: user.role,
-
-          name: user.name
-
-        },
-
-        JWT_SECRET,
-
-        {
-
-          expiresIn: "7d"
-
-        }
-
-      );
-
-    await audit(
-      req,
-      "login",
-      "user",
-      user.id
-    );
-
-    res.json({
-
-      success: true,
-
-      token,
-
-      user: {
-
-        id: user.id,
-
-        name: user.name,
-
-        email: user.email,
-
-        role: user.role
-
-      }
-
-    });
-
-  }
-);
-
-/* =========================================================
-   SECTIONS
-========================================================= */
-
-const sections = [
-
-  ["news", "الأخبار"],
-
-  ["saudi", "السعودية"],
-
-  ["gulf", "الخليج"],
-
-  ["world", "العالم"],
-
-  ["economy", "اقتصاد"],
-
-  ["technology", "تقنية وذكاء اصطناعي"],
-
-  ["sports", "رياضة"],
-
-  ["community", "مجتمع"],
-
-  ["culture", "ثقافة"],
-
-  ["tourism", "سياحة"],
-
-  ["environment", "بيئة"],
-
-  ["reports", "تقارير"],
-
-  ["investigations", "تحقيقات"],
-
-  ["interviews", "مقابلات"],
-
-  ["video", "فيديو"],
-
-  ["live", "البث المباشر"],
-
-  ["my-content", "محتواي"],
-
-  ["library", "المكتبة الإعلامية"],
-
-  ["advertising", "الإعلانات"],
-
-  ["sponsorships", "الرعايات"],
-
-  ["ai", "الذكاء الاصطناعي"],
-
-  ["operations", "غرفة العمليات"]
-
-];
-
-app.get(
-  "/api/sections",
-  (req, res) => {
-
-    res.json(
-
-      sections.map(
-        ([slug, name]) => ({
-          slug,
-          name
-        })
-      )
-
-    );
-
-  }
-);
-
-/* =========================================================
-   CONTENT
-========================================================= */
-
-app.get(
-  "/api/content",
-  auth(false),
-  async (req, res) => {
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-          `
-          SELECT *
-          FROM content
-          ORDER BY created_at DESC
-          LIMIT 100
-          `
-        );
+      const database =
+        await databaseHealth();
 
       return res.json({
-
         success: true,
 
-        data:
-          result.rows
+        platform: PLATFORM,
 
+        database
       });
+    } catch (error) {
+      return res.status(503).json({
+        success: false,
 
+        platform: PLATFORM,
+
+        database: {
+          configured:
+            Boolean(
+              process.env.DATABASE_URL
+            ),
+
+          connected: false,
+
+          ready: false,
+
+          databaseName: null,
+
+          error: error.message
+        },
+
+        requestId: req.requestId,
+
+        timestamp:
+          new Date().toISOString()
+      });
     }
-
-    res.json({
-
-      success: true,
-
-      data:
-        memory.content
-
-    });
-
   }
 );
 
-app.post(
+/* =========================================================
+   CMS
+========================================================= */
+
+app.use(
   "/api/content",
-  auth(),
-  async (req, res) => {
-
-    const {
-
-      title,
-
-      body = "",
-
-      section = "news",
-
-      type = "article",
-
-      status = "draft",
-
-      tags = []
-
-    } = req.body || {};
-
-    if (!title) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        error:
-          "title is required"
-
-      });
-
-    }
-
-    const record = {
-
-      id: id("content"),
-
-      title,
-
-      slug:
-        slugify(title),
-
-      body,
-
-      section,
-
-      type,
-
-      status,
-
-      tags,
-
-      authorId:
-        req.user.id,
-
-      aiGenerated: false,
-
-      requiresHumanApproval:
-        status !== "published",
-
-      createdAt:
-        now(),
-
-      updatedAt:
-        now()
-
-    };
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-
-          `
-          INSERT INTO content
-          (
-            id,
-            title,
-            slug,
-            body,
-            section,
-            type,
-            status,
-            author_id,
-            ai_generated,
-            requires_human_approval,
-            tags,
-            created_at,
-            updated_at
-          )
-          VALUES
-          (
-            $1,$2,$3,$4,$5,$6,$7,$8,
-            $9,$10,$11,$12,$13
-          )
-          RETURNING *
-          `,
-
-          [
-
-            record.id,
-
-            record.title,
-
-            record.slug,
-
-            record.body,
-
-            record.section,
-
-            record.type,
-
-            record.status,
-
-            record.authorId,
-
-            record.aiGenerated,
-
-            record.requiresHumanApproval,
-
-            JSON.stringify(tags),
-
-            record.createdAt,
-
-            record.updatedAt
-
-          ]
-
-        );
-
-      await audit(
-        req,
-        "create",
-        "content",
-        record.id
-      );
-
-      return res.status(201).json({
-
-        success: true,
-
-        data:
-          result.rows[0]
-
-      });
-
-    }
-
-    memory.content.unshift(
-      record
-    );
-
-    await audit(
-      req,
-      "create",
-      "content",
-      record.id
-    );
-
-    res.status(201).json({
-
-      success: true,
-
-      data: record
-
-    });
-
-  }
+  contentRoutes
 );
 
 /* =========================================================
    AI ENGINE
 ========================================================= */
 
-function analyzeText(text) {
+app.use(
+  "/api/ai",
+  aiRoutes
+);
 
-  const clean =
-    String(text)
-      .replace(/\s+/g, " ")
-      .trim();
+/* =========================================================
+   SYSTEM INFORMATION
+========================================================= */
 
-  const words =
-    clean
-      ? clean.split(/\s+/)
-      : [];
-
-  const sentences =
-    clean
-      ? clean
-          .split(/[.!؟]+/)
-          .map(x => x.trim())
-          .filter(Boolean)
-      : [];
-
-  const keywords =
-    [
-      ...new Set(
-        words
-          .filter(
-            word =>
-              word.length >= 4
-          )
-          .slice(0, 20)
-      )
-    ];
-
-  let category =
-    "news";
-
-  if (
-    /اقتصاد|استثمار|شركة|أسهم|مال/
-      .test(clean)
-  ) {
-
-    category =
-      "economy";
-
-  } else if (
-    /تقنية|ذكاء اصطناعي|برمجة|روبوت/
-      .test(clean)
-  ) {
-
-    category =
-      "technology";
-
-  } else if (
-    /رياضة|مباراة|نادي|لاعب/
-      .test(clean)
-  ) {
-
-    category =
-      "sports";
-
-  } else if (
-    /السعودية|الرياض|جدة|المدينة|مكة/
-      .test(clean)
-  ) {
-
-    category =
-      "saudi";
-
-  }
-
-  return {
-
-    language:
-      /[\u0600-\u06FF]/
-        .test(clean)
-        ? "ar"
-        : "en",
-
-    category,
-
-    wordCount:
-      words.length,
-
-    sentenceCount:
-      sentences.length,
-
-    keywords,
-
-    summary:
-      clean.slice(0, 400)
-
-  };
-
-}
-
-app.post(
-  "/api/ai/analyze",
-  auth(),
+app.get(
+  "/api/system",
   async (req, res) => {
+    let database;
 
-    const text =
-      req.body?.text || "";
-
-    if (!text) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        error:
-          "text is required"
-
-      });
-
-    }
-
-    const analysis =
-      analyzeText(text);
-
-    const job = {
-
-      id:
-        id("ai"),
-
-      type:
-        "analysis",
-
-      status:
-        "completed",
-
-      input:
-        text,
-
-      output:
-        analysis,
-
-      createdAt:
-        now()
-
-    };
-
-    if (pool) {
-
-      await dbQuery(
-
-        `
-        INSERT INTO ai_jobs
-        (
-          id,
-          type,
-          status,
-          input,
-          output,
-          created_at,
-          updated_at
-        )
-        VALUES
-        ($1,$2,$3,$4,$5,$6,$7)
-        `,
-
-        [
-
-          job.id,
-
-          job.type,
-
-          job.status,
-
-          job.input,
-
-          JSON.stringify(
-            job.output
+    try {
+      database =
+        await databaseHealth();
+    } catch (error) {
+      database = {
+        configured:
+          Boolean(
+            process.env.DATABASE_URL
           ),
 
-          job.createdAt,
+        connected: false,
 
-          job.createdAt
+        ready: false,
 
-        ]
-
-      );
-
-    } else {
-
-      memory.aiJobs.unshift(
-        job
-      );
-
-    }
-
-    res.json({
-
-      success: true,
-
-      data: analysis,
-
-      jobId:
-        job.id
-
-    });
-
-  }
-);
-
-/* =========================================================
-   AI NEWS DRAFT
-========================================================= */
-
-app.post(
-  "/api/ai/draft",
-  auth(),
-  async (req, res) => {
-
-    const {
-
-      title = "",
-
-      sourceText = "",
-
-      section = "news",
-
-      sourceUrl = ""
-
-    } = req.body || {};
-
-    if (!sourceText) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        error:
-          "sourceText is required"
-
-      });
-
-    }
-
-    const analysis =
-      analyzeText(
-        sourceText
-      );
-
-    const finalTitle =
-      title ||
-      analysis.summary
-        .split(/[.!؟]/)[0]
-        .slice(0, 140);
-
-    const record = {
-
-      id:
-        id("content"),
-
-      title:
-        finalTitle,
-
-      slug:
-        slugify(finalTitle),
-
-      body:
-        sourceText,
-
-      section,
-
-      type:
-        "article",
-
-      status:
-        "ai_review",
-
-      sourceUrl,
-
-      authorId:
-        req.user.id,
-
-      aiGenerated:
-        true,
-
-      requiresHumanApproval:
-        true,
-
-      aiAnalysis:
-        analysis,
-
-      createdAt:
-        now(),
-
-      updatedAt:
-        now()
-
-    };
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-
-          `
-          INSERT INTO content
-          (
-            id,
-            title,
-            slug,
-            body,
-            section,
-            type,
-            status,
-            source_url,
-            author_id,
-            ai_generated,
-            ai_analysis,
-            requires_human_approval,
-            created_at,
-            updated_at
-          )
-          VALUES
-          (
-            $1,$2,$3,$4,$5,$6,$7,$8,
-            $9,$10,$11,$12,$13,$14
-          )
-          RETURNING *
-          `,
-
-          [
-
-            record.id,
-
-            record.title,
-
-            record.slug,
-
-            record.body,
-
-            record.section,
-
-            record.type,
-
-            record.status,
-
-            record.sourceUrl,
-
-            record.authorId,
-
-            true,
-
-            JSON.stringify(
-              record.aiAnalysis
-            ),
-
-            true,
-
-            record.createdAt,
-
-            record.updatedAt
-
-          ]
-
-        );
-
-      return res.status(201).json({
-
-        success: true,
-
-        workflow: [
-
-          "source",
-
-          "analysis",
-
-          "draft",
-
-          "human_review",
-
-          "approval",
-
-          "publish"
-
-        ],
-
-        data:
-          result.rows[0]
-
-      });
-
-    }
-
-    memory.content.unshift(
-      record
-    );
-
-    res.status(201).json({
-
-      success: true,
-
-      workflow: [
-
-        "source",
-
-        "analysis",
-
-        "draft",
-
-        "human_review",
-
-        "approval",
-
-        "publish"
-
-      ],
-
-      data: record
-
-    });
-
-  }
-);
-
-/* =========================================================
-   MEDIA
-========================================================= */
-
-app.get(
-  "/api/media",
-  auth(false),
-  async (req, res) => {
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-          `
-          SELECT *
-          FROM media
-          ORDER BY created_at DESC
-          LIMIT 100
-          `
-        );
-
-      return res.json({
-
-        success: true,
-
-        data:
-          result.rows
-
-      });
-
-    }
-
-    res.json({
-
-      success: true,
-
-      data:
-        memory.media
-
-    });
-
-  }
-);
-
-app.post(
-  "/api/media",
-  auth(),
-  async (req, res) => {
-
-    const {
-
-      name,
-
-      url,
-
-      type = "video",
-
-      mimeType = null,
-
-      size = 0,
-
-      alt = ""
-
-    } = req.body || {};
-
-    if (!name || !url) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        error:
-          "name and url are required"
-
-      });
-
-    }
-
-    const record = {
-
-      id:
-        id("media"),
-
-      name,
-
-      url,
-
-      type,
-
-      mimeType,
-
-      size:
-        Number(size) || 0,
-
-      alt,
-
-      ownerId:
-        req.user.id,
-
-      createdAt:
-        now(),
-
-      updatedAt:
-        now()
-
-    };
-
-    if (!pool) {
-
-      memory.media.unshift(
-        record
-      );
-
-      return res.status(201).json({
-
-        success: true,
-
-        data: record
-
-      });
-
-    }
-
-    const result =
-      await dbQuery(
-
-        `
-        INSERT INTO media
-        (
-          id,
-          name,
-          url,
-          type,
-          mime_type,
-          size,
-          alt,
-          owner_id,
-          created_at,
-          updated_at
-        )
-        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-        RETURNING *
-        `,
-
-        [
-
-          record.id,
-
-          record.name,
-
-          record.url,
-
-          record.type,
-
-          record.mimeType,
-
-          record.size,
-
-          record.alt,
-
-          record.ownerId,
-
-          record.createdAt,
-
-          record.updatedAt
-
-        ]
-
-      );
-
-    res.status(201).json({
-
-      success: true,
-
-      data:
-        result.rows[0]
-
-    });
-
-  }
-);
-
-/* =========================================================
-   LIVE
-========================================================= */
-
-app.get(
-  "/api/live",
-  async (req, res) => {
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-          `
-          SELECT *
-          FROM live
-          ORDER BY created_at DESC
-          `
-        );
-
-      return res.json(
-        result.rows
-      );
-
-    }
-
-    res.json(
-      memory.live
-    );
-
-  }
-);
-
-app.post(
-  "/api/live",
-  auth(),
-  role("admin", "editor"),
-  async (req, res) => {
-
-    const {
-
-      title,
-
-      streamUrl,
-
-      status = "scheduled",
-
-      startsAt = null,
-
-      description = ""
-
-    } = req.body || {};
-
-    if (!title || !streamUrl) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        error:
-          "title and streamUrl are required"
-
-      });
-
-    }
-
-    const record = {
-
-      id:
-        id("live"),
-
-      title,
-
-      streamUrl,
-
-      status,
-
-      startsAt,
-
-      description,
-
-      createdBy:
-        req.user.id,
-
-      createdAt:
-        now(),
-
-      updatedAt:
-        now()
-
-    };
-
-    if (!pool) {
-
-      memory.live.unshift(
-        record
-      );
-
-      return res.status(201).json({
-
-        success: true,
-
-        data: record
-
-      });
-
-    }
-
-    const result =
-      await dbQuery(
-
-        `
-        INSERT INTO live
-        (
-          id,
-          title,
-          stream_url,
-          status,
-          starts_at,
-          description,
-          created_by,
-          created_at,
-          updated_at
-        )
-        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-        RETURNING *
-        `,
-
-        [
-
-          record.id,
-
-          record.title,
-
-          record.streamUrl,
-
-          record.status,
-
-          record.startsAt,
-
-          record.description,
-
-          record.createdBy,
-
-          record.createdAt,
-
-          record.updatedAt
-
-        ]
-
-      );
-
-    res.status(201).json({
-
-      success: true,
-
-      data:
-        result.rows[0]
-
-    });
-
-  }
-);
-
-/* =========================================================
-   SEARCH
-========================================================= */
-
-app.get(
-  "/api/search",
-  async (req, res) => {
-
-    const q =
-      String(
-        req.query.q || ""
-      )
-      .trim()
-      .toLowerCase();
-
-    if (!q) {
-
-      return res.json([]);
-
-    }
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-
-          `
-          SELECT *
-          FROM content
-          WHERE
-            LOWER(title) LIKE $1
-            OR LOWER(body) LIKE $1
-          ORDER BY created_at DESC
-          LIMIT 50
-          `,
-
-          [`%${q}%`]
-
-        );
-
-      return res.json(
-        result.rows
-      );
-
-    }
-
-    const results =
-      memory.content.filter(
-        item =>
-          `${item.title} ${item.body}`
-            .toLowerCase()
-            .includes(q)
-      );
-
-    res.json(
-      results.slice(0, 50)
-    );
-
-  }
-);
-
-/* =========================================================
-   ANALYTICS
-========================================================= */
-
-app.post(
-  "/api/analytics/event",
-  async (req, res) => {
-
-    const record = {
-
-      id:
-        id("event"),
-
-      event:
-        req.body?.event ||
-        "page_view",
-
-      path:
-        req.body?.path ||
-        "/",
-
-      metadata:
-        req.body?.metadata ||
-        {},
-
-      createdAt:
-        now()
-
-    };
-
-    if (!pool) {
-
-      memory.analytics.unshift(
-        record
-      );
-
-    } else {
-
-      await dbQuery(
-
-        `
-        INSERT INTO analytics
-        (
-          id,
-          event,
-          path,
-          metadata,
-          created_at,
-          updated_at
-        )
-        VALUES
-        ($1,$2,$3,$4,$5,$6)
-        `,
-
-        [
-
-          record.id,
-
-          record.event,
-
-          record.path,
-
-          JSON.stringify(
-            record.metadata
-          ),
-
-          record.createdAt,
-
-          record.createdAt
-
-        ]
-
-      );
-
-    }
-
-    res.status(201).json({
-
-      success: true,
-
-      id:
-        record.id
-
-    });
-
-  }
-);
-
-/* =========================================================
-   ADMIN
-========================================================= */
-
-app.get(
-  "/api/admin/audit",
-  auth(),
-  role("admin"),
-  async (req, res) => {
-
-    if (pool) {
-
-      const result =
-        await dbQuery(
-          `
-          SELECT *
-          FROM audit_logs
-          ORDER BY created_at DESC
-          LIMIT 200
-          `
-        );
-
-      return res.json(
-        result.rows
-      );
-
-    }
-
-    res.json(
-      memory.auditLogs
-    );
-
-  }
-);
-
-/* =========================================================
-   DASHBOARD
-========================================================= */
-
-app.get(
-  "/api/dashboard",
-  auth(false),
-  async (req, res) => {
-
-    if (pool) {
-
-      const queries = {
-
-        content:
-          "SELECT COUNT(*) FROM content",
-
-        media:
-          "SELECT COUNT(*) FROM media",
-
-        live:
-          "SELECT COUNT(*) FROM live",
-
-        ads:
-          "SELECT COUNT(*) FROM advertisements",
-
-        sponsorships:
-          "SELECT COUNT(*) FROM sponsorships"
-
+        error: error.message
       };
-
-      const results = {};
-
-      for (
-        const [key, sql]
-        of Object.entries(queries)
-      ) {
-
-        try {
-
-          const result =
-            await dbQuery(sql);
-
-          results[key] =
-            Number(
-              result.rows[0].count
-            );
-
-        } catch {
-
-          results[key] = 0;
-
-        }
-
-      }
-
-      return res.json({
-
-        success: true,
-
-        version: VERSION,
-
-        database:
-          "postgresql",
-
-        statistics:
-          results
-
-      });
-
     }
 
     res.json({
-
-      success: true,
+      platform: PLATFORM,
 
       version: VERSION,
 
-      database:
-        "memory",
+      status: "online",
 
-      statistics: {
+      server: {
+        node: process.version,
 
-        content:
-          memory.content.length,
+        environment:
+          process.env.NODE_ENV ||
+          "development",
 
-        media:
-          memory.media.length,
+        uptime: process.uptime()
+      },
 
-        live:
-          memory.live.length,
+      database,
 
-        advertisements:
-          memory.advertisements.length,
+      ai: {
+        configured:
+          Boolean(
+            process.env.AI_API_KEY
+          ),
 
-        sponsorships:
-          memory.sponsorships.length,
+        provider:
+          process.env.AI_PROVIDER ||
+          "openai",
 
-        aiJobs:
-          memory.aiJobs.length,
+        model:
+          process.env.AI_MODEL ||
+          "gpt-5"
+      },
 
-        analytics:
-          memory.analytics.length
+      requestId:
+        req.requestId,
 
-      }
-
+      timestamp:
+        new Date().toISOString()
     });
-
-  }
-);
-
-/* =========================================================
-   FRONTEND
-========================================================= */
-
-const publicDirectory =
-  path.join(
-    __dirname,
-    "public"
-  );
-
-app.use(
-  express.static(
-    publicDirectory
-  )
-);
-
-app.get(
-  "*",
-  (req, res, next) => {
-
-    if (
-      req.path.startsWith("/api") ||
-      req.path === "/health"
-    ) {
-
-      return next();
-
-    }
-
-    res.sendFile(
-      path.join(
-        publicDirectory,
-        "index.html"
-      )
-    );
-
   }
 );
 
@@ -2094,99 +361,134 @@ app.get(
    404
 ========================================================= */
 
-app.use(
-  (req, res) => {
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
 
-    res.status(404).json({
+    error: "NOT_FOUND",
 
-      success: false,
+    message:
+      "المسار المطلوب غير موجود",
 
-      error:
-        "Endpoint not found",
+    path: req.originalUrl,
 
-      path:
-        req.originalUrl,
+    requestId:
+      req.requestId,
 
-      requestId:
-        req.requestId
-
-    });
-
-  }
-);
+    timestamp:
+      new Date().toISOString()
+  });
+});
 
 /* =========================================================
-   ERROR
+   GLOBAL ERROR HANDLER
 ========================================================= */
 
 app.use(
-  (error, req, res, next) => {
-
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
     console.error(
-      "[SERVER ERROR]",
-      error
+      JSON.stringify({
+        type: "server_error",
+
+        requestId:
+          req.requestId,
+
+        message:
+          error.message,
+
+        stack:
+          error.stack,
+
+        timestamp:
+          new Date().toISOString()
+      })
     );
 
-    res.status(500).json({
+    if (res.headersSent) {
+      return next(error);
+    }
 
+    res.status(
+      error.statusCode || 500
+    ).json({
       success: false,
 
       error:
-        "Internal server error",
+        error.code ||
+        "INTERNAL_SERVER_ERROR",
+
+      message:
+        "حدث خطأ داخلي في EZ MEDIA",
 
       requestId:
-        req.requestId
+        req.requestId,
 
+      timestamp:
+        new Date().toISOString()
     });
-
   }
 );
 
 /* =========================================================
-   START
+   SERVER START
 ========================================================= */
 
-const server =
-  app.listen(
-    PORT,
-    HOST,
-    () => {
+const server = app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      JSON.stringify({
+        platform: PLATFORM,
 
-      console.log(
-        `EZ MEDIA ${VERSION} running on ${HOST}:${PORT}`
-      );
+        version: VERSION,
 
-    }
-  );
+        status: "online",
+
+        port: PORT,
+
+        node: process.version,
+
+        environment:
+          process.env.NODE_ENV ||
+          "development",
+
+        timestamp:
+          new Date().toISOString()
+      })
+    );
+  }
+);
 
 /* =========================================================
-   SHUTDOWN
+   GRACEFUL SHUTDOWN
 ========================================================= */
 
-async function shutdown(
-  signal
-) {
-
+async function shutdown(signal) {
   console.log(
-    `${signal}: shutting down EZ MEDIA`
+    `${signal} received. Shutting down EZ MEDIA...`
   );
 
-  server.close(
-    async () => {
+  server.close(() => {
+    console.log(
+      "EZ MEDIA server closed."
+    );
 
-      if (pool) {
+    process.exit(0);
+  });
 
-        await pool
-          .end()
-          .catch(() => {});
+  setTimeout(() => {
+    console.error(
+      "Forced shutdown."
+    );
 
-      }
-
-      process.exit(0);
-
-    }
-  );
-
+    process.exit(1);
+  }, 10000).unref();
 }
 
 process.on(
@@ -2198,3 +500,29 @@ process.on(
   "SIGINT",
   () => shutdown("SIGINT")
 );
+
+/* =========================================================
+   UNHANDLED ERRORS
+========================================================= */
+
+process.on(
+  "unhandledRejection",
+  (reason) => {
+    console.error(
+      "Unhandled Rejection:",
+      reason
+    );
+  }
+);
+
+process.on(
+  "uncaughtException",
+  (error) => {
+    console.error(
+      "Uncaught Exception:",
+      error
+    );
+  }
+);
+
+module.exports = app;
