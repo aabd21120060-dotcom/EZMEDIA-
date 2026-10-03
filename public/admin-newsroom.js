@@ -1,2734 +1,1510 @@
 "use strict";
 
 /*
- * ============================================================
  * EZ MEDIA 11.0
- * SMART NEWSROOM
- * public/admin-newsroom.js
- *
  * غرفة الأخبار الذكية
- * ============================================================
+ * الملف: public/admin-newsroom.js
  */
 
 (() => {
-
-  const NEWSROOM = {
-
-    state: {
-      initialized: false,
-      loading: false,
-
-      contents: [],
-      selectedContent: null,
-
-      filters: {
-        search: "",
-        type: "",
-        status: ""
-      },
-
-      aiResult: null,
-
-      stats: {
-        total: 0,
-        drafts: 0,
-        review: 0,
-        approved: 0,
-        published: 0
-      }
-    },
-
-
-    config: {
-
-      endpoints: {
-        content: "/api/content",
-        ai: "/api/ai",
-        media: "/api/media",
-        live: "/api/live"
-      },
-
-      refreshInterval: 30000
-
-    }
-
+  const API = {
+    content: "/api/content",
+    ai: "/api/ai",
+    media: "/api/media",
+    breaking: "/api/breaking"
   };
 
+  const state = {
+    items: [],
+    filteredItems: [],
+    loading: false,
+    search: "",
+    type: "",
+    status: ""
+  };
 
-  /* ==========================================================
-     أدوات
-     ========================================================== */
+  const TYPES = {
+    news: "خبر",
+    report: "تقرير",
+    interview: "مقابلة",
+    video: "فيديو",
+    coverage: "تغطية",
+    breaking: "عاجل"
+  };
 
-  function qs(selector, root = document) {
-    return root.querySelector(selector);
-  }
-
+  const STATUSES = {
+    draft: "مسودة",
+    review: "مراجعة",
+    approved: "معتمد",
+    scheduled: "مجدول",
+    published: "منشور",
+    archived: "مؤرشف"
+  };
 
   function escapeHtml(value) {
-
     return String(value ?? "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
-
   }
-
-
-  function getId(item) {
-
-    return (
-      item?.id ||
-      item?.content_id ||
-      null
-    );
-
-  }
-
-
-  function getTitle(item) {
-
-    return (
-      item?.headline ||
-      item?.title ||
-      "بدون عنوان"
-    );
-
-  }
-
-
-  function getSummary(item) {
-
-    return (
-      item?.summary ||
-      item?.description ||
-      ""
-    );
-
-  }
-
-
-  function getType(item) {
-
-    return String(
-      item?.content_type ||
-      item?.contentType ||
-      item?.type ||
-      ""
-    ).toLowerCase();
-
-  }
-
-
-  function getStatus(item) {
-
-    return String(
-      item?.status ||
-      "draft"
-    ).toLowerCase();
-
-  }
-
-
-  function getDate(item) {
-
-    return (
-      item?.published_at ||
-      item?.publishedAt ||
-      item?.created_at ||
-      item?.createdAt ||
-      item?.updated_at ||
-      item?.updatedAt ||
-      null
-    );
-
-  }
-
 
   function formatDate(value) {
+    if (!value) return "غير محدد";
 
-    if (!value) {
-      return "—";
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "غير محدد";
     }
+
+    return new Intl.DateTimeFormat("ar-SA", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(date);
+  }
+
+  function getTypeLabel(type) {
+    return TYPES[type] || type || "محتوى";
+  }
+
+  function getStatusLabel(status) {
+    return STATUSES[status] || status || "غير محدد";
+  }
+
+  function statusClass(status) {
+    return `status-${String(status || "unknown").replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  }
+
+  function notify(message, type = "info") {
+    let box = document.getElementById("ez-newsroom-notification");
+
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ez-newsroom-notification";
+
+      Object.assign(box.style, {
+        position: "fixed",
+        top: "24px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: "99999",
+        maxWidth: "calc(100vw - 32px)",
+        padding: "14px 20px",
+        borderRadius: "16px",
+        background: "#ffffff",
+        color: "#17324d",
+        border: "1px solid #d9eaf7",
+        boxShadow: "0 15px 45px rgba(27, 116, 170, 0.16)",
+        fontFamily: "inherit",
+        fontSize: "14px",
+        fontWeight: "700",
+        textAlign: "center"
+      });
+
+      document.body.appendChild(box);
+    }
+
+    box.textContent = message;
+
+    if (type === "success") {
+      box.style.borderColor = "#b7e7d1";
+    } else if (type === "error") {
+      box.style.borderColor = "#f1c1c1";
+    } else {
+      box.style.borderColor = "#d9eaf7";
+    }
+
+    clearTimeout(box._timer);
+
+    box._timer = setTimeout(() => {
+      box.remove();
+    }, 3500);
+  }
+
+  async function request(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      }
+    });
+
+    let data = null;
 
     try {
-
-      return new Intl.DateTimeFormat(
-        "ar-SA",
-        {
-          dateStyle: "medium",
-          timeStyle: "short"
-        }
-      ).format(
-        new Date(value)
-      );
-
+      data = await response.json();
     } catch {
-
-      return "—";
-
+      data = null;
     }
-
-  }
-
-
-  function statusLabel(status) {
-
-    const labels = {
-
-      draft: "مسودة",
-      review: "مراجعة",
-      approved: "معتمد",
-      scheduled: "مجدول",
-      published: "منشور",
-      archived: "مؤرشف"
-
-    };
-
-    return (
-      labels[status] ||
-      status ||
-      "غير معروف"
-    );
-
-  }
-
-
-  function typeLabel(type) {
-
-    const labels = {
-
-      news: "خبر",
-      report: "تقرير",
-      interview: "مقابلة",
-      video: "فيديو",
-      coverage: "تغطية",
-      breaking: "عاجل"
-
-    };
-
-    return (
-      labels[type] ||
-      type ||
-      "محتوى"
-
-    );
-
-  }
-
-
-  /* ==========================================================
-     API
-     ========================================================== */
-
-  async function request(
-    url,
-    options = {}
-  ) {
-
-    const response =
-      await fetch(
-        url,
-        {
-          ...options,
-
-          headers: {
-            Accept:
-              "application/json",
-
-            "Content-Type":
-              "application/json",
-
-            ...(options.headers || {})
-          }
-        }
-      );
-
-
-    const contentType =
-      response.headers.get(
-        "content-type"
-      ) || "";
-
-
-    let data;
-
-
-    if (
-      contentType.includes(
-        "application/json"
-      )
-    ) {
-
-      data =
-        await response.json();
-
-    } else {
-
-      data =
-        await response.text();
-
-    }
-
 
     if (!response.ok) {
-
-      const error =
-        new Error(
-          `HTTP ${response.status}`
-        );
-
-      error.status =
-        response.status;
-
-      error.data =
-        data;
-
-      throw error;
-
+      throw new Error(
+        data?.message ||
+        data?.error ||
+        `تعذر تنفيذ الطلب (${response.status})`
+      );
     }
-
 
     return data;
-
   }
 
-
-  /* ==========================================================
-     واجهة غرفة الأخبار
-     ========================================================== */
-
-  function mount() {
-
-    let root =
-      qs(
-        "#newsroom-section"
-      );
-
-
-    if (!root) {
-
-      root =
-        qs(
-          "#admin-newsroom-section"
-        );
-
+  function normalizeContentResponse(data) {
+    if (Array.isArray(data)) {
+      return data;
     }
 
-
-    if (!root) {
-
-      root =
-        qs(
-          '[data-admin-section="newsroom"]'
-        );
-
+    if (Array.isArray(data?.items)) {
+      return data.items;
     }
 
-
-    if (!root) {
-
-      console.warn(
-        "EZ MEDIA Newsroom: لم يتم العثور على الحاوية."
-      );
-
-      return false;
-
+    if (Array.isArray(data?.content)) {
+      return data.content;
     }
 
+    if (Array.isArray(data?.data)) {
+      return data.data;
+    }
 
-    root.innerHTML = `
+    return [];
+  }
 
-      <div
-        class="ez-newsroom"
-        dir="rtl"
-      >
+  function getContainer() {
+    return (
+      document.getElementById("newsroom-section") ||
+      document.querySelector('[data-admin-section="newsroom"]')
+    );
+  }
+
+  function renderShell() {
+    const container = getContainer();
+
+    if (!container) {
+      return null;
+    }
+
+    container.innerHTML = `
+      <div id="ez-newsroom-app" dir="rtl">
 
         <style>
-
-          .ez-newsroom {
+          #ez-newsroom-app {
             width: 100%;
-            color: #123047;
+            color: #17324d;
+            font-family: inherit;
           }
 
-          .ez-newsroom *,
-          .ez-newsroom *::before,
-          .ez-newsroom *::after {
+          #ez-newsroom-app * {
             box-sizing: border-box;
           }
 
-          .ez-newsroom-header {
+          .ez-nr-header {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            gap: 20px;
+            align-items: center;
+            gap: 16px;
             margin-bottom: 22px;
-          }
-
-          .ez-newsroom-title {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 900;
-          }
-
-          .ez-newsroom-subtitle {
-            margin: 5px 0 0;
-            color: #60788a;
-            font-size: 13px;
-          }
-
-          .ez-newsroom-actions {
-            display: flex;
             flex-wrap: wrap;
-            gap: 8px;
           }
 
-          .ez-nr-button {
-            border: 1px solid #dceef7;
-            background: #ffffff;
-            color: #056ca8;
-            min-height: 42px;
-            padding: 0 15px;
-            border-radius: 13px;
-            cursor: pointer;
+          .ez-nr-title-wrap h2 {
+            margin: 0 0 7px;
+            font-size: 27px;
+            font-weight: 900;
+            letter-spacing: -0.4px;
+          }
+
+          .ez-nr-title-wrap p {
+            margin: 0;
+            color: #6c879d;
+            font-size: 14px;
+            line-height: 1.7;
+          }
+
+          .ez-nr-live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 13px;
+            border-radius: 999px;
+            background: #effaff;
+            border: 1px solid #d8f0fb;
+            color: #1577a8;
+            font-size: 12px;
             font-weight: 800;
           }
 
-          .ez-nr-button:hover {
-            background: #effaff;
+          .ez-nr-live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28b779;
+            box-shadow: 0 0 0 5px rgba(40,183,121,.10);
           }
 
-          .ez-nr-button-primary {
+          .ez-nr-actions {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+          }
+
+          .ez-nr-btn {
             border: 0;
-            color: #ffffff;
-            background:
-              linear-gradient(
-                135deg,
-                #0797e6,
-                #65d6ff
-              );
+            border-radius: 13px;
+            padding: 11px 16px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: .18s ease;
           }
 
-          .ez-newsroom-stats {
+          .ez-nr-btn:hover {
+            transform: translateY(-1px);
+          }
+
+          .ez-nr-btn-primary {
+            background: linear-gradient(135deg, #63c9f5, #3aa8df);
+            color: white;
+            box-shadow: 0 9px 24px rgba(58,168,223,.20);
+          }
+
+          .ez-nr-btn-light {
+            background: #f4fbff;
+            color: #26759c;
+            border: 1px solid #dceef7;
+          }
+
+          .ez-nr-stats {
             display: grid;
-            grid-template-columns:
-              repeat(
-                5,
-                minmax(0, 1fr)
-              );
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
           }
 
           .ez-nr-stat {
-            border: 1px solid #dceef7;
             background: #ffffff;
+            border: 1px solid #e2eef6;
             border-radius: 18px;
-            padding: 18px;
+            padding: 16px;
+            box-shadow: 0 7px 28px rgba(29, 112, 155, .06);
           }
 
           .ez-nr-stat-label {
-            color: #60788a;
+            color: #7892a6;
             font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 7px;
           }
 
           .ez-nr-stat-value {
-            margin-top: 4px;
-            font-size: 28px;
+            font-size: 25px;
             font-weight: 900;
+            color: #17324d;
           }
 
-          .ez-newsroom-toolbar {
+          .ez-nr-toolbar {
             display: grid;
-            grid-template-columns:
-              minmax(180px, 1fr)
-              180px
-              180px
-              auto;
+            grid-template-columns: 1.5fr 1fr 1fr auto;
             gap: 10px;
-            margin-bottom: 18px;
+            margin-bottom: 15px;
           }
 
           .ez-nr-input,
           .ez-nr-select {
             width: 100%;
             min-height: 44px;
-            border:
-              1px solid #dceef7;
+            border: 1px solid #dcebf4;
             border-radius: 13px;
             background: #ffffff;
-            color: #123047;
+            color: #17324d;
             padding: 0 13px;
             outline: none;
+            font-family: inherit;
+            font-size: 13px;
           }
 
           .ez-nr-input:focus,
           .ez-nr-select:focus {
-            border-color: #65d6ff;
+            border-color: #71c8ef;
+            box-shadow: 0 0 0 4px rgba(113,200,239,.11);
           }
 
-          .ez-newsroom-layout {
-            display: grid;
-            grid-template-columns:
-              minmax(0, 1.3fr)
-              minmax(330px, 0.7fr);
-            gap: 18px;
-          }
-
-          .ez-newsroom-list,
-          .ez-newsroom-editor {
-            border:
-              1px solid #dceef7;
-            border-radius: 20px;
+          .ez-nr-table-wrap {
+            overflow-x: auto;
             background: #ffffff;
-            overflow: hidden;
+            border: 1px solid #e2eef6;
+            border-radius: 20px;
+            box-shadow: 0 7px 28px rgba(29,112,155,.06);
           }
 
-          .ez-nr-panel-header {
-            padding: 18px;
-            border-bottom:
-              1px solid #e8f3f8;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
+          .ez-nr-table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
           }
 
-          .ez-nr-panel-title {
-            margin: 0;
-            font-size: 17px;
+          .ez-nr-table th {
+            background: #f6fbfe;
+            color: #69869b;
+            font-size: 11px;
             font-weight: 900;
+            text-align: right;
+            padding: 14px 15px;
+            border-bottom: 1px solid #e4eef5;
+            white-space: nowrap;
           }
 
-          .ez-nr-list {
-            max-height: 650px;
-            overflow: auto;
+          .ez-nr-table td {
+            padding: 14px 15px;
+            border-bottom: 1px solid #edf3f7;
+            font-size: 13px;
+            vertical-align: middle;
           }
 
-          .ez-nr-item {
-            padding: 16px;
-            border-bottom:
-              1px solid #edf5f9;
-            cursor: pointer;
-            transition:
-              background 0.2s ease;
+          .ez-nr-table tr:last-child td {
+            border-bottom: 0;
           }
 
-          .ez-nr-item:hover {
-            background: #f7fcff;
+          .ez-nr-content-title {
+            max-width: 360px;
+            font-weight: 850;
+            color: #17324d;
+            line-height: 1.55;
           }
 
-          .ez-nr-item-active {
-            background: #edfaff;
-          }
-
-          .ez-nr-item-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-          }
-
-          .ez-nr-item-title {
-            margin: 0;
-            font-size: 15px;
-            line-height: 1.5;
-            font-weight: 900;
-          }
-
-          .ez-nr-item-summary {
-            margin-top: 7px;
-            color: #60788a;
-            font-size: 12px;
-            line-height: 1.6;
-          }
-
-          .ez-nr-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 10px;
-          }
-
-          .ez-nr-badge {
-            display: inline-flex;
-            align-items: center;
-            min-height: 24px;
-            padding: 0 8px;
-            border-radius: 999px;
-            background: #edf9ff;
-            color: #056ca8;
+          .ez-nr-content-id {
+            color: #91a5b4;
             font-size: 10px;
-            font-weight: 900;
+            margin-top: 4px;
+            direction: ltr;
+            text-align: right;
           }
 
-          .ez-nr-badge-status {
-            background: #f1f8fb;
-            color: #60788a;
+          .ez-nr-type {
+            display: inline-flex;
+            padding: 6px 9px;
+            border-radius: 9px;
+            background: #eef9fe;
+            color: #247aa3;
+            font-size: 11px;
+            font-weight: 800;
           }
 
-          .ez-nr-editor {
-            padding: 20px;
+          .ez-nr-status {
+            display: inline-flex;
+            padding: 6px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 850;
+          }
+
+          .status-draft {
+            background: #f2f6f9;
+            color: #6f8494;
+          }
+
+          .status-review {
+            background: #fff7df;
+            color: #987019;
+          }
+
+          .status-approved {
+            background: #edf9f2;
+            color: #258253;
+          }
+
+          .status-scheduled {
+            background: #edf5ff;
+            color: #3470a6;
+          }
+
+          .status-published {
+            background: #e9faf4;
+            color: #16815b;
+          }
+
+          .status-archived {
+            background: #f3f3f3;
+            color: #777777;
+          }
+
+          .ez-nr-row-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+          }
+
+          .ez-nr-mini-btn {
+            border: 1px solid #dcecf5;
+            background: #ffffff;
+            color: #32799b;
+            border-radius: 9px;
+            padding: 7px 9px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+          }
+
+          .ez-nr-mini-btn:hover {
+            background: #f2fbff;
+          }
+
+          .ez-nr-mini-btn.danger {
+            color: #a74d4d;
+            border-color: #f0d7d7;
           }
 
           .ez-nr-empty {
-            min-height: 350px;
-            display: grid;
-            place-items: center;
+            padding: 55px 20px;
             text-align: center;
-            padding: 30px;
-            color: #60788a;
+            color: #7b92a4;
           }
 
-          .ez-nr-field {
-            margin-bottom: 15px;
-          }
-
-          .ez-nr-label {
+          .ez-nr-empty strong {
             display: block;
-            margin-bottom: 6px;
-            font-size: 12px;
-            font-weight: 900;
-          }
-
-          .ez-nr-textarea {
-            width: 100%;
-            min-height: 120px;
-            resize: vertical;
-            border:
-              1px solid #dceef7;
-            border-radius: 13px;
-            padding: 12px;
-            color: #123047;
-            background: #ffffff;
-            outline: none;
-          }
-
-          .ez-nr-title-input {
-            width: 100%;
-            min-height: 48px;
-            border:
-              1px solid #dceef7;
-            border-radius: 13px;
-            padding: 0 13px;
-            color: #123047;
-            background: #ffffff;
-            font-size: 15px;
-            font-weight: 800;
-            outline: none;
-          }
-
-          .ez-nr-editor-actions {
-            display: grid;
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            margin-top: 18px;
-          }
-
-          .ez-nr-ai {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top:
-              1px solid #e8f3f8;
-          }
-
-          .ez-nr-ai-title {
-            margin: 0 0 12px;
+            color: #38566d;
+            margin-bottom: 7px;
             font-size: 16px;
-            font-weight: 900;
           }
 
-          .ez-nr-ai-card {
-            border:
-              1px solid #dceef7;
-            border-radius: 16px;
-            background:
-              linear-gradient(
-                135deg,
-                #f3fcff,
-                #ffffff
-              );
-            padding: 14px;
+          .ez-nr-loading {
+            padding: 50px;
+            text-align: center;
+            color: #6f899b;
+            font-weight: 800;
           }
 
-          .ez-nr-ai-row {
-            margin-bottom: 12px;
-          }
-
-          .ez-nr-ai-label {
-            display: block;
-            color: #056ca8;
+          .ez-nr-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 13px;
+            color: #8299a9;
             font-size: 11px;
-            font-weight: 900;
-            margin-bottom: 4px;
+            flex-wrap: wrap;
           }
 
-          .ez-nr-ai-value {
-            font-size: 13px;
-            line-height: 1.7;
-            white-space: pre-wrap;
+          @media (max-width: 1050px) {
+            .ez-nr-stats {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .ez-nr-toolbar {
+              grid-template-columns: 1fr 1fr;
+            }
           }
 
-          .ez-nr-confidence {
-            display: inline-flex;
-            margin-top: 8px;
-            padding: 5px 9px;
-            border-radius: 999px;
-            background: #e8f9ff;
-            color: #056ca8;
-            font-size: 11px;
-            font-weight: 900;
-          }
+          @media (max-width: 680px) {
+            .ez-nr-stats {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
 
-          @media (max-width: 1000px) {
-
-            .ez-newsroom-layout {
+            .ez-nr-toolbar {
               grid-template-columns: 1fr;
             }
 
-            .ez-newsroom-stats {
-              grid-template-columns:
-                repeat(3, 1fr);
+            .ez-nr-title-wrap h2 {
+              font-size: 22px;
             }
-
           }
-
-          @media (max-width: 700px) {
-
-            .ez-newsroom-header {
-              flex-direction: column;
-              align-items: stretch;
-            }
-
-            .ez-newsroom-toolbar {
-              grid-template-columns: 1fr;
-            }
-
-            .ez-newsroom-stats {
-              grid-template-columns:
-                repeat(2, 1fr);
-            }
-
-          }
-
         </style>
 
-
-        <div class="ez-newsroom-header">
-
-          <div>
-
-            <h2 class="ez-newsroom-title">
+        <div class="ez-nr-header">
+          <div class="ez-nr-title-wrap">
+            <div class="ez-nr-live-indicator">
+              <span class="ez-nr-live-dot"></span>
               غرفة الأخبار الذكية
-            </h2>
+            </div>
 
-            <p class="ez-newsroom-subtitle">
-              مركز موحد لإدارة دورة المحتوى من المسودة إلى النشر
+            <h2>مركز الأخبار والتحرير</h2>
+
+            <p>
+              إدارة دورة المحتوى من المسودة إلى المراجعة والاعتماد والنشر،
+              مع جاهزية الربط بمحرك الذكاء الاصطناعي.
             </p>
-
           </div>
 
-
-          <div class="ez-newsroom-actions">
-
-            <button
-              type="button"
-              class="ez-nr-button"
-              data-nr-action="refresh"
-            >
-              تحديث
+          <div class="ez-nr-actions">
+            <button class="ez-nr-btn ez-nr-btn-light" id="ez-nr-refresh">
+              تحديث البيانات
             </button>
 
-            <button
-              type="button"
-              class="ez-nr-button ez-nr-button-primary"
-              data-nr-action="new"
-            >
-              + محتوى جديد
+            <button class="ez-nr-btn ez-nr-btn-primary" id="ez-nr-new">
+              + إنشاء محتوى
             </button>
-
           </div>
-
         </div>
 
-
-        <div class="ez-newsroom-stats">
-
+        <div class="ez-nr-stats">
           <div class="ez-nr-stat">
-
-            <div class="ez-nr-stat-label">
-              إجمالي المحتوى
-            </div>
-
-            <div
-              class="ez-nr-stat-value"
-              id="ez-nr-stat-total"
-            >
-              0
-            </div>
-
+            <div class="ez-nr-stat-label">إجمالي المحتوى</div>
+            <div class="ez-nr-stat-value" id="ez-nr-total">0</div>
           </div>
 
-
           <div class="ez-nr-stat">
-
-            <div class="ez-nr-stat-label">
-              المسودات
-            </div>
-
-            <div
-              class="ez-nr-stat-value"
-              id="ez-nr-stat-drafts"
-            >
-              0
-            </div>
-
+            <div class="ez-nr-stat-label">مسودات</div>
+            <div class="ez-nr-stat-value" id="ez-nr-drafts">0</div>
           </div>
 
-
           <div class="ez-nr-stat">
-
-            <div class="ez-nr-stat-label">
-              قيد المراجعة
-            </div>
-
-            <div
-              class="ez-nr-stat-value"
-              id="ez-nr-stat-review"
-            >
-              0
-            </div>
-
+            <div class="ez-nr-stat-label">قيد المراجعة</div>
+            <div class="ez-nr-stat-value" id="ez-nr-review">0</div>
           </div>
 
-
           <div class="ez-nr-stat">
-
-            <div class="ez-nr-stat-label">
-              معتمد
-            </div>
-
-            <div
-              class="ez-nr-stat-value"
-              id="ez-nr-stat-approved"
-            >
-              0
-            </div>
-
+            <div class="ez-nr-stat-label">مجدول</div>
+            <div class="ez-nr-stat-value" id="ez-nr-scheduled">0</div>
           </div>
 
-
           <div class="ez-nr-stat">
-
-            <div class="ez-nr-stat-label">
-              منشور
-            </div>
-
-            <div
-              class="ez-nr-stat-value"
-              id="ez-nr-stat-published"
-            >
-              0
-            </div>
-
+            <div class="ez-nr-stat-label">منشور</div>
+            <div class="ez-nr-stat-value" id="ez-nr-published">0</div>
           </div>
-
         </div>
 
-
-        <div class="ez-newsroom-toolbar">
-
+        <div class="ez-nr-toolbar">
           <input
             id="ez-nr-search"
             class="ez-nr-input"
             type="search"
-            placeholder="ابحث في غرفة الأخبار..."
-          >
+            placeholder="ابحث في العناوين والوصف..."
+          />
 
-
-          <select
-            id="ez-nr-type"
-            class="ez-nr-select"
-          >
-
-            <option value="">
-              كل أنواع المحتوى
-            </option>
-
-            <option value="news">
-              أخبار
-            </option>
-
-            <option value="report">
-              تقارير
-            </option>
-
-            <option value="interview">
-              مقابلات
-            </option>
-
-            <option value="video">
-              فيديو
-            </option>
-
-            <option value="coverage">
-              تغطيات
-            </option>
-
-            <option value="breaking">
-              عاجل
-            </option>
-
+          <select id="ez-nr-type" class="ez-nr-select">
+            <option value="">كل أنواع المحتوى</option>
+            <option value="news">أخبار</option>
+            <option value="report">تقارير</option>
+            <option value="interview">مقابلات</option>
+            <option value="video">فيديو</option>
+            <option value="coverage">تغطيات</option>
+            <option value="breaking">عاجل</option>
           </select>
 
-
-          <select
-            id="ez-nr-status"
-            class="ez-nr-select"
-          >
-
-            <option value="">
-              كل الحالات
-            </option>
-
-            <option value="draft">
-              مسودة
-            </option>
-
-            <option value="review">
-              مراجعة
-            </option>
-
-            <option value="approved">
-              معتمد
-            </option>
-
-            <option value="scheduled">
-              مجدول
-            </option>
-
-            <option value="published">
-              منشور
-            </option>
-
-            <option value="archived">
-              مؤرشف
-            </option>
-
+          <select id="ez-nr-status" class="ez-nr-select">
+            <option value="">كل الحالات</option>
+            <option value="draft">مسودة</option>
+            <option value="review">مراجعة</option>
+            <option value="approved">معتمد</option>
+            <option value="scheduled">مجدول</option>
+            <option value="published">منشور</option>
+            <option value="archived">مؤرشف</option>
           </select>
 
-
-          <button
-            type="button"
-            class="ez-nr-button"
-            data-nr-action="clear"
-          >
-            مسح
+          <button class="ez-nr-btn ez-nr-btn-light" id="ez-nr-reset">
+            تصفير
           </button>
-
         </div>
 
-
-        <div class="ez-newsroom-layout">
-
-
-          <section class="ez-newsroom-list">
-
-            <div class="ez-nr-panel-header">
-
-              <h3 class="ez-nr-panel-title">
-                المحتوى
-              </h3>
-
-              <span
-                id="ez-nr-count"
-                class="ez-nr-badge"
-              >
-                0
-              </span>
-
-            </div>
-
-
-            <div
-              id="ez-nr-list"
-              class="ez-nr-list"
-            >
-
-              <div class="ez-nr-empty">
-                جاري تحميل المحتوى...
-              </div>
-
-            </div>
-
-          </section>
-
-
-          <section class="ez-newsroom-editor">
-
-            <div
-              id="ez-nr-editor"
-              class="ez-nr-editor"
-            >
-
-              <div class="ez-nr-empty">
-
-                <div>
-
-                  <div
-                    style="
-                      font-size:42px;
-                      margin-bottom:12px;
-                    "
-                  >
-                    📰
-                  </div>
-
-                  <strong>
-                    اختر مادة إعلامية
-                  </strong>
-
-                  <div
-                    style="
-                      margin-top:7px;
-                      font-size:12px;
-                    "
-                  >
-                    ستظهر هنا أدوات التحرير والذكاء الاصطناعي
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </section>
-
-
+        <div class="ez-nr-table-wrap">
+          <div id="ez-nr-table-content">
+            <div class="ez-nr-loading">جاري تحميل غرفة الأخبار...</div>
+          </div>
         </div>
 
+        <div class="ez-nr-footer">
+          <span id="ez-nr-count">0 عنصر</span>
+          <span>EZ MEDIA 11.0 — غرفة الأخبار الذكية</span>
+        </div>
       </div>
-
     `;
 
+    bindEvents();
 
-    return true;
-
+    return container;
   }
 
+  function updateStats() {
+    const total = state.items.length;
 
-  /* ==========================================================
-     تحميل المحتوى
-     ========================================================== */
+    const drafts = state.items.filter(
+      item => item.status === "draft"
+    ).length;
 
-  async function loadContent() {
+    const review = state.items.filter(
+      item => item.status === "review"
+    ).length;
 
-    NEWSROOM.state.loading =
-      true;
+    const scheduled = state.items.filter(
+      item => item.status === "scheduled"
+    ).length;
 
+    const published = state.items.filter(
+      item => item.status === "published"
+    ).length;
 
-    try {
-
-      const data =
-        await request(
-          `${NEWSROOM.config.endpoints.content}?limit=100`
-        );
-
-
-      if (
-        Array.isArray(data)
-      ) {
-
-        NEWSROOM.state.contents =
-          data;
-
-      } else if (
-        Array.isArray(data?.items)
-      ) {
-
-        NEWSROOM.state.contents =
-          data.items;
-
-      } else if (
-        Array.isArray(data?.content)
-      ) {
-
-        NEWSROOM.state.contents =
-          data.content;
-
-      } else if (
-        Array.isArray(data?.data)
-      ) {
-
-        NEWSROOM.state.contents =
-          data.data;
-
-      } else {
-
-        NEWSROOM.state.contents =
-          [];
-
+    const set = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
       }
-
-
-      calculateStats();
-
-      renderList();
-
-    } catch (error) {
-
-      console.error(
-        "EZ MEDIA Newsroom load error:",
-        error
-      );
-
-
-      const list =
-        qs(
-          "#ez-nr-list"
-        );
-
-
-      if (list) {
-
-        list.innerHTML = `
-
-          <div class="ez-nr-empty">
-
-            تعذر تحميل المحتوى.
-
-            <br>
-
-            <small>
-              ${escapeHtml(
-                error.message
-              )}
-            </small>
-
-          </div>
-
-        `;
-
-      }
-
-    } finally {
-
-      NEWSROOM.state.loading =
-        false;
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     الإحصاءات
-     ========================================================== */
-
-  function calculateStats() {
-
-    const contents =
-      NEWSROOM.state.contents;
-
-
-    NEWSROOM.state.stats = {
-
-      total:
-        contents.length,
-
-      drafts:
-        contents.filter(
-          item =>
-            getStatus(item) === "draft"
-        ).length,
-
-      review:
-        contents.filter(
-          item =>
-            getStatus(item) === "review"
-        ).length,
-
-      approved:
-        contents.filter(
-          item =>
-            getStatus(item) === "approved"
-        ).length,
-
-      published:
-        contents.filter(
-          item =>
-            getStatus(item) === "published"
-        ).length
-
     };
 
-
-    const map = {
-
-      total:
-        "ez-nr-stat-total",
-
-      drafts:
-        "ez-nr-stat-drafts",
-
-      review:
-        "ez-nr-stat-review",
-
-      approved:
-        "ez-nr-stat-approved",
-
-      published:
-        "ez-nr-stat-published"
-
-    };
-
-
-    Object.keys(map)
-      .forEach(
-        key => {
-
-          const element =
-            qs(
-              `#${map[key]}`
-            );
-
-          if (element) {
-
-            element.textContent =
-              NEWSROOM.state.stats[key];
-
-          }
-
-        }
-      );
-
+    set("ez-nr-total", total);
+    set("ez-nr-drafts", drafts);
+    set("ez-nr-review", review);
+    set("ez-nr-scheduled", scheduled);
+    set("ez-nr-published", published);
   }
 
+  function applyFilters() {
+    const search = state.search.trim().toLowerCase();
 
-  /* ==========================================================
-     التصفية
-     ========================================================== */
+    state.filteredItems = state.items.filter(item => {
+      const title = String(
+        item.title ||
+        item.headline ||
+        item.name ||
+        ""
+      ).toLowerCase();
 
-  function getFilteredContents() {
+      const description = String(
+        item.description ||
+        item.summary ||
+        item.excerpt ||
+        ""
+      ).toLowerCase();
 
-    const {
-      search,
-      type,
-      status
-    } =
-      NEWSROOM.state.filters;
+      const matchesSearch =
+        !search ||
+        title.includes(search) ||
+        description.includes(search);
 
+      const matchesType =
+        !state.type ||
+        item.content_type === state.type ||
+        item.type === state.type;
 
-    const query =
-      search
-        .trim()
-        .toLowerCase();
+      const matchesStatus =
+        !state.status ||
+        item.status === state.status;
 
-
-    return NEWSROOM.state.contents
-      .filter(
-        item => {
-
-          if (
-            type &&
-            getType(item) !== type
-          ) {
-            return false;
-          }
-
-
-          if (
-            status &&
-            getStatus(item) !== status
-          ) {
-            return false;
-          }
-
-
-          if (query) {
-
-            const haystack =
-              [
-                getTitle(item),
-                getSummary(item),
-                item?.category,
-                item?.keywords
-              ]
-                .flat()
-                .join(" ")
-                .toLowerCase();
-
-
-            if (
-              !haystack.includes(
-                query
-              )
-            ) {
-
-              return false;
-
-            }
-
-          }
-
-
-          return true;
-
-        }
+      return (
+        matchesSearch &&
+        matchesType &&
+        matchesStatus
       );
+    });
 
+    renderTable();
   }
 
+  function renderTable() {
+    const wrapper = document.getElementById("ez-nr-table-content");
+    const count = document.getElementById("ez-nr-count");
 
-  /* ==========================================================
-     عرض القائمة
-     ========================================================== */
-
-  function renderList() {
-
-    const list =
-      qs(
-        "#ez-nr-list"
-      );
-
-
-    const count =
-      qs(
-        "#ez-nr-count"
-      );
-
-
-    if (!list) {
-      return;
-    }
-
-
-    const items =
-      getFilteredContents();
-
+    if (!wrapper) return;
 
     if (count) {
-
       count.textContent =
-        items.length;
-
+        `${state.filteredItems.length} عنصر من أصل ${state.items.length}`;
     }
 
-
-    if (!items.length) {
-
-      list.innerHTML = `
-
+    if (!state.filteredItems.length) {
+      wrapper.innerHTML = `
         <div class="ez-nr-empty">
-
-          لا توجد مواد تطابق البحث الحالي.
-
+          <strong>لا توجد نتائج</strong>
+          لم يتم العثور على محتوى مطابق للبحث أو الفلاتر الحالية.
         </div>
-
       `;
-
       return;
-
     }
 
+    wrapper.innerHTML = `
+      <table class="ez-nr-table">
+        <thead>
+          <tr>
+            <th>المحتوى</th>
+            <th>النوع</th>
+            <th>الحالة</th>
+            <th>التاريخ</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
 
-    list.innerHTML =
-      items
-        .map(
-          item => {
-
-            const id =
-              getId(item);
-
-            const active =
-              NEWSROOM.state.selectedContent &&
-              getId(
-                NEWSROOM.state.selectedContent
-              ) === id;
-
-
-            return `
-
-              <article
-                class="
-                  ez-nr-item
-                  ${active
-                    ? "ez-nr-item-active"
-                    : ""}
-                "
-                data-content-id="${escapeHtml(id)}"
-              >
-
-                <div class="ez-nr-item-top">
-
-                  <h4
-                    class="ez-nr-item-title"
-                  >
-                    ${escapeHtml(
-                      getTitle(item)
-                    )}
-                  </h4>
-
-                </div>
-
-
-                <div
-                  class="ez-nr-item-summary"
-                >
-                  ${escapeHtml(
-                    getSummary(item)
-                      .replace(/\s+/g, " ")
-                      .slice(0, 160)
-                  )}
-                </div>
-
-
-                <div
-                  class="ez-nr-badges"
-                >
-
-                  <span
-                    class="ez-nr-badge"
-                  >
-                    ${escapeHtml(
-                      typeLabel(
-                        getType(item)
-                      )
-                    )}
-                  </span>
-
-
-                  <span
-                    class="
-                      ez-nr-badge
-                      ez-nr-badge-status
-                    "
-                  >
-                    ${escapeHtml(
-                      statusLabel(
-                        getStatus(item)
-                      )
-                    )}
-                  </span>
-
-
-                  <span
-                    class="ez-nr-badge"
-                  >
-                    ${escapeHtml(
-                      formatDate(
-                        getDate(item)
-                      )
-                    )}
-                  </span>
-
-                </div>
-
-              </article>
-
-            `;
-
-          }
-        )
-        .join("");
-
-
-    list
-      .querySelectorAll(
-        "[data-content-id]"
-      )
-      .forEach(
-        element => {
-
-          element.addEventListener(
-            "click",
-            () => {
-
-              selectContent(
-                element.dataset.contentId
-              );
-
-            }
-          );
-
-        }
-      );
-
+        <tbody>
+          ${state.filteredItems.map(item => renderRow(item)).join("")}
+        </tbody>
+      </table>
+    `;
   }
 
+  function renderRow(item) {
+    const id = escapeHtml(item.id);
 
-  /* ==========================================================
-     اختيار المحتوى
-     ========================================================== */
-
-  function selectContent(id) {
-
-    const item =
-      NEWSROOM.state.contents
-        .find(
-          content =>
-            String(
-              getId(content)
-            ) === String(id)
-        );
-
-
-    if (!item) {
-      return;
-    }
-
-
-    NEWSROOM.state.selectedContent =
-      item;
-
-
-    renderList();
-
-    renderEditor(
-      item
+    const title = escapeHtml(
+      item.title ||
+      item.headline ||
+      item.name ||
+      "بدون عنوان"
     );
 
+    const type =
+      item.content_type ||
+      item.type ||
+      "news";
+
+    const status =
+      item.status ||
+      "draft";
+
+    const date =
+      item.updated_at ||
+      item.created_at ||
+      item.published_at;
+
+    return `
+      <tr>
+        <td>
+          <div class="ez-nr-content-title">
+            ${title}
+          </div>
+
+          <div class="ez-nr-content-id">
+            ${id}
+          </div>
+        </td>
+
+        <td>
+          <span class="ez-nr-type">
+            ${escapeHtml(getTypeLabel(type))}
+          </span>
+        </td>
+
+        <td>
+          <span class="ez-nr-status ${statusClass(status)}">
+            ${escapeHtml(getStatusLabel(status))}
+          </span>
+        </td>
+
+        <td>
+          ${escapeHtml(formatDate(date))}
+        </td>
+
+        <td>
+          <div class="ez-nr-row-actions">
+            <button
+              class="ez-nr-mini-btn"
+              data-action="view"
+              data-id="${id}"
+            >
+              عرض
+            </button>
+
+            <button
+              class="ez-nr-mini-btn"
+              data-action="edit"
+              data-id="${id}"
+            >
+              تعديل
+            </button>
+
+            <button
+              class="ez-nr-mini-btn"
+              data-action="ai"
+              data-id="${id}"
+            >
+              AI
+            </button>
+
+            ${
+              status !== "published"
+                ? `
+                  <button
+                    class="ez-nr-mini-btn"
+                    data-action="publish"
+                    data-id="${id}"
+                  >
+                    نشر
+                  </button>
+                `
+                : ""
+            }
+          </div>
+        </td>
+      </tr>
+    `;
   }
 
+  async function loadContent() {
+    state.loading = true;
 
-  /* ==========================================================
-     المحرر
-     ========================================================== */
+    const wrapper = document.getElementById("ez-nr-table-content");
 
-  function renderEditor(item) {
-
-    const editor =
-      qs(
-        "#ez-nr-editor"
-      );
-
-
-    if (!editor) {
-      return;
+    if (wrapper) {
+      wrapper.innerHTML = `
+        <div class="ez-nr-loading">
+          جاري تحديث غرفة الأخبار...
+        </div>
+      `;
     }
 
+    try {
+      const data = await request(
+        `${API.content}?limit=100`
+      );
 
-    const id =
-      getId(item);
+      state.items = normalizeContentResponse(data);
 
+      updateStats();
+      applyFilters();
+    } catch (error) {
+      console.error("EZ MEDIA newsroom:", error);
 
-    editor.innerHTML = `
+      state.items = [];
+      state.filteredItems = [];
 
-      <div>
+      if (wrapper) {
+        wrapper.innerHTML = `
+          <div class="ez-nr-empty">
+            <strong>تعذر تحميل المحتوى</strong>
+            ${escapeHtml(error.message)}
+          </div>
+        `;
+      }
 
-        <div
-          style="
-            display:flex;
-            justify-content:space-between;
-            gap:10px;
-            align-items:flex-start;
-            margin-bottom:18px;
-          "
-        >
+      notify(error.message, "error");
+    } finally {
+      state.loading = false;
+    }
+  }
 
+  async function openContent(id) {
+    try {
+      const data = await request(
+        `${API.content}/${encodeURIComponent(id)}`
+      );
+
+      const item = data?.item || data?.content || data?.data || data;
+
+      showContentModal(item);
+    } catch (error) {
+      notify(error.message, "error");
+    }
+  }
+
+  function showContentModal(item) {
+    const existing = document.getElementById(
+      "ez-nr-content-modal"
+    );
+
+    if (existing) {
+      existing.remove();
+    }
+
+    const title = item?.title || item?.headline || "";
+    const description =
+      item?.description ||
+      item?.summary ||
+      item?.body ||
+      "";
+
+    const modal = document.createElement("div");
+
+    modal.id = "ez-nr-content-modal";
+
+    Object.assign(modal.style, {
+      position: "fixed",
+      inset: "0",
+      zIndex: "99990",
+      background: "rgba(13, 51, 76, 0.25)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "18px",
+      direction: "rtl"
+    });
+
+    modal.innerHTML = `
+      <div style="
+        width:min(720px,100%);
+        max-height:90vh;
+        overflow:auto;
+        background:#fff;
+        border:1px solid #dcebf4;
+        border-radius:24px;
+        box-shadow:0 25px 80px rgba(20,100,140,.20);
+        padding:24px;
+        font-family:inherit;
+      ">
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          gap:15px;
+          align-items:flex-start;
+          margin-bottom:18px;
+        ">
           <div>
+            <div style="
+              color:#2380a9;
+              font-size:11px;
+              font-weight:900;
+              margin-bottom:7px;
+            ">
+              معاينة المحتوى
+            </div>
 
-            <div
-              class="ez-nr-badge"
-              style="margin-bottom:8px;"
-            >
+            <h3 style="
+              margin:0;
+              color:#17324d;
+              font-size:22px;
+              line-height:1.5;
+            ">
+              ${escapeHtml(title || "بدون عنوان")}
+            </h3>
+          </div>
+
+          <button
+            id="ez-nr-modal-close"
+            style="
+              width:38px;
+              height:38px;
+              border:1px solid #dfedf5;
+              background:#f7fbfd;
+              color:#46748e;
+              border-radius:12px;
+              cursor:pointer;
+              font-size:18px;
+            "
+          >
+            ×
+          </button>
+        </div>
+
+        <div style="
+          color:#587488;
+          line-height:1.9;
+          white-space:pre-wrap;
+          font-size:14px;
+        ">
+          ${escapeHtml(description || "لا يوجد وصف أو ملخص.")}
+        </div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:repeat(2,minmax(0,1fr));
+          gap:10px;
+          margin-top:22px;
+        ">
+          <div style="
+            padding:13px;
+            border:1px solid #e4eef5;
+            border-radius:14px;
+            background:#fafdff;
+          ">
+            <small style="color:#8198a9;">النوع</small>
+            <div style="font-weight:850;margin-top:5px;">
               ${escapeHtml(
-                typeLabel(
-                  getType(item)
+                getTypeLabel(
+                  item?.content_type || item?.type
                 )
               )}
             </div>
-
-            <h3
-              style="
-                margin:0;
-                font-size:20px;
-              "
-            >
-              تحرير المحتوى
-            </h3>
-
           </div>
 
-          <span
-            class="
-              ez-nr-badge
-              ez-nr-badge-status
-            "
-          >
-            ${escapeHtml(
-              statusLabel(
-                getStatus(item)
-              )
-            )}
-          </span>
-
+          <div style="
+            padding:13px;
+            border:1px solid #e4eef5;
+            border-radius:14px;
+            background:#fafdff;
+          ">
+            <small style="color:#8198a9;">الحالة</small>
+            <div style="font-weight:850;margin-top:5px;">
+              ${escapeHtml(
+                getStatusLabel(item?.status)
+              )}
+            </div>
+          </div>
         </div>
+      </div>
+    `;
 
+    document.body.appendChild(modal);
 
-        <div class="ez-nr-field">
+    document
+      .getElementById("ez-nr-modal-close")
+      ?.addEventListener("click", () => modal.remove());
 
-          <label
-            class="ez-nr-label"
-            for="ez-nr-title-editor"
-          >
-            العنوان
-          </label>
+    modal.addEventListener("click", event => {
+      if (event.target === modal) {
+        modal.remove();
+      }
+    });
+  }
 
-          <input
-            id="ez-nr-title-editor"
-            class="ez-nr-title-input"
-            value="${escapeHtml(
-              getTitle(item)
-            )}"
-          >
+  function editContent(id) {
+    const content =
+      state.items.find(item => String(item.id) === String(id));
 
-        </div>
+    if (!content) {
+      notify("لم يتم العثور على المحتوى.", "error");
+      return;
+    }
 
+    if (window.EZMediaAdminContent?.openEditor) {
+      window.EZMediaAdminContent.openEditor(content);
+      return;
+    }
 
-        <div class="ez-nr-field">
+    if (window.EZMediaAdminContent?.edit) {
+      window.EZMediaAdminContent.edit(content);
+      return;
+    }
 
-          <label
-            class="ez-nr-label"
-            for="ez-nr-summary-editor"
-          >
-            الملخص
-          </label>
+    notify(
+      "تم العثور على المحتوى، لكن محرر المحتوى غير متاح حاليًا.",
+      "info"
+    );
+  }
 
-          <textarea
-            id="ez-nr-summary-editor"
-            class="ez-nr-textarea"
-          >${escapeHtml(
-            getSummary(item)
-          )}</textarea>
+  async function analyzeWithAI(id) {
+    try {
+      notify("جاري إرسال المحتوى إلى الذكاء الاصطناعي...");
 
-        </div>
+      const data = await request(
+        `${API.ai}/content/${encodeURIComponent(id)}/analyze`,
+        {
+          method: "POST",
+          body: JSON.stringify({})
+        }
+      );
 
+      const result =
+        data?.analysis ||
+        data?.result ||
+        data?.data ||
+        data;
 
-        <div
-          style="
-            color:#60788a;
-            font-size:11px;
-            margin-top:8px;
-          "
-        >
-          آخر تحديث:
-          ${escapeHtml(
-            formatDate(
-              getDate(item)
-            )
-          )}
-        </div>
+      showAIResult(result);
 
+      notify(
+        "اكتمل تحليل المحتوى بالذكاء الاصطناعي.",
+        "success"
+      );
+    } catch (error) {
+      notify(error.message, "error");
+    }
+  }
 
-        <div class="ez-nr-editor-actions">
+  function showAIResult(result) {
+    const existing = document.getElementById(
+      "ez-nr-ai-modal"
+    );
 
-          <button
-            type="button"
-            class="ez-nr-button ez-nr-button-primary"
-            data-editor-action="save"
-          >
-            حفظ
-          </button>
+    if (existing) {
+      existing.remove();
+    }
 
+    const modal = document.createElement("div");
 
-          <button
-            type="button"
-            class="ez-nr-button"
-            data-editor-action="ai"
-          >
-            ✦ تحليل بالذكاء الاصطناعي
-          </button>
+    modal.id = "ez-nr-ai-modal";
 
+    Object.assign(modal.style, {
+      position: "fixed",
+      inset: "0",
+      zIndex: "99991",
+      background: "rgba(13,51,76,.25)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "18px",
+      direction: "rtl"
+    });
 
-          <button
-            type="button"
-            class="ez-nr-button"
-            data-editor-action="review"
-          >
-            إرسال للمراجعة
-          </button>
+    const keywords = Array.isArray(result?.keywords)
+      ? result.keywords
+      : [];
 
+    const socialPosts = result?.social_posts || {};
 
-          <button
-            type="button"
-            class="ez-nr-button"
-            data-editor-action="approve"
-          >
-            اعتماد
-          </button>
+    modal.innerHTML = `
+      <div style="
+        width:min(820px,100%);
+        max-height:90vh;
+        overflow:auto;
+        background:#fff;
+        border:1px solid #dcebf4;
+        border-radius:24px;
+        box-shadow:0 25px 80px rgba(20,100,140,.20);
+        padding:24px;
+        font-family:inherit;
+      ">
 
-
-          <button
-            type="button"
-            class="ez-nr-button"
-            data-editor-action="publish"
-          >
-            نشر
-          </button>
-
-
-          <button
-            type="button"
-            class="ez-nr-button"
-            data-editor-action="archive"
-          >
-            أرشفة
-          </button>
-
-        </div>
-
-
-        <div class="ez-nr-ai">
-
-          <h4 class="ez-nr-ai-title">
-            نتائج الذكاء الاصطناعي
-          </h4>
-
-
-          <div
-            id="ez-nr-ai-result"
-            class="ez-nr-ai-card"
-          >
-
-            <div
-              style="
-                color:#60788a;
-                font-size:12px;
-              "
-            >
-              لم يتم تحليل هذه المادة بعد.
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:15px;
+          margin-bottom:20px;
+        ">
+          <div>
+            <div style="
+              color:#2380a9;
+              font-size:11px;
+              font-weight:900;
+              margin-bottom:5px;
+            ">
+              مركز الذكاء الاصطناعي
             </div>
 
+            <h3 style="
+              margin:0;
+              color:#17324d;
+              font-size:22px;
+            ">
+              نتيجة التحليل
+            </h3>
           </div>
 
-        </div>
-
-      </div>
-
-    `;
-
-
-    editor
-      .querySelectorAll(
-        "[data-editor-action]"
-      )
-      .forEach(
-        button => {
-
-          button.addEventListener(
-            "click",
-            () => {
-
-              handleEditorAction(
-                button.dataset.editorAction
-              );
-
-            }
-          );
-
-        }
-      );
-
-
-    if (
-      NEWSROOM.state.aiResult
-    ) {
-
-      renderAIResult(
-        NEWSROOM.state.aiResult
-      );
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     حفظ
-     ========================================================== */
-
-  async function saveContent() {
-
-    const item =
-      NEWSROOM.state.selectedContent;
-
-
-    if (!item) {
-      return;
-    }
-
-
-    const id =
-      getId(item);
-
-
-    const title =
-      qs(
-        "#ez-nr-title-editor"
-      )?.value
-      ?.trim();
-
-
-    const summary =
-      qs(
-        "#ez-nr-summary-editor"
-      )?.value
-      ?.trim();
-
-
-    if (!title) {
-
-      alert(
-        "اكتب عنوان المحتوى أولًا."
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      const updated =
-        await request(
-          `${NEWSROOM.config.endpoints.content}/${encodeURIComponent(id)}`,
-          {
-            method: "PATCH",
-
-            body:
-              JSON.stringify({
-                headline: title,
-                summary
-              })
-          }
-        );
-
-
-      const replacement =
-        updated?.content ||
-        updated?.item ||
-        updated?.data ||
-        updated;
-
-
-      const index =
-        NEWSROOM.state.contents
-          .findIndex(
-            content =>
-              String(
-                getId(content)
-              ) === String(id)
-          );
-
-
-      if (
-        index !== -1 &&
-        replacement
-      ) {
-
-        NEWSROOM.state.contents[index] =
-          replacement;
-
-        NEWSROOM.state.selectedContent =
-          replacement;
-
-      }
-
-
-      calculateStats();
-
-      renderList();
-
-      renderEditor(
-        NEWSROOM.state.selectedContent
-      );
-
-
-      alert(
-        "تم حفظ المحتوى."
-      );
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-      alert(
-        "تعذر حفظ المحتوى."
-      );
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     تغيير حالة المحتوى
-     ========================================================== */
-
-  async function changeStatus(
-    action
-  ) {
-
-    const item =
-      NEWSROOM.state.selectedContent;
-
-
-    if (!item) {
-      return;
-    }
-
-
-    const id =
-      getId(item);
-
-
-    let endpoint;
-
-
-    switch (action) {
-
-      case "review":
-        endpoint =
-          `${NEWSROOM.config.endpoints.content}/${id}/submit-review`;
-        break;
-
-      case "approve":
-        endpoint =
-          `${NEWSROOM.config.endpoints.content}/${id}/approve`;
-        break;
-
-      case "publish":
-        endpoint =
-          `${NEWSROOM.config.endpoints.content}/${id}/publish`;
-        break;
-
-      case "archive":
-        endpoint =
-          `${NEWSROOM.config.endpoints.content}/${id}/archive`;
-        break;
-
-      default:
-        return;
-
-    }
-
-
-    try {
-
-      const result =
-        await request(
-          endpoint,
-          {
-            method: "POST",
-            body: JSON.stringify({})
-          }
-        );
-
-
-      const updated =
-        result?.content ||
-        result?.item ||
-        result?.data ||
-        result;
-
-
-      const index =
-        NEWSROOM.state.contents
-          .findIndex(
-            content =>
-              String(
-                getId(content)
-              ) === String(id)
-          );
-
-
-      if (
-        index !== -1 &&
-        updated
-      ) {
-
-        NEWSROOM.state.contents[index] =
-          updated;
-
-        NEWSROOM.state.selectedContent =
-          updated;
-
-      }
-
-
-      calculateStats();
-
-      renderList();
-
-      renderEditor(
-        NEWSROOM.state.selectedContent
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "EZ MEDIA Newsroom status error:",
-        error
-      );
-
-
-      alert(
-        "تعذر تغيير حالة المحتوى."
-      );
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     الذكاء الاصطناعي
-     ========================================================== */
-
-  async function analyzeWithAI() {
-
-    const item =
-      NEWSROOM.state.selectedContent;
-
-
-    if (!item) {
-      return;
-    }
-
-
-    const id =
-      getId(item);
-
-
-    const resultBox =
-      qs(
-        "#ez-nr-ai-result"
-      );
-
-
-    if (resultBox) {
-
-      resultBox.innerHTML = `
-
-        <div
-          style="
-            color:#056ca8;
-            font-weight:900;
-          "
-        >
-          جاري تحليل المادة بالذكاء الاصطناعي...
-        </div>
-
-      `;
-
-    }
-
-
-    try {
-
-      const result =
-        await request(
-          `${NEWSROOM.config.endpoints.ai}/content/${encodeURIComponent(id)}/analyze`,
-          {
-            method: "POST",
-
-            body:
-              JSON.stringify({})
-          }
-        );
-
-
-      const ai =
-        result?.analysis ||
-        result?.result ||
-        result?.data ||
-        result;
-
-
-      NEWSROOM.state.aiResult =
-        ai;
-
-
-      renderAIResult(
-        ai
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "EZ MEDIA AI error:",
-        error
-      );
-
-
-      if (resultBox) {
-
-        resultBox.innerHTML = `
-
-          <div
+          <button
+            id="ez-nr-ai-close"
             style="
-              color:#b44949;
-              font-size:12px;
+              width:38px;
+              height:38px;
+              border:1px solid #dfedf5;
+              background:#f7fbfd;
+              color:#46748e;
+              border-radius:12px;
+              cursor:pointer;
+              font-size:18px;
             "
           >
-            تعذر تنفيذ تحليل الذكاء الاصطناعي.
-          </div>
-
-        `;
-
-      }
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     عرض نتيجة AI
-     ========================================================== */
-
-  function renderAIResult(
-    result
-  ) {
-
-    const box =
-      qs(
-        "#ez-nr-ai-result"
-      );
-
-
-    if (!box || !result) {
-      return;
-    }
-
-
-    const keywords =
-      Array.isArray(
-        result.keywords
-      )
-        ? result.keywords.join(
-            "، "
-          )
-        : (
-            result.keywords ||
-            "—"
-          );
-
-
-    const social =
-      Array.isArray(
-        result.social_posts
-      )
-        ? result.social_posts
-            .map(
-              post =>
-                typeof post === "string"
-                  ? post
-                  : JSON.stringify(
-                      post
-                    )
-            )
-            .join(
-              "\n\n"
-            )
-        : (
-            result.social_posts ||
-            "—"
-          );
-
-
-    const risks =
-      Array.isArray(
-        result.risk_flags
-      )
-        ? result.risk_flags.join(
-            "، "
-          )
-        : (
-            result.risk_flags ||
-            "لا توجد إشارات مخاطر."
-          );
-
-
-    box.innerHTML = `
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          العنوان المقترح
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            result.headline ||
-            "—"
-          )}
+            ×
+          </button>
         </div>
 
+        ${renderAIField("العنوان المقترح", result?.headline)}
+
+        ${renderAIField("الملخص", result?.summary)}
+
+        ${renderAIField("التصنيف", result?.category)}
+
+        ${
+          keywords.length
+            ? `
+              <div style="margin-top:15px;">
+                <div style="
+                  font-size:12px;
+                  color:#6f899b;
+                  font-weight:900;
+                  margin-bottom:8px;
+                ">
+                  الكلمات المفتاحية
+                </div>
+
+                <div style="
+                  display:flex;
+                  gap:7px;
+                  flex-wrap:wrap;
+                ">
+                  ${keywords.map(keyword => `
+                    <span style="
+                      background:#eef9fe;
+                      color:#247aa3;
+                      padding:7px 10px;
+                      border-radius:999px;
+                      font-size:11px;
+                      font-weight:800;
+                    ">
+                      ${escapeHtml(keyword)}
+                    </span>
+                  `).join("")}
+                </div>
+              </div>
+            `
+            : ""
+        }
+
+        ${renderAIField(
+          "وصف الفيديو",
+          result?.video_description
+        )}
+
+        ${renderAIField(
+          "ملاحظات التحرير",
+          result?.editor_notes
+        )}
+
+        ${renderAIField(
+          "مخاطر المحتوى",
+          Array.isArray(result?.risk_flags)
+            ? result.risk_flags.join("، ")
+            : result?.risk_flags
+        )}
+
+        ${renderAIField(
+          "درجة الثقة",
+          result?.confidence !== undefined
+            ? String(result.confidence)
+            : null
+        )}
+
+        ${
+          Object.keys(socialPosts).length
+            ? `
+              <div style="margin-top:20px;">
+                <div style="
+                  font-size:12px;
+                  color:#6f899b;
+                  font-weight:900;
+                  margin-bottom:10px;
+                ">
+                  منشورات التواصل الاجتماعي
+                </div>
+
+                ${Object.entries(socialPosts)
+                  .map(([platform, text]) => `
+                    <div style="
+                      border:1px solid #e4eef5;
+                      border-radius:14px;
+                      padding:13px;
+                      margin-bottom:9px;
+                      background:#fbfdff;
+                    ">
+                      <div style="
+                        color:#287ea4;
+                        font-weight:900;
+                        font-size:11px;
+                        margin-bottom:6px;
+                      ">
+                        ${escapeHtml(platform)}
+                      </div>
+
+                      <div style="
+                        color:#456578;
+                        line-height:1.8;
+                        white-space:pre-wrap;
+                        font-size:13px;
+                      ">
+                        ${escapeHtml(text)}
+                      </div>
+                    </div>
+                  `)
+                  .join("")}
+              </div>
+            `
+            : ""
+        }
+
       </div>
-
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          الملخص
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            result.summary ||
-            "—"
-          )}
-        </div>
-
-      </div>
-
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          التصنيف
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            result.category ||
-            "—"
-          )}
-        </div>
-
-      </div>
-
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          الكلمات المفتاحية
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            keywords
-          )}
-        </div>
-
-      </div>
-
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          منشورات التواصل
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            social
-          )}
-        </div>
-
-      </div>
-
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          وصف الفيديو
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            result.video_description ||
-            "—"
-          )}
-        </div>
-
-      </div>
-
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          ملاحظات التحرير
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            result.editor_notes ||
-            "—"
-          )}
-        </div>
-
-      </div>
-
-
-      <div class="ez-nr-ai-row">
-
-        <span class="ez-nr-ai-label">
-          إشارات المخاطر
-        </span>
-
-        <div class="ez-nr-ai-value">
-          ${escapeHtml(
-            risks
-          )}
-        </div>
-
-      </div>
-
-
-      ${
-        result.confidence !== undefined
-          ? `
-            <span class="ez-nr-confidence">
-              مستوى الثقة:
-              ${escapeHtml(
-                result.confidence
-              )}
-            </span>
-          `
-          : ""
-      }
-
     `;
 
+    document.body.appendChild(modal);
+
+    document
+      .getElementById("ez-nr-ai-close")
+      ?.addEventListener("click", () => modal.remove());
+
+    modal.addEventListener("click", event => {
+      if (event.target === modal) {
+        modal.remove();
+      }
+    });
   }
 
-
-  /* ==========================================================
-     محتوى جديد
-     ========================================================== */
-
-  async function createNewContent() {
-
-    const type =
-      prompt(
-        "نوع المحتوى:\nnews / report / interview / video / coverage / breaking",
-        "news"
-      );
-
-
-    if (!type) {
-      return;
+  function renderAIField(label, value) {
+    if (
+      value === undefined ||
+      value === null ||
+      value === ""
+    ) {
+      return "";
     }
 
+    return `
+      <div style="
+        margin-top:14px;
+        border:1px solid #e4eef5;
+        border-radius:14px;
+        padding:13px;
+        background:#fbfdff;
+      ">
+        <div style="
+          color:#6f899b;
+          font-size:11px;
+          font-weight:900;
+          margin-bottom:6px;
+        ">
+          ${escapeHtml(label)}
+        </div>
 
-    const title =
-      prompt(
-        "عنوان المحتوى:",
-        ""
-      );
+        <div style="
+          color:#294d63;
+          line-height:1.8;
+          font-size:13px;
+          white-space:pre-wrap;
+        ">
+          ${escapeHtml(value)}
+        </div>
+      </div>
+    `;
+  }
 
+  async function publishContent(id) {
+    const confirmed = window.confirm(
+      "هل تريد نشر هذا المحتوى الآن؟"
+    );
 
-    if (!title) {
+    if (!confirmed) {
       return;
     }
-
 
     try {
+      await request(
+        `${API.content}/${encodeURIComponent(id)}/publish`,
+        {
+          method: "POST",
+          body: JSON.stringify({})
+        }
+      );
 
-      const result =
-        await request(
-          NEWSROOM.config.endpoints.content,
-          {
-            method: "POST",
+      notify(
+        "تم إرسال طلب نشر المحتوى بنجاح.",
+        "success"
+      );
 
-            body:
-              JSON.stringify({
-                content_type:
-                  type.trim().toLowerCase(),
-
-                headline:
-                  title.trim(),
-
-                summary:
-                  "",
-
-                status:
-                  "draft"
-              })
-          }
-        );
-
-
-      const created =
-        result?.content ||
-        result?.item ||
-        result?.data ||
-        result;
-
-
-      if (created) {
-
-        NEWSROOM.state.contents
-          .unshift(
-            created
-          );
-
-        calculateStats();
-
-        renderList();
-
-        selectContent(
-          getId(
-            created
-          )
-        );
-
-      }
-
+      await loadContent();
     } catch (error) {
-
-      console.error(
-        "EZ MEDIA create content error:",
-        error
-      );
-
-
-      alert(
-        "تعذر إنشاء المحتوى."
-      );
-
+      notify(error.message, "error");
     }
-
   }
 
-
-  /* ==========================================================
-     إجراءات المحرر
-     ========================================================== */
-
-  function handleEditorAction(
-    action
-  ) {
-
-    switch (action) {
-
-      case "save":
-        saveContent();
-        break;
-
-      case "ai":
-        analyzeWithAI();
-        break;
-
-      case "review":
-        changeStatus(
-          "review"
-        );
-        break;
-
-      case "approve":
-        changeStatus(
-          "approve"
-        );
-        break;
-
-      case "publish":
-        changeStatus(
-          "publish"
-        );
-        break;
-
-      case "archive":
-        changeStatus(
-          "archive"
-        );
-        break;
-
-      default:
-        break;
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     الأحداث
-     ========================================================== */
-
-  function setupEvents() {
-
-    const root =
-      document;
-
-
-    root.addEventListener(
-      "click",
-      event => {
-
-        const actionElement =
-          event.target.closest(
-            "[data-nr-action]"
-          );
-
-
-        if (!actionElement) {
-          return;
-        }
-
-
-        const action =
-          actionElement.dataset.nrAction;
-
-
-        if (
-          action === "refresh"
-        ) {
-
-          loadContent();
-
-        }
-
-
-        if (
-          action === "new"
-        ) {
-
-          createNewContent();
-
-        }
-
-
-        if (
-          action === "clear"
-        ) {
-
-          const search =
-            qs(
-              "#ez-nr-search"
-            );
-
-          const type =
-            qs(
-              "#ez-nr-type"
-            );
-
-          const status =
-            qs(
-              "#ez-nr-status"
-            );
-
-
-          if (search) {
-            search.value = "";
-          }
-
-          if (type) {
-            type.value = "";
-          }
-
-          if (status) {
-            status.value = "";
-          }
-
-
-          NEWSROOM.state.filters = {
-
-            search: "",
-            type: "",
-            status: ""
-
-          };
-
-
-          renderList();
-
-        }
-
-      }
-    );
-
-
-    const search =
-      qs(
-        "#ez-nr-search"
-      );
-
-
-    if (search) {
-
-      search.addEventListener(
-        "input",
-        () => {
-
-          NEWSROOM.state.filters.search =
-            search.value;
-
-          renderList();
-
-        }
-      );
-
-    }
-
-
-    const type =
-      qs(
-        "#ez-nr-type"
-      );
-
-
-    if (type) {
-
-      type.addEventListener(
-        "change",
-        () => {
-
-          NEWSROOM.state.filters.type =
-            type.value;
-
-          renderList();
-
-        }
-      );
-
-    }
-
-
-    const status =
-      qs(
-        "#ez-nr-status"
-      );
-
-
-    if (status) {
-
-      status.addEventListener(
-        "change",
-        () => {
-
-          NEWSROOM.state.filters.status =
-            status.value;
-
-          renderList();
-
-        }
-      );
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     تحديث تلقائي
-     ========================================================== */
-
-  function startAutoRefresh() {
-
-    setInterval(
-      () => {
-
-        if (
-          document.visibilityState ===
-          "visible"
-        ) {
-
-          loadContent();
-
-        }
-
-      },
-      NEWSROOM.config.refreshInterval
-    );
-
-  }
-
-
-  /* ==========================================================
-     التهيئة
-     ========================================================== */
-
-  async function init() {
-
-    if (
-      NEWSROOM.state.initialized
-    ) {
+  function createContent() {
+    if (window.EZMediaAdminContent?.create) {
+      window.EZMediaAdminContent.create();
       return;
     }
 
-
-    const mounted =
-      mount();
-
-
-    if (!mounted) {
+    if (window.EZMediaAdminContent?.openEditor) {
+      window.EZMediaAdminContent.openEditor();
       return;
     }
 
-
-    NEWSROOM.state.initialized =
-      true;
-
-
-    setupEvents();
-
-    await loadContent();
-
-    startAutoRefresh();
-
-
-    window.EZMediaNewsroom =
-      NEWSROOM;
-
+    notify(
+      "محرر المحتوى غير متاح حاليًا.",
+      "info"
+    );
   }
 
+  function bindEvents() {
+    document
+      .getElementById("ez-nr-refresh")
+      ?.addEventListener("click", loadContent);
 
-  /* ==========================================================
-     التشغيل
-     ========================================================== */
+    document
+      .getElementById("ez-nr-new")
+      ?.addEventListener("click", createContent);
 
-  if (
-    document.readyState ===
-    "loading"
-  ) {
+    document
+      .getElementById("ez-nr-search")
+      ?.addEventListener("input", event => {
+        state.search = event.target.value;
+        applyFilters();
+      });
+
+    document
+      .getElementById("ez-nr-type")
+      ?.addEventListener("change", event => {
+        state.type = event.target.value;
+        applyFilters();
+      });
+
+    document
+      .getElementById("ez-nr-status")
+      ?.addEventListener("change", event => {
+        state.status = event.target.value;
+        applyFilters();
+      });
+
+    document
+      .getElementById("ez-nr-reset")
+      ?.addEventListener("click", () => {
+        state.search = "";
+        state.type = "";
+        state.status = "";
+
+        const search =
+          document.getElementById("ez-nr-search");
+
+        const type =
+          document.getElementById("ez-nr-type");
+
+        const status =
+          document.getElementById("ez-nr-status");
+
+        if (search) search.value = "";
+        if (type) type.value = "";
+        if (status) status.value = "";
+
+        applyFilters();
+      });
 
     document.addEventListener(
-      "DOMContentLoaded",
-      () => {
-
-        init()
-          .catch(
-            error => {
-
-              console.error(
-                "EZ MEDIA Newsroom initialization failed:",
-                error
-              );
-
-            }
+      "click",
+      event => {
+        const button =
+          event.target.closest(
+            "#ez-newsroom-app [data-action]"
           );
 
-      },
-      {
-        once: true
+        if (!button) return;
+
+        const action = button.dataset.action;
+        const id = button.dataset.id;
+
+        if (!id) return;
+
+        if (action === "view") {
+          openContent(id);
+        }
+
+        if (action === "edit") {
+          editContent(id);
+        }
+
+        if (action === "ai") {
+          analyzeWithAI(id);
+        }
+
+        if (action === "publish") {
+          publishContent(id);
+        }
       }
     );
-
-  } else {
-
-    init()
-      .catch(
-        error => {
-
-          console.error(
-            "EZ MEDIA Newsroom initialization failed:",
-            error
-          );
-
-        }
-      );
-
   }
 
+  function initialize() {
+    const container = getContainer();
+
+    if (!container) {
+      return false;
+    }
+
+    renderShell();
+    loadContent();
+
+    return true;
+  }
+
+  window.EZMediaAdminNewsroom = {
+    initialize,
+    refresh: loadContent,
+    getState: () => ({
+      ...state,
+      items: [...state.items],
+      filteredItems: [...state.filteredItems]
+    })
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      initialize,
+      { once: true }
+    );
+  } else {
+    initialize();
+  }
 })();
