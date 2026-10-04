@@ -1,11 +1,21 @@
 "use strict";
 
 /*
-============================================================
- EZ MEDIA 11.0
- INTELLIGENT MEDIA PLATFORM
-============================================================
-*/
+ * ============================================================
+ * EZ MEDIA 11.0
+ * CONTENT + AI + AUTONOMOUS MEDIA OPERATIONS
+ * EXECUTIVE COMMAND CENTER
+ *
+ * الملف الرئيسي:
+ * /server.js
+ *
+ * التشغيل:
+ * node server.js
+ *
+ * Node:
+ * >= 20
+ * ============================================================
+ */
 
 const express = require("express");
 const path = require("path");
@@ -13,9 +23,10 @@ const cors = require("cors");
 const helmet = require("helmet");
 const compression = require("compression");
 
-/* =========================================================
-   DATABASE
-========================================================= */
+/* ============================================================
+ * DATABASE
+ * ============================================================
+ */
 
 const {
   health: databaseHealth
@@ -33,130 +44,102 @@ const {
   initializeNotifications
 } = require("./src/database/notification-bootstrap");
 
-/* =========================================================
-   NOTIFICATION WORKER
-========================================================= */
+/* ============================================================
+ * NOTIFICATIONS
+ * ============================================================
+ */
 
 const {
   startNotificationWorker,
   registerNotificationWorkerShutdown
 } = require("./src/services/notificationWorker");
 
-/* =========================================================
-   CORE ROUTES
-========================================================= */
+/* ============================================================
+ * CORE ROUTES
+ * ============================================================
+ */
 
-const contentRoutes =
-  require("./src/routes/content");
+const contentRoutes = require("./src/routes/content");
+const aiRoutes = require("./src/routes/ai");
+const mediaRoutes = require("./src/routes/media");
+const liveRoutes = require("./src/routes/live");
+const breakingRoutes = require("./src/routes/breaking");
+const storageRoutes = require("./src/routes/storage");
+const uploadRoutes = require("./src/routes/upload");
+const commercialRoutes = require("./src/routes/commercial");
+const notificationsRoutes = require("./src/routes/notifications");
+const notificationWorkerRoutes = require("./src/routes/notification-worker");
 
-const aiRoutes =
-  require("./src/routes/ai");
-
-const mediaRoutes =
-  require("./src/routes/media");
-
-const liveRoutes =
-  require("./src/routes/live");
-
-const breakingRoutes =
-  require("./src/routes/breaking");
-
-const storageRoutes =
-  require("./src/routes/storage");
-
-const uploadRoutes =
-  require("./src/routes/upload");
-
-const commercialRoutes =
-  require("./src/routes/commercial");
-
-const notificationsRoutes =
-  require("./src/routes/notifications");
-
-const notificationWorkerRoutes =
-  require("./src/routes/notification-worker");
-
-/* =========================================================
-   OPTIONAL MODULE LOADER
-========================================================= */
+/* ============================================================
+ * SAFE REQUIRE
+ * ============================================================
+ */
 
 function safeRequire(modulePath) {
   try {
     return require(modulePath);
   } catch (error) {
     console.warn(
-      `EZ MEDIA: optional module unavailable: ${modulePath}`
-    );
-
-    console.warn(
-      `Reason: ${error.message}`
+      `[EZ MEDIA] الوحدة غير متاحة: ${modulePath}`,
+      error && error.message ? error.message : error
     );
 
     return null;
   }
 }
 
-/* =========================================================
-   OPTIONAL AI / MEDIA ENGINES
-========================================================= */
+/* ============================================================
+ * ADVANCED ENGINES
+ * ============================================================
+ */
 
-const autonomousOperationsEngineModule =
-  safeRequire(
-    "./src/services/autonomous-media-operations-center-engine"
-  );
+const autonomousOperationsEngineModule = safeRequire(
+  "./src/services/autonomous-media-operations-center-engine"
+);
 
-const autonomousOperationsRoutesModule =
-  safeRequire(
-    "./src/routes/autonomous-media-operations"
-  );
+const autonomousOperationsRoutesModule = safeRequire(
+  "./src/routes/autonomous-media-operations"
+);
 
-const collaborationEngineModule =
-  safeRequire(
-    "./src/services/intelligent-ai-agent-collaboration-engine"
-  );
+const collaborationEngineModule = safeRequire(
+  "./src/services/intelligent-ai-agent-collaboration-engine"
+);
 
-const autonomousAgentEngineModule =
-  safeRequire(
-    "./src/services/intelligent-ai-agent-autonomous-engine"
-  );
+const autonomousAgentEngineModule = safeRequire(
+  "./src/services/intelligent-ai-agent-autonomous-engine"
+);
 
-const mediaMemoryEngineModule =
-  safeRequire(
-    "./src/services/intelligent-media-memory-engine"
-  );
+const mediaMemoryEngineModule = safeRequire(
+  "./src/services/intelligent-media-memory-engine"
+);
 
-const eventIntelligenceEngineModule =
-  safeRequire(
-    "./src/services/intelligent-media-event-intelligence-engine"
-  );
+const eventIntelligenceEngineModule = safeRequire(
+  "./src/services/intelligent-media-event-intelligence-engine"
+);
 
-const eventIntelligenceRoutesModule =
-  safeRequire(
-    "./src/routes/intelligent-media-event-intelligence"
-  );
+const eventIntelligenceRoutesModule = safeRequire(
+  "./src/routes/intelligent-media-event-intelligence"
+);
 
-/* =========================================================
-   APPLICATION
-========================================================= */
+/* ============================================================
+ * EXPRESS
+ * ============================================================
+ */
 
 const app = express();
 
-/* =========================================================
-   BASIC CONFIG
-========================================================= */
+const PORT = Number(process.env.PORT) || 3000;
 
-const PORT =
-  Number(process.env.PORT) || 3000;
-
-const VERSION =
-  "11.0.0";
+const VERSION = "11.0.0";
 
 const BUILD =
+  process.env.EZ_MEDIA_BUILD ||
   "EZ-MEDIA-CONTENT-OS-2026-10-04";
 
-/* =========================================================
-   RUNTIME STATE
-========================================================= */
+/* ============================================================
+ * RUNTIME STATE
+ * ============================================================
+ */
 
 const runtime = {
   startedAt: new Date().toISOString(),
@@ -164,25 +147,30 @@ const runtime = {
   database: {
     initialized: false,
     configured: Boolean(process.env.DATABASE_URL),
-    ready: false
+    ready: false,
+    health: null,
+    error: null
   },
 
   notifications: {
     initialized: false,
-    workerStarted: false
+    workerStarted: false,
+    error: null
   },
 
   autonomousOperations: {
     available: false,
     initialized: false,
     routeMounted: false,
-    started: false
+    started: false,
+    lastError: null
   },
 
   eventIntelligence: {
     available: false,
     initialized: false,
-    routeMounted: false
+    routeMounted: false,
+    lastError: null
   },
 
   ai: {
@@ -201,9 +189,10 @@ const runtime = {
   }
 };
 
-/* =========================================================
-   ENGINE STATE
-========================================================= */
+/* ============================================================
+ * ENGINE REGISTRY
+ * ============================================================
+ */
 
 const engines = {
   autonomousOperations: null,
@@ -213,15 +202,16 @@ const engines = {
   eventIntelligence: null
 };
 
-/* =========================================================
-   MIDDLEWARE
-========================================================= */
+/* ============================================================
+ * MIDDLEWARE
+ * ============================================================
+ */
 
 app.disable("x-powered-by");
 
 app.use(
   helmet({
-    crossOriginResourcePolicy: false
+    contentSecurityPolicy: false
   })
 );
 
@@ -232,96 +222,102 @@ app.use(
   })
 );
 
-app.use(
-  compression()
-);
+app.use(compression());
 
 app.use(
   express.json({
-    limit: "25mb"
+    limit: process.env.JSON_BODY_LIMIT || "20mb"
   })
 );
 
 app.use(
   express.urlencoded({
     extended: true,
-    limit: "25mb"
+    limit: process.env.URLENCODED_BODY_LIMIT || "20mb"
   })
 );
 
-/* =========================================================
-   REQUEST ID
-========================================================= */
+/* ============================================================
+ * REQUEST ID
+ * ============================================================
+ */
 
 app.use((req, res, next) => {
   const requestId =
     req.headers["x-request-id"] ||
     `${Date.now()}-${Math.random()
       .toString(36)
-      .slice(2, 10)}`;
-
-  res.setHeader(
-    "X-EZ-MEDIA-Request-ID",
-    requestId
-  );
+      .slice(2, 12)}`;
 
   req.requestId = requestId;
+
+  res.setHeader("X-Request-ID", requestId);
 
   next();
 });
 
-/* =========================================================
-   REQUEST LOG
-========================================================= */
+/* ============================================================
+ * REQUEST LOGGER
+ * ============================================================
+ */
 
 app.use((req, res, next) => {
   const started = Date.now();
 
   res.on("finish", () => {
-    const duration =
-      Date.now() - started;
+    const duration = Date.now() - started;
 
     console.log(
-      `[EZ MEDIA] ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`
+      JSON.stringify({
+        message: "handled request",
+        level: "info",
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl,
+        status: res.statusCode,
+        durationMs: duration
+      })
     );
   });
 
   next();
 });
 
-/* =========================================================
-   STATIC PUBLIC
-========================================================= */
+/* ============================================================
+ * STATIC FILES
+ * ============================================================
+ */
 
-const publicPath =
-  path.join(__dirname, "public");
+const publicPath = path.join(__dirname, "public");
 
 app.use(
   express.static(publicPath, {
+    index: "index.html",
     fallthrough: true
   })
 );
 
-/* =========================================================
-   AUTONOMOUS MEDIA OPERATIONS UI
-========================================================= */
+/* ============================================================
+ * AUTONOMOUS MEDIA OPERATIONS UI
+ *
+ * لا نغيّر واجهة المستخدم الحالية.
+ * ============================================================
+ */
 
-const autonomousOperationsUIPath =
-  path.join(
-    __dirname,
-    "public",
-    "autonomous-media-operations"
-  );
+const executiveCommandCenterUIPath = path.join(
+  __dirname,
+  "public",
+  "autonomous-media-operations"
+);
 
 app.use(
   "/autonomous-media-operations",
-  express.static(
-    autonomousOperationsUIPath,
-    {
-      index: "index.html",
-      fallthrough: true
-    }
-  )
+  express.static(executiveCommandCenterUIPath, {
+    index: "index.html",
+    fallthrough: false,
+    redirect: true
+  })
 );
 
 app.get(
@@ -329,7 +325,7 @@ app.get(
   (req, res) => {
     res.sendFile(
       path.join(
-        autonomousOperationsUIPath,
+        executiveCommandCenterUIPath,
         "index.html"
       )
     );
@@ -341,56 +337,137 @@ app.get(
   (req, res) => {
     res.sendFile(
       path.join(
-        autonomousOperationsUIPath,
+        executiveCommandCenterUIPath,
         "index.html"
       )
     );
   }
 );
 
-/* =========================================================
-   CORE ROUTES
-========================================================= */
+/* ============================================================
+ * BASIC SYSTEM ROUTES
+ * ============================================================
+ */
 
-app.use(
-  "/api/commercial",
-  commercialRoutes
-);
+app.get("/", (req, res) => {
+  res.json({
+    platform: "EZ MEDIA",
+    version: VERSION,
+    build: BUILD,
+    status: "online",
+    message: "EZ MEDIA 11.0 يعمل",
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: "/health",
+      status: "/api/status",
+      executiveCommand: "/api/executive-command/status",
+      executiveDashboard:
+        "/api/executive-command/dashboard",
+      operations: "/api/operations/status",
+      autonomousOperations:
+        "/autonomous-media-operations/"
+    }
+  });
+});
 
-app.use(
-  "/api/content",
-  contentRoutes
-);
+app.get("/health", async (req, res) => {
+  let database = null;
 
-app.use(
-  "/api/ai",
-  aiRoutes
-);
+  try {
+    if (typeof databaseHealth === "function") {
+      database = await databaseHealth();
+    }
+  } catch (error) {
+    database = {
+      ready: false,
+      error: error.message
+    };
+  }
 
-app.use(
-  "/api/media",
-  mediaRoutes
-);
+  res.json({
+    platform: "EZ MEDIA",
+    version: VERSION,
+    build: BUILD,
+    status: "online",
+    timestamp: new Date().toISOString(),
 
-app.use(
-  "/api/live",
-  liveRoutes
-);
+    server: {
+      online: true,
+      node: process.version,
+      environment:
+        process.env.NODE_ENV || "production",
+      uptime: process.uptime()
+    },
 
-app.use(
-  "/api/breaking",
-  breakingRoutes
-);
+    database: {
+      configured: Boolean(process.env.DATABASE_URL),
+      initialized:
+        runtime.database.initialized,
+      ready:
+        runtime.database.ready,
+      health: database
+    },
 
-app.use(
-  "/api/storage",
-  storageRoutes
-);
+    ai: runtime.ai,
 
-app.use(
-  "/api/upload",
-  uploadRoutes
-);
+    autonomousOperations:
+      runtime.autonomousOperations,
+
+    eventIntelligence:
+      runtime.eventIntelligence,
+
+    executiveCommand:
+      runtime.executiveCommand
+  });
+});
+
+app.get("/api/status", async (req, res) => {
+  res.json({
+    platform: "EZ MEDIA",
+    version: VERSION,
+    build: BUILD,
+    status: "online",
+    timestamp: new Date().toISOString(),
+
+    server: {
+      node: process.version,
+      uptime: process.uptime(),
+      environment:
+        process.env.NODE_ENV || "production"
+    },
+
+    database: runtime.database,
+
+    ai: runtime.ai,
+
+    operations:
+      runtime.autonomousOperations,
+
+    eventIntelligence:
+      runtime.eventIntelligence
+  });
+});
+
+/* ============================================================
+ * CORE API ROUTES
+ * ============================================================
+ */
+
+app.use("/api/commercial", commercialRoutes);
+
+app.use("/api/content", contentRoutes);
+
+app.use("/api/ai", aiRoutes);
+
+app.use("/api/media", mediaRoutes);
+
+app.use("/api/live", liveRoutes);
+
+app.use("/api/breaking", breakingRoutes);
+
+app.use("/api/storage", storageRoutes);
+
+app.use("/api/upload", uploadRoutes);
 
 app.use(
   "/api/notifications",
@@ -402,181 +479,380 @@ app.use(
   notificationWorkerRoutes
 );
 
-/* =========================================================
-   ENGINE INITIALIZATION
-========================================================= */
+/* ============================================================
+ * SAFE VALUE HELPERS
+ * ============================================================
+ */
 
-function initializeAdvancedEngines() {
+function firstDefined(...values) {
+  for (const value of values) {
+    if (
+      value !== undefined &&
+      value !== null
+    ) {
+      return value;
+    }
+  }
 
-  /*
-  ----------------------------------------------------------
-  Autonomous Operations
-  ----------------------------------------------------------
-  */
+  return null;
+}
+
+function numberOrNull(value) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+function booleanOrNull(value) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return null;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (
+    value === "true" ||
+    value === 1 ||
+    value === "1"
+  ) {
+    return true;
+  }
+
+  if (
+    value === "false" ||
+    value === 0 ||
+    value === "0"
+  ) {
+    return false;
+  }
+
+  return null;
+}
+
+function objectOrEmpty(value) {
+  if (
+    value &&
+    typeof value === "object"
+  ) {
+    return value;
+  }
+
+  return {};
+}
+
+/* ============================================================
+ * SAFE ENGINE READ
+ *
+ * نقرأ فقط الدوال الآمنة الخاصة بالحالة.
+ * لا يتم استدعاء start / stop / execute.
+ * ============================================================
+ */
+
+async function safeEngineRead(
+  engine,
+  methods = [
+    "dashboard",
+    "status",
+    "health",
+    "statistics",
+    "getDashboard",
+    "getStatus",
+    "getHealth",
+    "getStatistics"
+  ]
+) {
+  if (!engine) {
+    return {
+      available: false,
+      data: null,
+      method: null,
+      error: null
+    };
+  }
+
+  let lastError = null;
+
+  for (const method of methods) {
+    try {
+      if (
+        typeof engine[method] ===
+        "function"
+      ) {
+        const result =
+          await engine[method]();
+
+        return {
+          available: true,
+          data:
+            result === undefined
+              ? {}
+              : result,
+          method,
+          error: null
+        };
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  return {
+    available: true,
+    data: {},
+    method: null,
+    error: lastError
+      ? lastError.message
+      : null
+  };
+}
+
+/* ============================================================
+ * NORMALIZE ENGINE DATA
+ * ============================================================
+ */
+
+function extractCollectionCount(
+  source,
+  keys
+) {
+  if (!source) {
+    return null;
+  }
+
+  for (const key of keys) {
+    if (
+      source[key] !== undefined &&
+      source[key] !== null
+    ) {
+      const value =
+        numberOrNull(source[key]);
+
+      if (value !== null) {
+        return value;
+      }
+
+      if (
+        Array.isArray(source[key])
+      ) {
+        return source[key].length;
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractStatus(
+  source
+) {
+  if (!source) {
+    return null;
+  }
+
+  return firstDefined(
+    source.status,
+    source.state,
+    source.health,
+    source.mode
+  );
+}
+
+/* ============================================================
+ * ADVANCED ENGINE INITIALIZATION
+ * ============================================================
+ */
+
+async function initializeAdvancedEngines() {
+  console.log(
+    "[EZ MEDIA] بدء تهيئة المحركات المتقدمة..."
+  );
+
+  /* ========================================================
+   * AUTONOMOUS OPERATIONS
+   * ========================================================
+   */
 
   try {
-
     if (
       autonomousOperationsEngineModule
     ) {
-
-      const Engine =
-        autonomousOperationsEngineModule
-          .AutonomousMediaOperationsCenterEngine ||
+      const Constructor =
+        autonomousOperationsEngineModule.IntelligentMediaOperationsCenterEngine ||
+        autonomousOperationsEngineModule.AutonomousMediaOperationsCenterEngine ||
         autonomousOperationsEngineModule.default ||
         autonomousOperationsEngineModule;
 
-      if (typeof Engine === "function") {
-
+      if (
+        typeof Constructor ===
+        "function"
+      ) {
         engines.autonomousOperations =
-          new Engine();
+          new Constructor();
 
         runtime.autonomousOperations.available =
           true;
 
         runtime.autonomousOperations.initialized =
           true;
+
+        console.log(
+          "[EZ MEDIA] Autonomous Media Operations Engine: جاهز"
+        );
       }
     }
-
   } catch (error) {
+    runtime.autonomousOperations.lastError =
+      error.message;
 
     console.error(
-      "Autonomous Operations initialization error:",
+      "[EZ MEDIA] خطأ Autonomous Operations:",
       error.message
     );
   }
 
-  /*
-  ----------------------------------------------------------
-  Collaboration
-  ----------------------------------------------------------
-  */
+  /* ========================================================
+   * AI COLLABORATION
+   * ========================================================
+   */
 
   try {
-
     if (
       collaborationEngineModule
     ) {
-
-      const Engine =
-        collaborationEngineModule
-          .IntelligentAIAgentCollaborationEngine ||
+      const Constructor =
+        collaborationEngineModule.IntelligentAIAgentCollaborationEngine ||
         collaborationEngineModule.default ||
         collaborationEngineModule;
 
-      if (typeof Engine === "function") {
-
+      if (
+        typeof Constructor ===
+        "function"
+      ) {
         engines.collaboration =
-          new Engine();
+          new Constructor();
 
         runtime.ai.collaboration =
           true;
+
+        console.log(
+          "[EZ MEDIA] AI Collaboration Engine: جاهز"
+        );
       }
     }
-
   } catch (error) {
-
     console.error(
-      "AI Collaboration initialization error:",
+      "[EZ MEDIA] خطأ AI Collaboration:",
       error.message
     );
   }
 
-  /*
-  ----------------------------------------------------------
-  Autonomous Agents
-  ----------------------------------------------------------
-  */
+  /* ========================================================
+   * AUTONOMOUS AI AGENTS
+   * ========================================================
+   */
 
   try {
-
     if (
       autonomousAgentEngineModule
     ) {
-
-      const Engine =
-        autonomousAgentEngineModule
-          .IntelligentAIAgentAutonomousEngine ||
+      const Constructor =
+        autonomousAgentEngineModule.IntelligentAIAgentAutonomousEngine ||
         autonomousAgentEngineModule.default ||
         autonomousAgentEngineModule;
 
-      if (typeof Engine === "function") {
-
+      if (
+        typeof Constructor ===
+        "function"
+      ) {
         engines.autonomousAgents =
-          new Engine();
+          new Constructor();
 
         runtime.ai.autonomousAgents =
           true;
+
+        console.log(
+          "[EZ MEDIA] Autonomous AI Agents Engine: جاهز"
+        );
       }
     }
-
   } catch (error) {
-
     console.error(
-      "Autonomous AI Agents initialization error:",
+      "[EZ MEDIA] خطأ Autonomous Agents:",
       error.message
     );
   }
 
-  /*
-  ----------------------------------------------------------
-  Media Memory
-  ----------------------------------------------------------
-  */
+  /* ========================================================
+   * MEMORY
+   * ========================================================
+   */
 
   try {
-
     if (
       mediaMemoryEngineModule
     ) {
-
-      const Engine =
-        mediaMemoryEngineModule
-          .IntelligentMediaMemoryEngine ||
+      const Constructor =
+        mediaMemoryEngineModule.IntelligentMediaMemoryEngine ||
         mediaMemoryEngineModule.default ||
         mediaMemoryEngineModule;
 
-      if (typeof Engine === "function") {
-
+      if (
+        typeof Constructor ===
+        "function"
+      ) {
         engines.memory =
-          new Engine();
+          new Constructor();
 
         runtime.ai.memory =
           true;
+
+        console.log(
+          "[EZ MEDIA] Intelligent Media Memory: جاهز"
+        );
       }
     }
-
   } catch (error) {
-
     console.error(
-      "Media Memory initialization error:",
+      "[EZ MEDIA] خطأ Memory Engine:",
       error.message
     );
   }
 
-  /*
-  ----------------------------------------------------------
-  Event Intelligence
-  ----------------------------------------------------------
-  */
+  /* ========================================================
+   * EVENT INTELLIGENCE
+   * ========================================================
+   */
 
   try {
-
     if (
       eventIntelligenceEngineModule
     ) {
-
-      const Engine =
-        eventIntelligenceEngineModule
-          .IntelligentMediaEventIntelligenceEngine ||
+      const Constructor =
+        eventIntelligenceEngineModule.IntelligentMediaEventIntelligenceEngine ||
         eventIntelligenceEngineModule.default ||
         eventIntelligenceEngineModule;
 
-      if (typeof Engine === "function") {
-
+      if (
+        typeof Constructor ===
+        "function"
+      ) {
         engines.eventIntelligence =
-          new Engine();
+          new Constructor();
 
         runtime.eventIntelligence.available =
           true;
@@ -586,132 +862,156 @@ function initializeAdvancedEngines() {
 
         runtime.ai.eventIntelligence =
           true;
+
+        console.log(
+          "[EZ MEDIA] Event Intelligence Engine: جاهز"
+        );
       }
     }
-
   } catch (error) {
+    runtime.eventIntelligence.lastError =
+      error.message;
 
     console.error(
-      "Event Intelligence initialization error:",
+      "[EZ MEDIA] خطأ Event Intelligence:",
       error.message
     );
   }
+
+  console.log(
+    "[EZ MEDIA] انتهت تهيئة المحركات المتقدمة."
+  );
 }
 
-/* =========================================================
-   AUTONOMOUS OPERATIONS ROUTES
-========================================================= */
+/* ============================================================
+ * AUTONOMOUS OPERATIONS ROUTES
+ * ============================================================
+ */
 
 function mountAutonomousOperationsRoutes() {
-
-  if (
-    !autonomousOperationsRoutesModule
-  ) {
-    console.warn(
-      "EZ MEDIA: Autonomous Operations routes unavailable"
-    );
-
-    return;
-  }
-
   try {
+    if (
+      !autonomousOperationsRoutesModule
+    ) {
+      return;
+    }
 
     const factory =
-      autonomousOperationsRoutesModule
-        .createAutonomousMediaOperationsRouter ||
+      autonomousOperationsRoutesModule.createAutonomousMediaOperationsRouter ||
       autonomousOperationsRoutesModule.default;
 
     if (
-      typeof factory === "function" &&
-      engines.autonomousOperations
+      typeof factory !==
+        "function" ||
+      !engines.autonomousOperations
     ) {
+      console.warn(
+        "[EZ MEDIA] Autonomous Operations Router غير متاح."
+      );
 
-      const router =
-        factory({
-          engine:
-            engines.autonomousOperations
-        });
-
-      if (router) {
-
-        app.use(
-          "/api/operations",
-          router
-        );
-
-        runtime.autonomousOperations.routeMounted =
-          true;
-      }
+      return;
     }
 
+    const router = factory({
+      engine:
+        engines.autonomousOperations
+    });
+
+    if (router) {
+      app.use(
+        "/api/operations",
+        router
+      );
+
+      runtime.autonomousOperations.routeMounted =
+        true;
+
+      console.log(
+        "[EZ MEDIA] تم تركيب /api/operations"
+      );
+    }
   } catch (error) {
+    runtime.autonomousOperations.lastError =
+      error.message;
 
     console.error(
-      "Autonomous Operations route error:",
+      "[EZ MEDIA] خطأ تركيب Operations Router:",
       error.message
     );
   }
 }
 
-/* =========================================================
-   EVENT INTELLIGENCE ROUTES
-========================================================= */
+/* ============================================================
+ * EVENT INTELLIGENCE ROUTES
+ * ============================================================
+ */
 
 function mountEventIntelligenceRoutes() {
-
-  if (
-    !eventIntelligenceRoutesModule
-  ) {
-    return;
-  }
-
   try {
+    if (
+      !eventIntelligenceRoutesModule
+    ) {
+      return;
+    }
 
     const factory =
-      eventIntelligenceRoutesModule
-        .createIntelligentMediaEventIntelligenceRouter ||
+      eventIntelligenceRoutesModule.createIntelligentMediaEventIntelligenceRouter ||
+      eventIntelligenceRoutesModule.createEventIntelligenceRouter ||
       eventIntelligenceRoutesModule.default;
 
     if (
-      typeof factory === "function"
+      typeof factory !==
+        "function" ||
+      !engines.eventIntelligence
     ) {
+      console.warn(
+        "[EZ MEDIA] Event Intelligence Router غير متاح."
+      );
 
-      const router =
-        factory({
-          engine:
-            engines.eventIntelligence
-        });
-
-      if (router) {
-
-        app.use(
-          "/api/ai/event-intelligence",
-          router
-        );
-
-        runtime.eventIntelligence.routeMounted =
-          true;
-      }
+      return;
     }
 
+    const router = factory({
+      engine:
+        engines.eventIntelligence
+    });
+
+    if (router) {
+      app.use(
+        "/api/ai/event-intelligence",
+        router
+      );
+
+      runtime.eventIntelligence.routeMounted =
+        true;
+
+      console.log(
+        "[EZ MEDIA] تم تركيب Event Intelligence Router"
+      );
+    }
   } catch (error) {
+    runtime.eventIntelligence.lastError =
+      error.message;
 
     console.error(
-      "Event Intelligence route error:",
+      "[EZ MEDIA] خطأ تركيب Event Intelligence Router:",
       error.message
     );
   }
 }
 
-/* =========================================================
-   EXECUTIVE COMMAND CENTER
-   CODE 119/122 - INLINE
-========================================================= */
+/* ============================================================
+ * EXECUTIVE COMMAND CENTER
+ *
+ * CODE 122
+ *
+ * هذه النسخة لا تفترض أرقامًا غير موجودة.
+ * إذا لم يوفر المحرك رقمًا حقيقيًا يرجع null.
+ * ============================================================
+ */
 
 const executiveCommand = {
-
-  refresh() {
-
+  async refresh() {
     const now =
       new Date().toISOString();
 
@@ -724,1181 +1024,266 @@ const executiveCommand = {
     runtime.executiveCommand.lastError =
       null;
 
-    return {
-      platform: "EZ MEDIA",
-      version: VERSION,
-      build: BUILD,
-
-      status: "online",
-
-      timestamp: now,
-
-      executive: {
-        automation: "active",
-        broadcasting: "ready",
-        scheduling: "ready",
-        workflow: "ready"
-      },
-
-      ai: {
-        enabled: true,
-
-        collaboration:
-          runtime.ai.collaboration,
-
-        autonomousAgents:
-          runtime.ai.autonomousAgents,
-
-        memory:
-          runtime.ai.memory,
-
-        eventIntelligence:
-          runtime.ai.eventIntelligence
-      },
-
-      operations: {
-        available:
-          runtime.autonomousOperations.available,
-
-        initialized:
-          runtime.autonomousOperations.initialized,
-
-        routeMounted:
-          runtime.autonomousOperations.routeMounted,
-
-        started:
-          runtime.autonomousOperations.started
-      },
-
-      database: {
-        configured:
-          Boolean(process.env.DATABASE_URL),
-
-        initialized:
-          runtime.database.initialized,
-
-        ready:
-          runtime.database.ready
-      },
-
-      approvals: {
-        required:
-          process.env.MEDIA_OPS_REQUIRE_HUMAN_APPROVAL !==
-          "false",
-
-        pending: 0
-      },
-
-      broadcasting: {
-        website: true,
-        social: false,
-        satellite: false,
-        externalIntegration: false
-      },
-
-      safety: {
-        humanApproval:
-          process.env.MEDIA_OPS_REQUIRE_HUMAN_APPROVAL !==
-          "false",
-
-        emergencyStop:
-          false
-      }
-    };
-  }
-};
-
-/* =========================================================
-   EXECUTIVE COMMAND API
-   IMPORTANT:
-   يجب أن يكون قبل 404
-========================================================= */
-
-app.get(
-  "/api/executive-command/status",
-  (req, res) => {
-
-    res.json(
-      executiveCommand.refresh()
-    );
-  }
-);
-
-app.get(
-  "/api/executive-command/health",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-      service: "Executive Command Center",
-      status: "healthy",
-      available: true,
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-app.get(
-  "/api/executive-command/dashboard",
-  (req, res) => {
-
-    res.json(
-      executiveCommand.refresh()
-    );
-  }
-);
-
-app.get(
-  "/api/executive-command/systems",
-  (req, res) => {
-
-    res.json({
-      server: "online",
-      api: "online",
-
-      database:
-        runtime.database.ready
-          ? "online"
-          : "offline",
-
-      ai: "online",
-
-      autonomousOperations:
-        runtime.autonomousOperations.available
-          ? "online"
-          : "limited",
-
-      eventIntelligence:
-        runtime.eventIntelligence.available
-          ? "online"
-          : "limited",
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-app.get(
-  "/api/executive-command/ai",
-  (req, res) => {
-
-    res.json({
-      enabled: true,
-
-      collaboration:
-        runtime.ai.collaboration,
-
-      autonomousAgents:
-        runtime.ai.autonomousAgents,
-
-      memory:
-        runtime.ai.memory,
-
-      eventIntelligence:
-        runtime.ai.eventIntelligence
-    });
-  }
-);
-
-app.get(
-  "/api/executive-command/operations",
-  (req, res) => {
-
-    res.json({
-      available:
-        runtime.autonomousOperations.available,
-
-      initialized:
-        runtime.autonomousOperations.initialized,
-
-      routeMounted:
-        runtime.autonomousOperations.routeMounted,
-
-      started:
-        runtime.autonomousOperations.started,
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-app.get(
-  "/api/executive-command/approvals",
-  (req, res) => {
-
-    res.json({
-      humanApprovalRequired:
-        process.env.MEDIA_OPS_REQUIRE_HUMAN_APPROVAL !==
-        "false",
-
-      pending: 0,
-
-      message:
-        "لا توجد موافقات معلقة مسجلة حاليًا."
-    });
-  }
-);
-
-app.get(
-  "/api/executive-command/business",
-  (req, res) => {
-
-    res.json({
-      audience: {
-        status: "ready"
-      },
-
-      advertising: {
-        status: "ready"
-      },
-
-      revenue: {
-        status: "not_connected"
-      },
-
-      crm: {
-        status: "ready"
-      }
-    });
-  }
-);
-
-app.get(
-  "/api/executive-command/matrix",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-
-      matrix: {
-        server: true,
-        database:
-          runtime.database.ready,
-        ai: true,
-        memory:
-          runtime.ai.memory,
-        agents:
-          runtime.ai.autonomousAgents,
-        collaboration:
-          runtime.ai.collaboration,
-        operations:
-          runtime.autonomousOperations.available,
-        eventIntelligence:
-          runtime.eventIntelligence.available,
-        executiveCommand: true
-      },
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-app.post(
-  "/api/executive-command/refresh",
-  (req, res) => {
-
-    res.json(
-      executiveCommand.refresh()
-    );
-  }
-);
-
-app.post(
-  "/api/executive-command/analysis",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-
-      analysis: {
-        status: "ready",
-
-        recommendation:
-          "النظام جاهز للتحليل التنفيذي، مع إبقاء القرارات الحساسة تحت موافقة بشرية."
-      },
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-/* =========================================================
-   OPERATIONS FALLBACK API
-========================================================= */
-
-app.get(
-  "/api/operations/health",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-      service: "Autonomous Media Operations",
-      status:
-        runtime.autonomousOperations.available
-          ? "online"
-          : "limited",
-
-      initialized:
-        runtime.autonomousOperations.initialized,
-
-      routeMounted:
-        runtime.autonomousOperations.routeMounted,
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-app.get(
-  "/api/operations/status",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-
-      status:
-        runtime.autonomousOperations.started
-          ? "running"
-          : "ready",
-
-      available:
-        runtime.autonomousOperations.available,
-
-      started:
-        runtime.autonomousOperations.started
-    });
-  }
-);
-
-/* =========================================================
-   ROOT
-========================================================= */
-
-app.get(
-  "/",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-      version: VERSION,
-      build: BUILD,
-
-      status: "online",
-
-      message:
-        "EZ MEDIA Platform is running",
-
-      api: "/api",
-      health: "/health",
-
-      executiveCommand:
-        "/api/executive-command/status",
-
-      autonomousOperations:
-        "/autonomous-media-operations/",
-
-      database:
-        runtime.database.ready
-          ? "ready"
-          : "not_ready",
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-/* =========================================================
-   HEALTH
-========================================================= */
-
-app.get(
-  "/health",
-  async (req, res) => {
-
-    let database = {
-      configured:
-        Boolean(process.env.DATABASE_URL),
-
-      ready:
-        runtime.database.ready
-    };
-
     try {
+      /* ======================================================
+       * READ ENGINES
+       * ======================================================
+       */
 
-      if (
-        typeof databaseHealth === "function"
-      ) {
+      const [
+        operationsSnapshot,
+        collaborationSnapshot,
+        agentsSnapshot,
+        memorySnapshot,
+        eventSnapshot
+      ] = await Promise.all([
+        safeEngineRead(
+          engines.autonomousOperations
+        ),
 
-        const result =
-          await databaseHealth();
+        safeEngineRead(
+          engines.collaboration
+        ),
 
+        safeEngineRead(
+          engines.autonomousAgents
+        ),
+
+        safeEngineRead(
+          engines.memory
+        ),
+
+        safeEngineRead(
+          engines.eventIntelligence
+        )
+      ]);
+
+      /* ======================================================
+       * DATABASE
+       * ======================================================
+       */
+
+      let databaseSnapshot =
+        runtime.database.health;
+
+      try {
         if (
-          result &&
-          typeof result === "object"
+          typeof databaseHealth ===
+          "function"
         ) {
+          databaseSnapshot =
+            await databaseHealth();
 
-          database = {
-            ...database,
-            ...result
-          };
+          runtime.database.health =
+            databaseSnapshot;
+
+          const databaseObject =
+            objectOrEmpty(
+              databaseSnapshot
+            );
+
+          runtime.database.ready =
+            databaseObject.ready ===
+              true ||
+            databaseObject.connected ===
+              true ||
+            databaseObject.ok === true ||
+            databaseObject.status ===
+              "healthy";
         }
+      } catch (error) {
+        runtime.database.ready =
+          false;
+
+        runtime.database.error =
+          error.message;
       }
 
-    } catch (error) {
-
-      database.ready = false;
-
-      runtime.database.ready =
-        false;
-    }
-
-    res.json({
-      platform: "EZ MEDIA",
-
-      version: VERSION,
-
-      build: BUILD,
-
-      status: "healthy",
-
-      server: {
-        online: true,
-
-        node:
-          process.version,
-
-        environment:
-          process.env.NODE_ENV ||
-          "production",
-
-        uptime:
-          process.uptime()
-      },
-
-      database,
-
-      executiveCommand: {
-        available: true,
-        status: "online"
-      },
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-/* =========================================================
-   API ROOT
-========================================================= */
-
-app.get(
-  "/api",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-
-      version: VERSION,
-
-      build: BUILD,
-
-      status: "online",
-
-      endpoints: {
-        health: "/health",
-
-        executiveCommand:
-          "/api/executive-command/status",
-
-        operations:
-          "/api/operations/health",
-
-        content:
-          "/api/content",
-
-        ai:
-          "/api/ai",
-
-        media:
-          "/api/media",
-
-        live:
-          "/api/live",
-
-        breaking:
-          "/api/breaking",
-
-        storage:
-          "/api/storage",
-
-        upload:
-          "/api/upload",
-
-        commercial:
-          "/api/commercial"
-      }
-    });
-  }
-);
-
-/* =========================================================
-   SYSTEM API
-========================================================= */
-
-app.get(
-  "/api/system",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-      version: VERSION,
-
-      status: "online",
-
-      server: true,
-
-      database:
-        runtime.database.ready,
-
-      ai: true,
-
-      executiveCommand: true,
-
-      autonomousOperations:
-        runtime.autonomousOperations.available,
-
-      eventIntelligence:
-        runtime.eventIntelligence.available,
-
-      timestamp:
-        new Date().toISOString()
-    });
-  }
-);
-
-app.get(
-  "/api/system/database",
-  async (req, res) => {
-
-    let health = {
-      configured:
-        Boolean(process.env.DATABASE_URL),
-
-      ready:
-        runtime.database.ready
-    };
-
-    try {
-
-      if (
-        typeof databaseHealth === "function"
-      ) {
-
-        const result =
-          await databaseHealth();
-
-        if (result) {
-          health = {
-            ...health,
-            ...result
-          };
-        }
-      }
-
-    } catch (error) {
-
-      health.ready = false;
-    }
-
-    res.json(health);
-  }
-);
-
-app.get(
-  "/api/system/ai",
-  (req, res) => {
-
-    res.json({
-      available: true,
-
-      collaboration:
-        runtime.ai.collaboration,
-
-      autonomousAgents:
-        runtime.ai.autonomousAgents,
-
-      memory:
-        runtime.ai.memory,
-
-      eventIntelligence:
-        runtime.ai.eventIntelligence
-    });
-  }
-);
-
-app.get(
-  "/api/system/autonomous-operations",
-  (req, res) => {
-
-    res.json({
-      available:
-        runtime.autonomousOperations.available,
-
-      initialized:
-        runtime.autonomousOperations.initialized,
-
-      routeMounted:
-        runtime.autonomousOperations.routeMounted,
-
-      started:
-        runtime.autonomousOperations.started
-    });
-  }
-);
-
-app.get(
-  "/api/system/event-intelligence",
-  (req, res) => {
-
-    res.json({
-      available:
-        runtime.eventIntelligence.available,
-
-      initialized:
-        runtime.eventIntelligence.initialized,
-
-      routeMounted:
-        runtime.eventIntelligence.routeMounted
-    });
-  }
-);
-
-/* =========================================================
-   SIMPLE AI AGENTS API
-========================================================= */
-
-app.get(
-  "/api/ai/agents",
-  (req, res) => {
-
-    res.json({
-      platform: "EZ MEDIA",
-
-      orchestrator:
-        "EZ AI ORCHESTRATOR",
-
-      status: "ready",
-
-      agents: [
-        "EZ WORLD RADAR",
-        "EZ DISCOVERY",
-        "EZ RESEARCHER",
-        "EZ VERIFY",
-        "EZ STORY",
-        "EZ EDITOR",
-        "EZ VIDEO",
-        "EZ AUDIO",
-        "EZ LIVE",
-        "EZ PUBLISHER",
-        "EZ SOCIAL",
-        "EZ ANALYTICS"
-      ]
-    });
-  }
-);
-
-/* =========================================================
-   LIVE STATUS
-========================================================= */
-
-app.get(
-  "/api/live/status",
-  (req, res) => {
-
-    res.json({
-      system: "EZ LIVE",
-
-      status: "ready",
-
-      live: false,
-
-      integrations: {
+      /* ======================================================
+       * RAW ENGINE OBJECTS
+       * ======================================================
+       */
+
+      const operationData =
+        objectOrEmpty(
+          operationsSnapshot.data
+        );
+
+      const collaborationData =
+        objectOrEmpty(
+          collaborationSnapshot.data
+        );
+
+      const agentsData =
+        objectOrEmpty(
+          agentsSnapshot.data
+        );
+
+      const memoryData =
+        objectOrEmpty(
+          memorySnapshot.data
+        );
+
+      const eventData =
+        objectOrEmpty(
+          eventSnapshot.data
+        );
+
+      /* ======================================================
+       * OPERATIONS COUNTS
+       * ======================================================
+       */
+
+      const activeOperations =
+        extractCollectionCount(
+          operationData,
+          [
+            "active",
+            "running",
+            "activeOperations",
+            "runningOperations",
+            "activeCount"
+          ]
+        );
+
+      const pendingOperations =
+        extractCollectionCount(
+          operationData,
+          [
+            "pending",
+            "pendingOperations",
+            "pendingCount",
+            "queued",
+            "queuedOperations"
+          ]
+        );
+
+      const completedOperations =
+        extractCollectionCount(
+          operationData,
+          [
+            "completed",
+            "completedOperations",
+            "completedCount"
+          ]
+        );
+
+      const failedOperations =
+        extractCollectionCount(
+          operationData,
+          [
+            "failed",
+            "failedOperations",
+            "failedCount"
+          ]
+        );
+
+      /* ======================================================
+       * AI COUNTS
+       * ======================================================
+       */
+
+      const agentsCount =
+        extractCollectionCount(
+          agentsData,
+          [
+            "agents",
+            "agentCount",
+            "totalAgents",
+            "activeAgents"
+          ]
+        );
+
+      const missionsCount =
+        extractCollectionCount(
+          collaborationData,
+          [
+            "missions",
+            "missionCount",
+            "activeMissions",
+            "totalMissions"
+          ]
+        );
+
+      const teamsCount =
+        extractCollectionCount(
+          collaborationData,
+          [
+            "teams",
+            "teamCount",
+            "activeTeams",
+            "totalTeams"
+          ]
+        );
+
+      /* ======================================================
+       * APPROVALS
+       * ======================================================
+       */
+
+      const pendingApprovals =
+        extractCollectionCount(
+          operationData,
+          [
+            "pendingApprovals",
+            "approvalCount",
+            "approvalsPending"
+          ]
+        );
+
+      /* ======================================================
+       * EVENT INTELLIGENCE
+       * ======================================================
+       */
+
+      const eventsCount =
+        extractCollectionCount(
+          eventData,
+          [
+            "events",
+            "eventCount",
+            "totalEvents",
+            "activeEvents"
+          ]
+        );
+
+      /* ======================================================
+       * MEMORY
+       * ======================================================
+       */
+
+      const memoryCount =
+        extractCollectionCount(
+          memoryData,
+          [
+            "memories",
+            "memoryCount",
+            "totalMemories",
+            "records"
+          ]
+        );
+
+      /* ======================================================
+       * HUMAN APPROVAL
+       * ======================================================
+       */
+
+      const humanApprovalRequired =
+        process.env
+          .MEDIA_OPS_REQUIRE_HUMAN_APPROVAL !==
+        "false";
+
+      /* ======================================================
+       * BROADCASTING
+       *
+       * لا ندعي وجود بث فضائي حقيقي بدون
+       * تكامل خارجي فعلي.
+       * ======================================================
+       */
+
+      const broadcasting = {
         website: true,
-        social: false,
-        satellite: false
-      },
 
-      message:
-        "البث الخارجي يحتاج إلى تكامل فعلي ومصرح به."
-    });
-  }
-);
-
-/* =========================================================
-   AUTOMATION
-========================================================= */
-
-app.get(
-  "/api/automation",
-  (req, res) => {
-
-    res.json({
-      system: "EZ AUTOMATION",
-
-      status: "ready",
-
-      architecture:
-        "event-driven",
-
-      workflows: [],
-
-      humanApproval:
-        true
-    });
-  }
-);
-
-/* =========================================================
-   FAVICON
-========================================================= */
-
-app.get(
-  "/favicon.ico",
-  (req, res) => {
-    res.status(204).end();
-  }
-);
-
-/* =========================================================
-   404
-   يجب أن يكون آخر شيء تقريبًا
-========================================================= */
-
-app.use(
-  (req, res) => {
-
-    res.status(404).json({
-      platform: "EZ MEDIA",
-
-      status: "not_found",
-
-      path:
-        req.originalUrl,
-
-      message:
-        "المسار المطلوب غير موجود في الإصدار الحالي."
-    });
-  }
-);
-
-/* =========================================================
-   ERROR HANDLER
-========================================================= */
-
-app.use(
-  (error, req, res, next) => {
-
-    console.error(
-      "EZ MEDIA ERROR:",
-      error
-    );
-
-    if (res.headersSent) {
-      return next(error);
-    }
-
-    res.status(500).json({
-      platform: "EZ MEDIA",
-
-      status: "error",
-
-      message:
-        "Internal server error",
-
-      requestId:
-        req.requestId || null
-    });
-  }
-);
-
-/* =========================================================
-   INITIALIZATION
-========================================================= */
-
-async function initializeAllSystems() {
-
-  /*
-  Database
-  */
-
-  try {
-
-    await initializeDatabase();
-
-    runtime.database.initialized =
-      true;
-
-    runtime.database.ready =
-      true;
-
-  } catch (error) {
-
-    runtime.database.initialized =
-      false;
-
-    runtime.database.ready =
-      false;
-
-    console.error(
-      "EZ MEDIA database initialization error:",
-      error.message
-    );
-  }
-
-  /*
-  Media Database
-  */
-
-  try {
-
-    if (
-      typeof initializeMediaDatabase ===
-      "function"
-    ) {
-
-      await initializeMediaDatabase();
-    }
-
-  } catch (error) {
-
-    console.error(
-      "EZ MEDIA media database initialization error:",
-      error.message
-    );
-  }
-
-  /*
-  Notifications
-  */
-
-  try {
-
-    if (
-      typeof initializeNotifications ===
-      "function"
-    ) {
-
-      await initializeNotifications();
-
-      runtime.notifications.initialized =
-        true;
-    }
-
-  } catch (error) {
-
-    console.error(
-      "EZ MEDIA notification initialization error:",
-      error.message
-    );
-  }
-
-  /*
-  Advanced Engines
-  */
-
-  initializeAdvancedEngines();
-
-  /*
-  Operations Routes
-  */
-
-  mountAutonomousOperationsRoutes();
-
-  /*
-  Event Intelligence
-  */
-
-  mountEventIntelligenceRoutes();
-
-  /*
-  Executive State
-  */
-
-  executiveCommand.refresh();
-}
-
-/* =========================================================
-   START AUTONOMOUS OPERATIONS
-========================================================= */
-
-async function startAutonomousOperations() {
-
-  const engine =
-    engines.autonomousOperations;
-
-  if (!engine) {
-    return;
-  }
-
-  try {
-
-    if (
-      typeof engine.start ===
-      "function"
-    ) {
-
-      await engine.start();
-
-      runtime.autonomousOperations.started =
-        true;
-    }
-
-  } catch (error) {
-
-    console.error(
-      "Autonomous Operations start error:",
-      error.message
-    );
-  }
-}
-
-/* =========================================================
-   NOTIFICATION WORKER
-========================================================= */
-
-async function startNotificationsWorkerSafe() {
-
-  try {
-
-    if (
-      typeof startNotificationWorker ===
-      "function"
-    ) {
-
-      await startNotificationWorker();
-
-      runtime.notifications.workerStarted =
-        true;
-    }
-
-  } catch (error) {
-
-    console.error(
-      "Notification worker start error:",
-      error.message
-    );
-  }
-}
-
-/* =========================================================
-   START SERVER
-========================================================= */
-
-let server = null;
-
-async function startServer() {
-
-  await initializeAllSystems();
-
-  await startAutonomousOperations();
-
-  await startNotificationsWorkerSafe();
-
-  server =
-    app.listen(
-      PORT,
-      "0.0.0.0",
-      () => {
-
-        console.log(
-          "========================================"
-        );
-
-        console.log(
-          "EZ MEDIA 11.0"
-        );
-
-        console.log(
-          `Version: ${VERSION}`
-        );
-
-        console.log(
-          `Build: ${BUILD}`
-        );
-
-        console.log(
-          `Port: ${PORT}`
-        );
-
-        console.log(
-          "Status: ONLINE"
-        );
-
-        console.log(
-          `Executive Command: /api/executive-command/status`
-        );
-
-        console.log(
-          `Operations UI: /autonomous-media-operations/`
-        );
-
-        console.log(
-          `Database: ${
-            runtime.database.ready
-              ? "READY"
-              : "NOT READY"
-          }`
-        );
-
-        console.log(
-          "========================================"
-        );
-      }
-    );
-
-  return server;
-}
-
-/* =========================================================
-   GRACEFUL SHUTDOWN
-========================================================= */
-
-async function shutdown(signal) {
-
-  console.log(
-    `EZ MEDIA: ${signal} received`
-  );
-
-  try {
-
-    if (
-      typeof registerNotificationWorkerShutdown ===
-      "function"
-    ) {
-
-      registerNotificationWorkerShutdown();
-    }
-
-  } catch (error) {
-
-    console.error(
-      "Notification worker shutdown error:",
-      error.message
-    );
-  }
-
-  try {
-
-    if (
-      engines.autonomousOperations &&
-      typeof engines.autonomousOperations.stop ===
-      "function"
-    ) {
-
-      await engines.autonomousOperations.stop();
-    }
-
-  } catch (error) {
-
-    console.error(
-      "Autonomous Operations shutdown error:",
-      error.message
-    );
-  }
-
-  if (server) {
-
-    server.close(() => {
-
-      console.log(
-        "EZ MEDIA: server closed"
-      );
-
-      process.exit(0);
-    });
-
-  } else {
-
-    process.exit(0);
-  }
-}
-
-/* =========================================================
-   PROCESS SIGNALS
-========================================================= */
-
-process.on(
-  "SIGTERM",
-  () => shutdown("SIGTERM")
-);
-
-process.on(
-  "SIGINT",
-  () => shutdown("SIGINT")
-);
-
-/* =========================================================
-   UNHANDLED ERRORS
-========================================================= */
-
-process.on(
-  "unhandledRejection",
-  (reason) => {
-
-    console.error(
-      "EZ MEDIA unhandledRejection:",
-      reason
-    );
-  }
-);
-
-process.on(
-  "uncaughtException",
-  (error) => {
-
-    console.error(
-      "EZ MEDIA uncaughtException:",
-      error
-    );
-  }
-);
-
-/* =========================================================
-   EXPORTS
-========================================================= */
-
-module.exports = {
-  app,
-  startServer,
-  runtime,
-  engines
-};
-
-/* =========================================================
-   START
-========================================================= */
-
-if (
-  require.main === module
-) {
-
-  startServer().catch(
-    (error) => {
-
-      console.error(
-        "EZ MEDIA STARTUP ERROR:",
-        error
-      );
-
-      process.exit(1);
-    }
-  );
-}
+        social:
+          Boolean(
+            process
