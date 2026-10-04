@@ -1,10 +1,4 @@
 {
-  "dependencies": {
-    "@aws-sdk/client-s3": "^3.900.0",
-    "@aws-sdk/s3-request-presigner": "^3.900.0"
-  }
-}
-{
   "name": "ez-media-platform",
   "version": "11.0.0",
   "private": true,
@@ -21,6 +15,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",
     "@aws-sdk/lib-storage": "^3.922.0",
+    "@aws-sdk/s3-request-presigner": "^3.922.0",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
     "express": "^5.1.0",
