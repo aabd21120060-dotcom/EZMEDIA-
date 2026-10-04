@@ -2,19 +2,23 @@
 
 /**
  * EZ MEDIA 11.0
- * Notification Integration Service
+ * القسم 53
+ * منظومة الإشعارات الذكية المتكاملة
  *
- * الكود رقم 52
- *
- * بوابة التكامل المركزية بين وحدات المنصة
- * ومحرك الإشعارات والأحداث.
+ * طبقة التكامل المركزية لجميع أحداث المنصة.
  */
 
-const notificationEventBridge =
+const eventBridge =
   require("./notificationEventBridge");
 
+const rulesService =
+  require("./notificationRulesService");
+
+const notificationService =
+  require("./notificationService");
+
 const EVENT_TYPES =
-  notificationEventBridge.EVENT_TYPES || {
+  eventBridge.EVENT_TYPES || {
     BREAKING_NEWS: "breaking_news",
     CONTENT_PUBLISHED: "content_published",
     LIVE_STARTED: "live_started",
@@ -29,10 +33,11 @@ const EVENT_TYPES =
   };
 
 const state = {
-  eventsReceived: 0,
-  eventsProcessed: 0,
-  eventsFailed: 0,
-  notificationsRequested: 0,
+  received: 0,
+  processed: 0,
+  failed: 0,
+  duplicates: 0,
+  notificationsCreated: 0,
   lastEventType: null,
   lastEventAt: null,
   lastSuccessAt: null,
@@ -40,54 +45,58 @@ const state = {
   lastError: null
 };
 
-/* =========================================================
-   Utilities
-========================================================= */
-
-function now() {
+function timestamp() {
   return new Date().toISOString();
 }
 
-function normalizePayload(payload) {
-  if (!payload || typeof payload !== "object") {
+function normalize(value) {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
     return {};
   }
 
   return {
-    ...payload
+    ...value
   };
 }
 
-function validateEventType(eventType) {
-  if (!eventType) {
-    const error =
-      new Error("eventType is required");
+function success(
+  type,
+  result
+) {
+  state.received += 1;
+  state.processed += 1;
+  state.lastEventType = type;
+  state.lastEventAt = timestamp();
+  state.lastSuccessAt =
+    state.lastEventAt;
+  state.lastError = null;
 
-    error.code =
-      "NOTIFICATION_EVENT_TYPE_REQUIRED";
-
-    throw error;
+  if (
+    result?.notification ||
+    result?.notificationId ||
+    result?.created
+  ) {
+    state.notificationsCreated += 1;
   }
 
-  return String(eventType);
+  return {
+    success: true,
+    eventType: type,
+    result
+  };
 }
 
-function updateSuccessState(eventType) {
-  state.eventsReceived += 1;
-  state.eventsProcessed += 1;
-  state.notificationsRequested += 1;
-  state.lastEventType = eventType;
-  state.lastEventAt = now();
-  state.lastSuccessAt = state.lastEventAt;
-  state.lastError = null;
-}
-
-function updateErrorState(eventType, error) {
-  state.eventsReceived += 1;
-  state.eventsFailed += 1;
-  state.lastEventType =
-    eventType || null;
-  state.lastEventAt = now();
+function failure(
+  type,
+  error
+) {
+  state.received += 1;
+  state.failed += 1;
+  state.lastEventType = type;
+  state.lastEventAt = timestamp();
   state.lastErrorAt =
     state.lastEventAt;
   state.lastError =
@@ -95,39 +104,90 @@ function updateErrorState(eventType, error) {
     String(error);
 }
 
-/* =========================================================
-   Generic Event
-========================================================= */
-
 async function emit(
-  eventType,
+  type,
   payload = {},
   options = {}
 ) {
-  const type =
-    validateEventType(eventType);
+  if (!type) {
+    const error =
+      new Error(
+        "eventType is required"
+      );
 
-  const normalizedPayload =
-    normalizePayload(payload);
+    error.code =
+      "EVENT_TYPE_REQUIRED";
+
+    throw error;
+  }
+
+  const eventType =
+    String(type);
+
+  const data =
+    normalize(payload);
 
   try {
-    const result =
-      await notificationEventBridge.emit(
-        type,
-        normalizedPayload,
+    /*
+     * Event Bridge
+     */
+    const bridgeResult =
+      await eventBridge.emit(
+        eventType,
+        data,
         options
       );
 
-    updateSuccessState(type);
+    /*
+     * Rules Engine
+     *
+     * إذا كان محرك القواعد متاحًا،
+     * نعطيه الحدث لمعالجة قواعد الإشعار.
+     */
+    let ruleResult = null;
 
-    return {
-      success: true,
-      eventType: type,
-      result
-    };
+    if (
+      typeof rulesService
+        .processNotificationEvent ===
+      "function"
+    ) {
+      ruleResult =
+        await rulesService
+          .processNotificationEvent(
+            eventType,
+            data,
+            options
+          );
+    }
+
+    /*
+     * بعض الأنظمة قد تنشئ الإشعار
+     * مباشرة من Event Bridge.
+     */
+    let directNotification =
+      null;
+
+    if (
+      bridgeResult?.notification
+    ) {
+      directNotification =
+        bridgeResult.notification;
+    }
+
+    return success(
+      eventType,
+      {
+        bridge:
+          bridgeResult,
+        rules:
+          ruleResult,
+        notification:
+          directNotification
+      }
+    );
   } catch (error) {
-    updateErrorState(
-      type,
+    failure(
+      eventType,
       error
     );
 
@@ -136,7 +196,7 @@ async function emit(
 }
 
 /* =========================================================
-   Breaking News
+   أحداث المنصة
 ========================================================= */
 
 async function breakingNews(
@@ -147,23 +207,17 @@ async function breakingNews(
     EVENT_TYPES.BREAKING_NEWS,
     {
       ...data,
-
-      source:
-        data.source ||
-        "breaking-command",
-
       severity:
         data.severity ||
         data.priority ||
-        "high"
+        "high",
+      source:
+        data.source ||
+        "breaking-news"
     },
     options
   );
 }
-
-/* =========================================================
-   Published Content
-========================================================= */
 
 async function contentPublished(
   data = {},
@@ -173,18 +227,15 @@ async function contentPublished(
     EVENT_TYPES.CONTENT_PUBLISHED,
     {
       ...data,
-
       contentId:
         data.contentId ||
         data.content_id ||
         data.id ||
         null,
-
       title:
         data.title ||
         data.headline ||
         "",
-
       source:
         data.source ||
         "cms"
@@ -192,10 +243,6 @@ async function contentPublished(
     options
   );
 }
-
-/* =========================================================
-   Live
-========================================================= */
 
 async function liveStarted(
   data = {},
@@ -205,18 +252,15 @@ async function liveStarted(
     EVENT_TYPES.LIVE_STARTED,
     {
       ...data,
-
       channelId:
         data.channelId ||
         data.channel_id ||
         data.id ||
         null,
-
       channelName:
         data.channelName ||
         data.channel_name ||
         "",
-
       source:
         data.source ||
         "live"
@@ -233,18 +277,15 @@ async function liveStopped(
     EVENT_TYPES.LIVE_STOPPED,
     {
       ...data,
-
       channelId:
         data.channelId ||
         data.channel_id ||
         data.id ||
         null,
-
       channelName:
         data.channelName ||
         data.channel_name ||
         "",
-
       source:
         data.source ||
         "live"
@@ -252,10 +293,6 @@ async function liveStopped(
     options
   );
 }
-
-/* =========================================================
-   AI
-========================================================= */
 
 async function aiAlert(
   data = {},
@@ -265,16 +302,12 @@ async function aiAlert(
     EVENT_TYPES.AI_ALERT,
     {
       ...data,
-
       severity:
         data.severity ||
         data.riskLevel ||
         "medium",
-
       confidence:
-        data.confidence ??
-        null,
-
+        data.confidence ?? null,
       source:
         data.source ||
         "ai"
@@ -282,10 +315,6 @@ async function aiAlert(
     options
   );
 }
-
-/* =========================================================
-   System
-========================================================= */
 
 async function systemAlert(
   data = {},
@@ -295,11 +324,9 @@ async function systemAlert(
     EVENT_TYPES.SYSTEM_ALERT,
     {
       ...data,
-
       severity:
         data.severity ||
         "high",
-
       source:
         data.source ||
         "system"
@@ -307,10 +334,6 @@ async function systemAlert(
     options
   );
 }
-
-/* =========================================================
-   Commercial
-========================================================= */
 
 async function commercialEvent(
   data = {},
@@ -320,17 +343,14 @@ async function commercialEvent(
     EVENT_TYPES.COMMERCIAL_EVENT,
     {
       ...data,
-
       campaignId:
         data.campaignId ||
         data.campaign_id ||
         null,
-
       placementId:
         data.placementId ||
         data.placement_id ||
         null,
-
       source:
         data.source ||
         "commercial"
@@ -338,10 +358,6 @@ async function commercialEvent(
     options
   );
 }
-
-/* =========================================================
-   Media
-========================================================= */
 
 async function mediaUploaded(
   data = {},
@@ -351,18 +367,15 @@ async function mediaUploaded(
     EVENT_TYPES.MEDIA_UPLOADED,
     {
       ...data,
-
       mediaId:
         data.mediaId ||
         data.media_id ||
         data.id ||
         null,
-
       fileName:
         data.fileName ||
         data.file_name ||
         "",
-
       source:
         data.source ||
         "media"
@@ -370,10 +383,6 @@ async function mediaUploaded(
     options
   );
 }
-
-/* =========================================================
-   Content Review
-========================================================= */
 
 async function contentReview(
   data = {},
@@ -383,19 +392,16 @@ async function contentReview(
     EVENT_TYPES.CONTENT_REVIEW,
     {
       ...data,
-
       contentId:
         data.contentId ||
         data.content_id ||
         data.id ||
         null,
-
       reviewStatus:
         data.reviewStatus ||
         data.review_status ||
         data.status ||
         "review",
-
       source:
         data.source ||
         "editorial"
@@ -403,10 +409,6 @@ async function contentReview(
     options
   );
 }
-
-/* =========================================================
-   Security
-========================================================= */
 
 async function securityAlert(
   data = {},
@@ -416,11 +418,9 @@ async function securityAlert(
     EVENT_TYPES.SECURITY_ALERT,
     {
       ...data,
-
       severity:
         data.severity ||
         "critical",
-
       source:
         data.source ||
         "security"
@@ -428,10 +428,6 @@ async function securityAlert(
     options
   );
 }
-
-/* =========================================================
-   Custom
-========================================================= */
 
 async function customEvent(
   type,
@@ -447,7 +443,7 @@ async function customEvent(
 }
 
 /* =========================================================
-   Batch Events
+   Batch
 ========================================================= */
 
 async function emitBatch(
@@ -461,7 +457,7 @@ async function emitBatch(
       );
 
     error.code =
-      "NOTIFICATION_EVENT_BATCH_INVALID";
+      "EVENT_BATCH_INVALID";
 
     throw error;
   }
@@ -469,35 +465,31 @@ async function emitBatch(
   const results = [];
 
   for (
-    const event of events
+    const item of events
   ) {
-    if (!event) {
-      continue;
-    }
-
     try {
-      const result =
+      results.push(
         await emit(
-          event.eventType ||
-            event.type,
-          event.payload ||
-            event.data ||
+          item.eventType ||
+            item.type,
+          item.payload ||
+            item.data ||
             {},
           {
             ...options,
-            ...(event.options || {})
+            ...(item.options || {})
           }
-        );
-
-      results.push({
-        success: true,
-        result
-      });
+        )
+      );
     } catch (error) {
       results.push({
         success: false,
         error:
-          error.message
+          error.message,
+        eventType:
+          item.eventType ||
+          item.type ||
+          null
       });
     }
   }
@@ -509,12 +501,12 @@ async function emitBatch(
     processed:
       results.filter(
         item =>
-          item.success
+          item.success !== false
       ).length,
     failed:
       results.filter(
         item =>
-          !item.success
+          item.success === false
       ).length,
     results
   };
@@ -528,32 +520,22 @@ async function preview(
   eventType,
   payload = {}
 ) {
-  const type =
-    validateEventType(
-      eventType
-    );
-
-  const normalizedPayload =
-    normalizePayload(
-      payload
-    );
-
   if (
-    typeof notificationEventBridge.preview ===
+    typeof rulesService.previewEvent ===
     "function"
   ) {
-    return notificationEventBridge.preview(
-      type,
-      normalizedPayload
+    return rulesService.previewEvent(
+      eventType,
+      normalize(payload)
     );
   }
 
   return {
     success: true,
     preview: true,
-    eventType: type,
+    eventType,
     payload:
-      normalizedPayload
+      normalize(payload)
   };
 }
 
@@ -561,19 +543,36 @@ async function preview(
    Health
 ========================================================= */
 
-function health() {
-  let bridgeHealth = null;
+async function health() {
+  let bridge = null;
+  let rules = null;
 
   try {
     if (
-      typeof notificationEventBridge.health ===
+      typeof eventBridge.health ===
       "function"
     ) {
-      bridgeHealth =
-        notificationEventBridge.health();
+      bridge =
+        await eventBridge.health();
     }
   } catch (error) {
-    bridgeHealth = {
+    bridge = {
+      healthy: false,
+      error:
+        error.message
+    };
+  }
+
+  try {
+    if (
+      typeof rulesService.health ===
+      "function"
+    ) {
+      rules =
+        await rulesService.health();
+    }
+  } catch (error) {
+    rules = {
       healthy: false,
       error:
         error.message
@@ -582,25 +581,25 @@ function health() {
 
   return {
     healthy:
-      state.eventsFailed === 0 &&
-      (
-        bridgeHealth
-          ? bridgeHealth.healthy !== false
-          : true
-      ),
+      state.failed === 0 &&
+      bridge?.healthy !== false &&
+      rules?.healthy !== false,
 
     service:
       "notificationIntegrationService",
 
     eventBridge:
-      bridgeHealth,
+      bridge,
+
+    rulesEngine:
+      rules,
 
     state: {
       ...state
     },
 
     timestamp:
-      now()
+      timestamp()
   };
 }
 
@@ -615,22 +614,24 @@ function getState() {
 }
 
 function resetState() {
-  state.eventsReceived = 0;
-  state.eventsProcessed = 0;
-  state.eventsFailed = 0;
-  state.notificationsRequested = 0;
-  state.lastEventType = null;
-  state.lastEventAt = null;
-  state.lastSuccessAt = null;
-  state.lastErrorAt = null;
-  state.lastError = null;
+  Object.assign(
+    state,
+    {
+      received: 0,
+      processed: 0,
+      failed: 0,
+      duplicates: 0,
+      notificationsCreated: 0,
+      lastEventType: null,
+      lastEventAt: null,
+      lastSuccessAt: null,
+      lastErrorAt: null,
+      lastError: null
+    }
+  );
 
   return getState();
 }
-
-/* =========================================================
-   Export
-========================================================= */
 
 module.exports = {
   EVENT_TYPES,
