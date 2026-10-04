@@ -1,73 +1,39 @@
 "use strict";
 
-/*
- * EZ MEDIA 11.0
- * الإدارة التجارية والإعلانية
- *
- * الملف:
- * public/admin-commercial.js
- *
- * المسؤوليات:
- * - الحملات الإعلانية
- * - الرعايات
- * - الشراكات
- * - مواضع الإعلانات
- * - الإحصائيات
- * - الظهور والنقرات والمشاهدات
- * - تفعيل وإيقاف الحملات والمواضع
- * - إنشاء وتعديل وحذف الحملات
- * - إنشاء وإدارة مواضع الإعلانات
- * - معاينة الإعلان
- *
- * يعتمد على API الموجود مسبقًا:
- * /api/commercial/statistics
- * /api/commercial/placements/active
- * /api/commercial/events
- * /api/commercial/campaigns
- * /api/commercial/campaigns/:id
- * /api/commercial/campaigns/:id/placements
- */
-
-(function () {
-  "use strict";
-
-  const API = "/api/commercial";
+(() => {
+  const API = {
+    campaigns: "/api/commercial/campaigns",
+    statistics: "/api/commercial/statistics",
+    activePlacements: "/api/commercial/placements/active",
+    events: "/api/commercial/events"
+  };
 
   const state = {
     campaigns: [],
-    placements: [],
     statistics: null,
-    activePlacements: [],
-    selectedCampaign: null,
-    editingCampaignId: null,
-    editingPlacementId: null,
-    loading: false,
-    filters: {
-      search: "",
-      status: "all",
-      type: "all"
+    placements: [],
+    filter: "all",
+    search: "",
+    loading: false
+  };
+
+  const selectors = [
+    "#admin-commercial-section",
+    "#commercial-section",
+    "[data-admin-section='commercial']"
+  ];
+
+  function getContainer() {
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) return element;
     }
-  };
 
-  const COLORS = {
-    primary: "#38bdf8",
-    primaryDark: "#0284c7",
-    primarySoft: "#e0f2fe",
-    cyan: "#06b6d4",
-    green: "#16a34a",
-    orange: "#f59e0b",
-    red: "#ef4444",
-    text: "#0f172a",
-    muted: "#64748b",
-    border: "#dbeafe",
-    background: "#f8fbff",
-    white: "#ffffff"
-  };
+    return null;
+  }
 
-  function escapeHTML(value) {
-    if (value === null || value === undefined) return "";
-
-    return String(value)
+  function escapeHtml(value) {
+    return String(value ?? "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
@@ -81,12 +47,13 @@
     return new Intl.NumberFormat("ar-SA").format(number);
   }
 
-  function formatMoney(value, currency) {
-    const amount = Number(value || 0);
+  function formatMoney(value, currency = "SAR") {
+    const number = Number(value || 0);
 
-    return `${new Intl.NumberFormat("ar-SA", {
-      maximumFractionDigits: 2
-    }).format(amount)} ${currency || "SAR"}`;
+    return new Intl.NumberFormat("ar-SA", {
+      style: "currency",
+      currency
+    }).format(number);
   }
 
   function formatDate(value) {
@@ -104,99 +71,43 @@
     }).format(date);
   }
 
-  function getCampaignTypeLabel(type) {
-    const labels = {
-      advertising: "إعلان",
-      sponsorship: "رعاية",
-      partnership: "شراكة"
-    };
-
-    return labels[type] || type || "غير محدد";
-  }
-
-  function getCampaignStatusLabel(status) {
-    const labels = {
-      draft: "مسودة",
-      pending: "بانتظار الاعتماد",
-      approved: "معتمدة",
-      active: "نشطة",
-      paused: "متوقفة",
-      completed: "مكتملة",
-      cancelled: "ملغاة"
-    };
-
-    return labels[status] || status || "غير محدد";
-  }
-
-  function getPlacementTypeLabel(type) {
-    const labels = {
-      banner: "بانر",
-      native: "إعلان مدمج",
-      video: "فيديو",
-      live: "البث المباشر",
-      article: "داخل المحتوى",
-      section: "قسم",
-      homepage: "الرئيسية"
-    };
-
-    return labels[type] || type || "غير محدد";
-  }
-
-  function getStatusClass(status) {
-    return `ez-commercial-status-${String(status || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]/gi, "-")}`;
-  }
-
-  async function apiRequest(url, options = {}) {
-    const config = {
-      method: options.method || "GET",
+  async function request(url, options = {}) {
+    const response = await fetch(url, {
       headers: {
-        Accept: "application/json",
+        "Content-Type": "application/json",
         ...(options.headers || {})
-      }
-    };
-
-    if (options.body !== undefined) {
-      config.headers["Content-Type"] = "application/json";
-      config.body = JSON.stringify(options.body);
-    }
-
-    const response = await fetch(url, config);
+      },
+      ...options
+    });
 
     let data = null;
 
     try {
       data = await response.json();
-    } catch (_) {
+    } catch {
       data = null;
     }
 
     if (!response.ok) {
-      const message =
+      throw new Error(
         data?.message ||
         data?.error ||
-        `حدث خطأ في الطلب (${response.status})`;
-
-      throw new Error(message);
+        `فشل الطلب (${response.status})`
+      );
     }
 
     return data;
   }
 
-  function unwrapArray(data, possibleKeys = []) {
-    if (Array.isArray(data)) {
-      return data;
+  function normalizeList(data) {
+    if (Array.isArray(data)) return data;
+
+    if (Array.isArray(data?.campaigns)) {
+      return data.campaigns;
     }
 
-    for (const key of possibleKeys) {
-      if (Array.isArray(data?.[key])) {
-        return data[key];
-      }
-
-      if (Array.isArray(data?.data?.[key])) {
-        return data.data[key];
-      }
+    if (Array.isArray(data?.placements)) {
+      return data.placements;
     }
 
     if (Array.isArray(data?.data)) {
@@ -206,2090 +117,967 @@
     return [];
   }
 
-  function unwrapObject(data) {
-    if (!data) return null;
+  function statusLabel(status) {
+    const labels = {
+      draft: "مسودة",
+      pending: "بانتظار الاعتماد",
+      approved: "معتمدة",
+      active: "نشطة",
+      paused: "متوقفة مؤقتًا",
+      completed: "مكتملة",
+      cancelled: "ملغاة",
+      expired: "منتهية"
+    };
 
-    if (data.data && typeof data.data === "object") {
-      return data.data;
-    }
-
-    return data;
+    return labels[status] || status || "غير محدد";
   }
 
-  function ensureStyles() {
-    if (document.getElementById("ez-commercial-styles")) {
-      return;
-    }
-
-    const style = document.createElement("style");
-
-    style.id = "ez-commercial-styles";
-
-    style.textContent = `
-      #ez-commercial-admin {
-        direction: rtl;
-        font-family:
-          -apple-system,
-          BlinkMacSystemFont,
-          "SF Pro Display",
-          "SF Pro Text",
-          "Segoe UI",
-          Tahoma,
-          Arial,
-          sans-serif;
-        color: ${COLORS.text};
-        width: 100%;
-        box-sizing: border-box;
-      }
-
-      #ez-commercial-admin *,
-      #ez-commercial-admin *::before,
-      #ez-commercial-admin *::after {
-        box-sizing: border-box;
-      }
-
-      .ez-commercial-shell {
-        width: 100%;
-        background:
-          radial-gradient(
-            circle at top right,
-            rgba(56,189,248,.12),
-            transparent 28%
-          ),
-          ${COLORS.background};
-        border: 1px solid ${COLORS.border};
-        border-radius: 24px;
-        padding: 22px;
-        overflow: hidden;
-      }
-
-      .ez-commercial-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 18px;
-        margin-bottom: 24px;
-      }
-
-      .ez-commercial-title-wrap h2 {
-        margin: 0 0 7px;
-        font-size: 27px;
-        font-weight: 900;
-        letter-spacing: -.5px;
-      }
-
-      .ez-commercial-title-wrap p {
-        margin: 0;
-        color: ${COLORS.muted};
-        line-height: 1.8;
-      }
-
-      .ez-commercial-actions {
-        display: flex;
-        gap: 9px;
-        flex-wrap: wrap;
-      }
-
-      .ez-commercial-btn {
-        border: 0;
-        border-radius: 13px;
-        min-height: 43px;
-        padding: 0 16px;
-        font-weight: 800;
-        cursor: pointer;
-        transition:
-          transform .15s ease,
-          box-shadow .15s ease,
-          opacity .15s ease;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-family: inherit;
-      }
-
-      .ez-commercial-btn:hover {
-        transform: translateY(-1px);
-      }
-
-      .ez-commercial-btn:disabled {
-        opacity: .55;
-        cursor: not-allowed;
-        transform: none;
-      }
-
-      .ez-commercial-btn-primary {
-        color: #fff;
-        background: linear-gradient(
-          135deg,
-          ${COLORS.primaryDark},
-          ${COLORS.cyan}
-        );
-        box-shadow: 0 8px 22px rgba(14,165,233,.18);
-      }
-
-      .ez-commercial-btn-secondary {
-        color: ${COLORS.primaryDark};
-        background: ${COLORS.primarySoft};
-      }
-
-      .ez-commercial-btn-danger {
-        color: #fff;
-        background: linear-gradient(
-          135deg,
-          #ef4444,
-          #f97316
-        );
-      }
-
-      .ez-commercial-btn-light {
-        color: ${COLORS.text};
-        background: #fff;
-        border: 1px solid ${COLORS.border};
-      }
-
-      .ez-commercial-kpis {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 13px;
-        margin-bottom: 20px;
-      }
-
-      .ez-commercial-kpi {
-        background: rgba(255,255,255,.9);
-        border: 1px solid ${COLORS.border};
-        border-radius: 18px;
-        padding: 17px;
-        min-width: 0;
-      }
-
-      .ez-commercial-kpi-label {
-        color: ${COLORS.muted};
-        font-size: 13px;
-        font-weight: 700;
-        margin-bottom: 9px;
-      }
-
-      .ez-commercial-kpi-value {
-        font-size: 25px;
-        line-height: 1.2;
-        font-weight: 950;
-      }
-
-      .ez-commercial-kpi-note {
-        margin-top: 7px;
-        font-size: 11px;
-        color: ${COLORS.muted};
-      }
-
-      .ez-commercial-toolbar {
-        background: #fff;
-        border: 1px solid ${COLORS.border};
-        border-radius: 18px;
-        padding: 14px;
-        display: grid;
-        grid-template-columns: minmax(180px, 1fr) 170px 170px auto;
-        gap: 10px;
-        margin-bottom: 16px;
-      }
-
-      .ez-commercial-field,
-      .ez-commercial-field-group {
-        display: flex;
-        flex-direction: column;
-        gap: 7px;
-      }
-
-      .ez-commercial-field label,
-      .ez-commercial-field-group label {
-        font-size: 12px;
-        color: ${COLORS.muted};
-        font-weight: 800;
-      }
-
-      .ez-commercial-input,
-      .ez-commercial-select,
-      .ez-commercial-textarea {
-        width: 100%;
-        border: 1px solid #cfe3f5;
-        background: #fff;
-        color: ${COLORS.text};
-        border-radius: 11px;
-        padding: 11px 12px;
-        outline: none;
-        font-family: inherit;
-        font-size: 14px;
-      }
-
-      .ez-commercial-input:focus,
-      .ez-commercial-select:focus,
-      .ez-commercial-textarea:focus {
-        border-color: ${COLORS.primary};
-        box-shadow: 0 0 0 3px rgba(56,189,248,.12);
-      }
-
-      .ez-commercial-textarea {
-        min-height: 100px;
-        resize: vertical;
-      }
-
-      .ez-commercial-table-wrap {
-        background: #fff;
-        border: 1px solid ${COLORS.border};
-        border-radius: 18px;
-        overflow: auto;
-      }
-
-      .ez-commercial-table {
-        width: 100%;
-        min-width: 900px;
-        border-collapse: collapse;
-      }
-
-      .ez-commercial-table th {
-        background: #f0f9ff;
-        color: #475569;
-        text-align: right;
-        padding: 13px 12px;
-        font-size: 12px;
-        white-space: nowrap;
-        border-bottom: 1px solid ${COLORS.border};
-      }
-
-      .ez-commercial-table td {
-        padding: 13px 12px;
-        border-bottom: 1px solid #edf5fb;
-        vertical-align: middle;
-        font-size: 13px;
-      }
-
-      .ez-commercial-table tr:last-child td {
-        border-bottom: 0;
-      }
-
-      .ez-commercial-table tbody tr:hover {
-        background: #fafeff;
-      }
-
-      .ez-commercial-name {
-        font-weight: 900;
-      }
-
-      .ez-commercial-sub {
-        margin-top: 4px;
-        color: ${COLORS.muted};
-        font-size: 11px;
-      }
-
-      .ez-commercial-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 27px;
-        padding: 0 9px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 900;
-        white-space: nowrap;
-        background: #eff6ff;
-        color: ${COLORS.primaryDark};
-      }
-
-      .ez-commercial-status-active {
-        background: #ecfdf5;
-        color: #15803d;
-      }
-
-      .ez-commercial-status-draft {
-        background: #f1f5f9;
-        color: #475569;
-      }
-
-      .ez-commercial-status-pending {
-        background: #fffbeb;
-        color: #b45309;
-      }
-
-      .ez-commercial-status-approved {
-        background: #ecfeff;
-        color: #0e7490;
-      }
-
-      .ez-commercial-status-paused {
-        background: #fff7ed;
-        color: #c2410c;
-      }
-
-      .ez-commercial-status-completed {
-        background: #eff6ff;
-        color: #1d4ed8;
-      }
-
-      .ez-commercial-status-cancelled {
-        background: #fef2f2;
-        color: #b91c1c;
-      }
-
-      .ez-commercial-row-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-
-      .ez-commercial-mini-btn {
-        border: 1px solid #cfe3f5;
-        background: #fff;
-        color: ${COLORS.primaryDark};
-        border-radius: 9px;
-        padding: 7px 9px;
-        cursor: pointer;
-        font-family: inherit;
-        font-weight: 800;
-        font-size: 11px;
-      }
-
-      .ez-commercial-mini-btn:hover {
-        background: #f0f9ff;
-      }
-
-      .ez-commercial-mini-btn.danger {
-        color: #dc2626;
-        border-color: #fecaca;
-      }
-
-      .ez-commercial-empty {
-        padding: 45px 20px;
-        text-align: center;
-        color: ${COLORS.muted};
-      }
-
-      .ez-commercial-empty-icon {
-        font-size: 35px;
-        margin-bottom: 9px;
-      }
-
-      .ez-commercial-section {
-        margin-top: 22px;
-      }
-
-      .ez-commercial-section-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 12px;
-      }
-
-      .ez-commercial-section-head h3 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 950;
-      }
-
-      .ez-commercial-section-head span {
-        color: ${COLORS.muted};
-        font-size: 12px;
-      }
-
-      .ez-commercial-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 99999;
-        background: rgba(15,23,42,.34);
-        backdrop-filter: blur(7px);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 18px;
-      }
-
-      .ez-commercial-modal.is-open {
-        display: flex;
-      }
-
-      .ez-commercial-modal-card {
-        width: min(760px, 100%);
-        max-height: 92vh;
-        overflow: auto;
-        background: #fff;
-        border: 1px solid ${COLORS.border};
-        border-radius: 24px;
-        box-shadow: 0 25px 80px rgba(15,23,42,.18);
-      }
-
-      .ez-commercial-modal-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 18px 20px;
-        border-bottom: 1px solid #eaf4fb;
-      }
-
-      .ez-commercial-modal-head h3 {
-        margin: 0;
-        font-size: 19px;
-        font-weight: 950;
-      }
-
-      .ez-commercial-close {
-        border: 0;
-        background: #f0f9ff;
-        color: ${COLORS.primaryDark};
-        width: 38px;
-        height: 38px;
-        border-radius: 11px;
-        cursor: pointer;
-        font-size: 18px;
-      }
-
-      .ez-commercial-modal-body {
-        padding: 20px;
-      }
-
-      .ez-commercial-form-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 13px;
-      }
-
-      .ez-commercial-full {
-        grid-column: 1 / -1;
-      }
-
-      .ez-commercial-modal-foot {
-        padding: 15px 20px;
-        border-top: 1px solid #eaf4fb;
-        display: flex;
-        justify-content: flex-start;
-        gap: 9px;
-      }
-
-      .ez-commercial-preview {
-        border: 1px solid ${COLORS.border};
-        border-radius: 18px;
-        overflow: hidden;
-        background: #f8fbff;
-      }
-
-      .ez-commercial-preview-media {
-        min-height: 180px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background:
-          linear-gradient(
-            135deg,
-            #e0f2fe,
-            #f0fdfa
-          );
-      }
-
-      .ez-commercial-preview-media img,
-      .ez-commercial-preview-media video {
-        display: block;
-        width: 100%;
-        max-height: 360px;
-        object-fit: contain;
-      }
-
-      .ez-commercial-preview-content {
-        padding: 16px;
-      }
-
-      .ez-commercial-preview-content h4 {
-        margin: 0 0 7px;
-        font-size: 18px;
-      }
-
-      .ez-commercial-preview-content p {
-        margin: 0 0 10px;
-        color: ${COLORS.muted};
-        line-height: 1.7;
-      }
-
-      .ez-commercial-preview-content a {
-        color: ${COLORS.primaryDark};
-        font-weight: 900;
-        text-decoration: none;
-      }
-
-      .ez-commercial-toast {
-        position: fixed;
-        bottom: 22px;
-        left: 22px;
-        z-index: 100000;
-        min-width: 260px;
-        max-width: min(420px, calc(100vw - 44px));
-        padding: 13px 15px;
-        border-radius: 14px;
-        background: #fff;
-        border: 1px solid ${COLORS.border};
-        box-shadow: 0 18px 45px rgba(15,23,42,.14);
-        font-weight: 800;
-        display: none;
-      }
-
-      .ez-commercial-toast.is-visible {
-        display: block;
-        animation: ezCommercialToastIn .2s ease;
-      }
-
-      @keyframes ezCommercialToastIn {
-        from {
-          opacity: 0;
-          transform: translateY(8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .ez-commercial-loading {
-        opacity: .55;
-        pointer-events: none;
-      }
-
-      .ez-commercial-spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255,255,255,.45);
-        border-top-color: #fff;
-        border-radius: 50%;
-        animation: ezCommercialSpin .8s linear infinite;
-      }
-
-      @keyframes ezCommercialSpin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      @media (max-width: 1100px) {
-        .ez-commercial-kpis {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+  function statusClass(status) {
+    return `status-${String(status || "unknown")
+      .replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  }
+
+  function typeLabel(type) {
+    const labels = {
+      advertising: "إعلان",
+      sponsorship: "رعاية",
+      partnership: "شراكة"
+    };
+
+    return labels[type] || type || "تجاري";
+  }
+
+  function filteredCampaigns() {
+    const search = state.search.trim().toLowerCase();
+
+    return state.campaigns.filter((campaign) => {
+      const matchesStatus =
+        state.filter === "all" ||
+        campaign.status === state.filter;
+
+      if (!matchesStatus) return false;
+
+      if (!search) return true;
+
+      const text = [
+        campaign.name,
+        campaign.advertiser_name,
+        campaign.sponsor_name,
+        campaign.contact_name,
+        campaign.description,
+        campaign.campaign_type,
+        campaign.status
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return text.includes(search);
+    });
+  }
+
+  function renderShell(container) {
+    container.innerHTML = `
+      <style>
+        #ez-commercial-admin {
+          direction: rtl;
+          font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "SF Pro Display",
+            "Segoe UI",
+            Tahoma,
+            Arial,
+            sans-serif;
+          color: #12304a;
         }
 
-        .ez-commercial-toolbar {
-          grid-template-columns: 1fr 1fr;
+        #ez-commercial-admin * {
+          box-sizing: border-box;
         }
-      }
 
-      @media (max-width: 700px) {
-        .ez-commercial-shell {
+        #ez-commercial-admin .commercial-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 22px;
+          margin-bottom: 18px;
+          border: 1px solid #d9edf8;
+          border-radius: 22px;
+          background:
+            linear-gradient(
+              135deg,
+              #ffffff 0%,
+              #f5fbff 55%,
+              #eaf8ff 100%
+            );
+          box-shadow: 0 12px 35px rgba(80, 170, 220, 0.10);
+        }
+
+        #ez-commercial-admin .title-area h2 {
+          margin: 0 0 7px;
+          font-size: 25px;
+          font-weight: 800;
+        }
+
+        #ez-commercial-admin .title-area p {
+          margin: 0;
+          color: #668399;
+          line-height: 1.7;
+        }
+
+        #ez-commercial-admin .actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 9px;
+        }
+
+        #ez-commercial-admin button {
+          border: 0;
+          border-radius: 13px;
+          padding: 11px 16px;
+          cursor: pointer;
+          font: inherit;
+          font-weight: 700;
+          transition: 0.2s ease;
+        }
+
+        #ez-commercial-admin button:hover {
+          transform: translateY(-1px);
+        }
+
+        #ez-commercial-admin .primary {
+          background: #39bce9;
+          color: #ffffff;
+          box-shadow: 0 7px 20px rgba(57, 188, 233, 0.25);
+        }
+
+        #ez-commercial-admin .secondary {
+          background: #edf9fe;
+          color: #167fa8;
+          border: 1px solid #cbeefa;
+        }
+
+        #ez-commercial-admin .danger {
+          background: #fff0f1;
+          color: #b52e3e;
+          border: 1px solid #ffd2d6;
+        }
+
+        #ez-commercial-admin .stats {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        #ez-commercial-admin .stat {
+          min-height: 125px;
+          padding: 18px;
+          border: 1px solid #dceef7;
+          border-radius: 19px;
+          background: #ffffff;
+          box-shadow: 0 9px 25px rgba(70, 160, 210, 0.07);
+        }
+
+        #ez-commercial-admin .stat-label {
+          color: #7590a2;
+          font-size: 13px;
+          margin-bottom: 11px;
+        }
+
+        #ez-commercial-admin .stat-value {
+          font-size: 28px;
+          font-weight: 850;
+          color: #167fa8;
+        }
+
+        #ez-commercial-admin .toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: center;
           padding: 14px;
+          margin-bottom: 16px;
+          background: #ffffff;
+          border: 1px solid #dceef7;
           border-radius: 18px;
         }
 
-        .ez-commercial-header {
-          flex-direction: column;
-        }
-
-        .ez-commercial-actions {
+        #ez-commercial-admin input,
+        #ez-commercial-admin select,
+        #ez-commercial-admin textarea {
           width: 100%;
+          border: 1px solid #cfe6f1;
+          border-radius: 12px;
+          background: #ffffff;
+          color: #16384f;
+          padding: 11px 13px;
+          font: inherit;
+          outline: none;
         }
 
-        .ez-commercial-actions .ez-commercial-btn {
+        #ez-commercial-admin input:focus,
+        #ez-commercial-admin select:focus,
+        #ez-commercial-admin textarea:focus {
+          border-color: #62c9ed;
+          box-shadow: 0 0 0 3px rgba(98, 201, 237, 0.12);
+        }
+
+        #ez-commercial-admin .search {
           flex: 1;
+          min-width: 230px;
         }
 
-        .ez-commercial-kpis {
+        #ez-commercial-admin .campaign-grid {
+          display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 15px;
         }
 
-        .ez-commercial-toolbar {
-          grid-template-columns: 1fr;
+        #ez-commercial-admin .campaign-card {
+          padding: 18px;
+          border: 1px solid #dceef7;
+          border-radius: 20px;
+          background: #ffffff;
+          box-shadow: 0 10px 28px rgba(70, 160, 210, 0.06);
         }
 
-        .ez-commercial-form-grid {
-          grid-template-columns: 1fr;
+        #ez-commercial-admin .campaign-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 14px;
         }
 
-        .ez-commercial-full {
-          grid-column: auto;
-        }
-      }
-
-      @media (max-width: 430px) {
-        .ez-commercial-kpis {
-          grid-template-columns: 1fr;
+        #ez-commercial-admin .campaign-name {
+          font-size: 18px;
+          font-weight: 800;
+          color: #173c55;
         }
 
-        .ez-commercial-title-wrap h2 {
-          font-size: 22px;
+        #ez-commercial-admin .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 9px;
+          border-radius: 999px;
+          background: #edf9fe;
+          color: #1680aa;
+          font-size: 12px;
+          font-weight: 800;
+          white-space: nowrap;
         }
-      }
-    `;
 
-    document.head.appendChild(style);
-  }
+        #ez-commercial-admin .badge.status-active {
+          background: #e9fbf4;
+          color: #14805a;
+        }
 
-  function getMount() {
-    return (
-      document.getElementById("commercial-section") ||
-      document.getElementById("admin-commercial-section") ||
-      document.querySelector('[data-admin-section="commercial"]') ||
-      document.querySelector('[data-section="commercial"]')
-    );
-  }
+        #ez-commercial-admin .badge.status-paused {
+          background: #fff8e8;
+          color: #9b6b12;
+        }
 
-  function createMountIfNeeded() {
-    let mount = getMount();
+        #ez-commercial-admin .badge.status-completed {
+          background: #f0f3f5;
+          color: #657984;
+        }
 
-    if (mount) {
-      return mount;
-    }
+        #ez-commercial-admin .badge.status-cancelled {
+          background: #fff0f1;
+          color: #b52e3e;
+        }
 
-    mount = document.createElement("section");
-    mount.id = "admin-commercial-section";
+        #ez-commercial-admin .campaign-meta {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 15px;
+        }
 
-    const preferred =
-      document.getElementById("admin-content") ||
-      document.querySelector("main") ||
-      document.body;
+        #ez-commercial-admin .meta-item {
+          padding: 10px;
+          border-radius: 12px;
+          background: #f7fcff;
+        }
 
-    preferred.appendChild(mount);
+        #ez-commercial-admin .meta-label {
+          display: block;
+          color: #7a92a1;
+          font-size: 11px;
+          margin-bottom: 5px;
+        }
 
-    return mount;
-  }
+        #ez-commercial-admin .meta-value {
+          color: #21455d;
+          font-weight: 750;
+          font-size: 13px;
+        }
 
-  function renderShell() {
-    const mount = createMountIfNeeded();
+        #ez-commercial-admin .description {
+          color: #667f90;
+          line-height: 1.7;
+          margin-bottom: 15px;
+          min-height: 48px;
+        }
 
-    mount.innerHTML = `
+        #ez-commercial-admin .campaign-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        #ez-commercial-admin .empty {
+          padding: 50px 20px;
+          text-align: center;
+          border: 1px dashed #bcddea;
+          border-radius: 20px;
+          color: #78909e;
+          background: #fbfeff;
+        }
+
+        #ez-commercial-admin .loading {
+          padding: 40px;
+          text-align: center;
+          color: #4f8199;
+        }
+
+        #ez-commercial-admin .error {
+          padding: 16px;
+          margin-bottom: 16px;
+          border-radius: 14px;
+          background: #fff1f2;
+          color: #a82e3c;
+          border: 1px solid #ffd4d8;
+        }
+
+        #ez-commercial-admin .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 99999;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(18, 48, 74, 0.35);
+          backdrop-filter: blur(8px);
+        }
+
+        #ez-commercial-admin .modal-backdrop.open {
+          display: flex;
+        }
+
+        #ez-commercial-admin .modal {
+          width: min(720px, 100%);
+          max-height: 92vh;
+          overflow: auto;
+          padding: 22px;
+          border-radius: 24px;
+          background: #ffffff;
+          box-shadow: 0 30px 80px rgba(20, 80, 110, 0.22);
+        }
+
+        #ez-commercial-admin .modal h3 {
+          margin: 0 0 18px;
+        }
+
+        #ez-commercial-admin .form-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 13px;
+        }
+
+        #ez-commercial-admin .field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        #ez-commercial-admin .field.full {
+          grid-column: 1 / -1;
+        }
+
+        #ez-commercial-admin .field label {
+          font-size: 12px;
+          color: #6d8797;
+          font-weight: 700;
+        }
+
+        #ez-commercial-admin .modal-actions {
+          display: flex;
+          justify-content: flex-start;
+          gap: 9px;
+          margin-top: 18px;
+        }
+
+        @media (max-width: 1000px) {
+          #ez-commercial-admin .stats {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
+          #ez-commercial-admin .campaign-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 650px) {
+          #ez-commercial-admin .commercial-header {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          #ez-commercial-admin .stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          #ez-commercial-admin .form-grid,
+          #ez-commercial-admin .campaign-meta {
+            grid-template-columns: 1fr;
+          }
+
+          #ez-commercial-admin .field.full {
+            grid-column: auto;
+          }
+        }
+      </style>
+
       <div id="ez-commercial-admin">
-        <div class="ez-commercial-shell">
-
-          <div class="ez-commercial-header">
-            <div class="ez-commercial-title-wrap">
-              <h2>💼 الإعلانات والرعايات</h2>
-              <p>
-                مركز EZ MEDIA لإدارة الحملات التجارية والرعايات والشراكات
-                وقياس أدائها من مكان واحد.
-              </p>
-            </div>
-
-            <div class="ez-commercial-actions">
-              <button
-                class="ez-commercial-btn ez-commercial-btn-light"
-                id="ez-commercial-refresh"
-                type="button"
-              >
-                ↻ تحديث
-              </button>
-
-              <button
-                class="ez-commercial-btn ez-commercial-btn-primary"
-                id="ez-commercial-new-campaign"
-                type="button"
-              >
-                ＋ حملة جديدة
-              </button>
-            </div>
+        <div class="commercial-header">
+          <div class="title-area">
+            <h2>المركز التجاري الذكي</h2>
+            <p>
+              إدارة الإعلانات والرعايات والشراكات والحملات التجارية
+              وقياس أدائها داخل EZ MEDIA.
+            </p>
           </div>
 
-          <div class="ez-commercial-kpis" id="ez-commercial-kpis">
-            ${renderKpis()}
-          </div>
+          <div class="actions">
+            <button class="secondary" id="commercial-refresh">
+              تحديث البيانات
+            </button>
 
-          <div class="ez-commercial-toolbar">
-            <div class="ez-commercial-field">
-              <label>بحث</label>
-              <input
-                id="ez-commercial-search"
-                class="ez-commercial-input"
-                type="search"
-                placeholder="ابحث باسم الحملة أو المعلن أو الراعي..."
-              />
-            </div>
-
-            <div class="ez-commercial-field">
-              <label>الحالة</label>
-              <select id="ez-commercial-status" class="ez-commercial-select">
-                <option value="all">كل الحالات</option>
-                <option value="draft">مسودة</option>
-                <option value="pending">بانتظار الاعتماد</option>
-                <option value="approved">معتمدة</option>
-                <option value="active">نشطة</option>
-                <option value="paused">متوقفة</option>
-                <option value="completed">مكتملة</option>
-                <option value="cancelled">ملغاة</option>
-              </select>
-            </div>
-
-            <div class="ez-commercial-field">
-              <label>النوع</label>
-              <select id="ez-commercial-type" class="ez-commercial-select">
-                <option value="all">كل الأنواع</option>
-                <option value="advertising">إعلان</option>
-                <option value="sponsorship">رعاية</option>
-                <option value="partnership">شراكة</option>
-              </select>
-            </div>
-
-            <div style="display:flex;align-items:end;">
-              <button
-                id="ez-commercial-clear-filter"
-                class="ez-commercial-btn ez-commercial-btn-secondary"
-                type="button"
-                style="width:100%;"
-              >
-                مسح
-              </button>
-            </div>
-          </div>
-
-          <div class="ez-commercial-section">
-            <div class="ez-commercial-section-head">
-              <div>
-                <h3>الحملات التجارية</h3>
-                <span id="ez-commercial-campaign-count">
-                  جاري التحميل...
-                </span>
-              </div>
-            </div>
-
-            <div class="ez-commercial-table-wrap">
-              <table class="ez-commercial-table">
-                <thead>
-                  <tr>
-                    <th>الحملة</th>
-                    <th>النوع</th>
-                    <th>الحالة</th>
-                    <th>الميزانية</th>
-                    <th>الفترة</th>
-                    <th>الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody id="ez-commercial-campaigns-body">
-                  <tr>
-                    <td colspan="6">
-                      <div class="ez-commercial-empty">
-                        جاري تحميل الحملات...
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="ez-commercial-section">
-            <div class="ez-commercial-section-head">
-              <div>
-                <h3>مواضع الإعلانات النشطة</h3>
-                <span>
-                  الإعلانات التي يمكن عرضها على واجهة EZ MEDIA
-                </span>
-              </div>
-            </div>
-
-            <div class="ez-commercial-table-wrap">
-              <table class="ez-commercial-table">
-                <thead>
-                  <tr>
-                    <th>العنوان</th>
-                    <th>الحملة</th>
-                    <th>الموضع</th>
-                    <th>الحالة</th>
-                    <th>الظهور</th>
-                    <th>النقرات</th>
-                    <th>الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody id="ez-commercial-placements-body">
-                  <tr>
-                    <td colspan="7">
-                      <div class="ez-commercial-empty">
-                        جاري تحميل مواضع الإعلانات...
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      ${renderCampaignModal()}
-      ${renderPlacementModal()}
-      ${renderPreviewModal()}
-
-      <div
-        id="ez-commercial-toast"
-        class="ez-commercial-toast"
-        role="status"
-        aria-live="polite"
-      ></div>
-    `;
-
-    bindEvents();
-  }
-
-  function renderKpis() {
-    const statistics = state.statistics || {};
-
-    const campaigns =
-      statistics.campaigns ||
-      statistics.campaign ||
-      {};
-
-    const totals =
-      statistics.totals ||
-      statistics ||
-      {};
-
-    const activeCampaigns =
-      campaigns.active ??
-      totals.active_campaigns ??
-      state.campaigns.filter(
-        (item) => item.status === "active"
-      ).length;
-
-    const impressions =
-      totals.impressions ??
-      statistics.impressions ??
-      0;
-
-    const clicks =
-      totals.clicks ??
-      statistics.clicks ??
-      0;
-
-    const starts =
-      totals.starts ??
-      statistics.starts ??
-      0;
-
-    const completedViews =
-      totals.completed_views ??
-      statistics.completed_views ??
-      0;
-
-    return `
-      ${kpiCard(
-        "الحملات النشطة",
-        formatNumber(activeCampaigns),
-        "حملات تعمل حاليًا"
-      )}
-
-      ${kpiCard(
-        "مرات الظهور",
-        formatNumber(impressions),
-        "إجمالي الظهور المسجل"
-      )}
-
-      ${kpiCard(
-        "النقرات",
-        formatNumber(clicks),
-        "إجمالي النقرات"
-      )}
-
-      ${kpiCard(
-        "بدء المشاهدة",
-        formatNumber(starts),
-        "بدء تشغيل الإعلانات"
-      )}
-
-      ${kpiCard(
-        "المشاهدات المكتملة",
-        formatNumber(completedViews),
-        "مشاهدات مكتملة"
-      )}
-    `;
-  }
-
-  function kpiCard(label, value, note) {
-    return `
-      <div class="ez-commercial-kpi">
-        <div class="ez-commercial-kpi-label">
-          ${escapeHTML(label)}
-        </div>
-        <div class="ez-commercial-kpi-value">
-          ${escapeHTML(value)}
-        </div>
-        <div class="ez-commercial-kpi-note">
-          ${escapeHTML(note)}
-        </div>
-      </div>
-    `;
-  }
-
-  function renderCampaignModal() {
-    return `
-      <div
-        id="ez-commercial-campaign-modal"
-        class="ez-commercial-modal"
-        aria-hidden="true"
-      >
-        <div class="ez-commercial-modal-card">
-
-          <div class="ez-commercial-modal-head">
-            <h3 id="ez-commercial-campaign-modal-title">
-              إنشاء حملة تجارية
-            </h3>
-
-            <button
-              type="button"
-              class="ez-commercial-close"
-              data-close-modal="campaign"
-              aria-label="إغلاق"
-            >
-              ×
+            <button class="primary" id="commercial-new">
+              + حملة جديدة
             </button>
           </div>
+        </div>
 
-          <form id="ez-commercial-campaign-form">
+        <div id="commercial-error"></div>
 
-            <div class="ez-commercial-modal-body">
+        <div class="stats" id="commercial-stats"></div>
 
-              <div class="ez-commercial-form-grid">
+        <div class="toolbar">
+          <input
+            id="commercial-search"
+            class="search"
+            type="search"
+            placeholder="ابحث عن حملة أو معلن أو راعٍ..."
+          />
 
-                <div class="ez-commercial-field-group">
-                  <label>اسم الحملة *</label>
-                  <input
-                    id="commercial-campaign-name"
-                    class="ez-commercial-input"
-                    required
-                    maxlength="200"
-                    placeholder="مثال: الحملة الإعلامية لليوم الوطني"
-                  />
+          <select id="commercial-filter">
+            <option value="all">كل الحالات</option>
+            <option value="draft">مسودة</option>
+            <option value="pending">بانتظار الاعتماد</option>
+            <option value="approved">معتمدة</option>
+            <option value="active">نشطة</option>
+            <option value="paused">متوقفة مؤقتًا</option>
+            <option value="completed">مكتملة</option>
+            <option value="cancelled">ملغاة</option>
+          </select>
+        </div>
+
+        <div id="commercial-list"></div>
+
+        <div class="modal-backdrop" id="commercial-modal-backdrop">
+          <div class="modal">
+            <h3 id="commercial-modal-title">حملة تجارية جديدة</h3>
+
+            <form id="commercial-form">
+              <input type="hidden" id="commercial-id">
+
+              <div class="form-grid">
+                <div class="field">
+                  <label>اسم الحملة</label>
+                  <input id="commercial-name" required>
                 </div>
 
-                <div class="ez-commercial-field-group">
-                  <label>نوع الحملة *</label>
-                  <select
-                    id="commercial-campaign-type"
-                    class="ez-commercial-select"
-                    required
-                  >
+                <div class="field">
+                  <label>نوع الحملة</label>
+                  <select id="commercial-type">
                     <option value="advertising">إعلان</option>
                     <option value="sponsorship">رعاية</option>
                     <option value="partnership">شراكة</option>
                   </select>
                 </div>
 
-                <div class="ez-commercial-field-group">
-                  <label>المعلن</label>
-                  <input
-                    id="commercial-advertiser-name"
-                    class="ez-commercial-input"
-                    maxlength="200"
-                    placeholder="اسم الجهة المعلنة"
-                  />
+                <div class="field">
+                  <label>اسم المعلن</label>
+                  <input id="commercial-advertiser">
                 </div>
 
-                <div class="ez-commercial-field-group">
-                  <label>الراعي</label>
-                  <input
-                    id="commercial-sponsor-name"
-                    class="ez-commercial-input"
-                    maxlength="200"
-                    placeholder="اسم الراعي"
-                  />
+                <div class="field">
+                  <label>اسم الراعي</label>
+                  <input id="commercial-sponsor">
                 </div>
 
-                <div class="ez-commercial-field-group">
-                  <label>اسم جهة الاتصال</label>
-                  <input
-                    id="commercial-contact-name"
-                    class="ez-commercial-input"
-                    maxlength="200"
-                  />
+                <div class="field">
+                  <label>جهة الاتصال</label>
+                  <input id="commercial-contact">
                 </div>
 
-                <div class="ez-commercial-field-group">
+                <div class="field">
                   <label>البريد الإلكتروني</label>
-                  <input
-                    id="commercial-contact-email"
-                    class="ez-commercial-input"
-                    type="email"
-                    maxlength="320"
-                  />
+                  <input id="commercial-email" type="email">
                 </div>
 
-                <div class="ez-commercial-field-group">
-                  <label>رقم التواصل</label>
-                  <input
-                    id="commercial-contact-phone"
-                    class="ez-commercial-input"
-                    maxlength="50"
-                  />
+                <div class="field">
+                  <label>رقم الهاتف</label>
+                  <input id="commercial-phone">
                 </div>
 
-                <div class="ez-commercial-field-group">
-                  <label>الحالة</label>
-                  <select
-                    id="commercial-campaign-status"
-                    class="ez-commercial-select"
-                  >
-                    <option value="draft">مسودة</option>
-                    <option value="pending">بانتظار الاعتماد</option>
-                    <option value="approved">معتمدة</option>
-                    <option value="active">نشطة</option>
-                    <option value="paused">متوقفة</option>
-                    <option value="completed">مكتملة</option>
-                    <option value="cancelled">ملغاة</option>
-                  </select>
-                </div>
-
-                <div class="ez-commercial-field-group">
+                <div class="field">
                   <label>الميزانية</label>
-                  <input
-                    id="commercial-campaign-budget"
-                    class="ez-commercial-input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0"
-                  />
+                  <input id="commercial-budget" type="number" min="0" step="0.01">
                 </div>
 
-                <div class="ez-commercial-field-group">
+                <div class="field">
                   <label>العملة</label>
-                  <select
-                    id="commercial-campaign-currency"
-                    class="ez-commercial-select"
-                  >
-                    <option value="SAR">SAR - ريال سعودي</option>
-                    <option value="USD">USD - دولار</option>
-                    <option value="AED">AED - درهم إماراتي</option>
-                    <option value="KWD">KWD - دينار كويتي</option>
-                    <option value="BHD">BHD - دينار بحريني</option>
-                    <option value="QAR">QAR - ريال قطري</option>
+                  <select id="commercial-currency">
+                    <option value="SAR">ريال سعودي</option>
+                    <option value="USD">دولار أمريكي</option>
+                    <option value="AED">درهم إماراتي</option>
+                    <option value="KWD">دينار كويتي</option>
+                    <option value="BHD">دينار بحريني</option>
+                    <option value="QAR">ريال قطري</option>
+                    <option value="OMR">ريال عماني</option>
                   </select>
                 </div>
 
-                <div class="ez-commercial-field-group">
+                <div class="field">
                   <label>الأولوية</label>
-                  <input
-                    id="commercial-campaign-priority"
-                    class="ez-commercial-input"
-                    type="number"
-                    min="0"
-                    max="9999"
-                    value="0"
-                  />
+                  <input id="commercial-priority" type="number" min="0" value="0">
                 </div>
 
-                <div class="ez-commercial-field-group">
+                <div class="field">
                   <label>تاريخ البداية</label>
-                  <input
-                    id="commercial-campaign-start"
-                    class="ez-commercial-input"
-                    type="datetime-local"
-                  />
+                  <input id="commercial-start" type="datetime-local">
                 </div>
 
-                <div class="ez-commercial-field-group">
+                <div class="field">
                   <label>تاريخ النهاية</label>
-                  <input
-                    id="commercial-campaign-end"
-                    class="ez-commercial-input"
-                    type="datetime-local"
-                  />
+                  <input id="commercial-end" type="datetime-local">
                 </div>
 
-                <div class="ez-commercial-field-group ez-commercial-full">
-                  <label>وصف الحملة</label>
-                  <textarea
-                    id="commercial-campaign-description"
-                    class="ez-commercial-textarea"
-                    placeholder="وصف الحملة وأهدافها وملاحظاتها..."
-                  ></textarea>
+                <div class="field full">
+                  <label>الوصف</label>
+                  <textarea id="commercial-description" rows="4"></textarea>
                 </div>
-
               </div>
 
-            </div>
+              <div class="modal-actions">
+                <button type="submit" class="primary">
+                  حفظ الحملة
+                </button>
 
-            <div class="ez-commercial-modal-foot">
-              <button
-                type="submit"
-                class="ez-commercial-btn ez-commercial-btn-primary"
-                id="commercial-campaign-save"
-              >
-                حفظ الحملة
-              </button>
-
-              <button
-                type="button"
-                class="ez-commercial-btn ez-commercial-btn-light"
-                data-close-modal="campaign"
-              >
-                إلغاء
-              </button>
-            </div>
-
-          </form>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderPlacementModal() {
-    return `
-      <div
-        id="ez-commercial-placement-modal"
-        class="ez-commercial-modal"
-        aria-hidden="true"
-      >
-        <div class="ez-commercial-modal-card">
-
-          <div class="ez-commercial-modal-head">
-            <h3 id="ez-commercial-placement-modal-title">
-              إضافة موضع إعلاني
-            </h3>
-
-            <button
-              type="button"
-              class="ez-commercial-close"
-              data-close-modal="placement"
-              aria-label="إغلاق"
-            >
-              ×
-            </button>
-          </div>
-
-          <form id="ez-commercial-placement-form">
-
-            <div class="ez-commercial-modal-body">
-
-              <div class="ez-commercial-form-grid">
-
-                <div class="ez-commercial-field-group ez-commercial-full">
-                  <label>الحملة</label>
-                  <select
-                    id="commercial-placement-campaign"
-                    class="ez-commercial-select"
-                    required
-                  ></select>
-                </div>
-
-                <div class="ez-commercial-field-group">
-                  <label>عنوان الإعلان *</label>
-                  <input
-                    id="commercial-placement-title"
-                    class="ez-commercial-input"
-                    required
-                    maxlength="200"
-                  />
-                </div>
-
-                <div class="ez-commercial-field-group">
-                  <label>نوع الموضع *</label>
-                  <select
-                    id="commercial-placement-type"
-                    class="ez-commercial-select"
-                    required
-                  >
-                    <option value="banner">بانر</option>
-                    <option value="native">إعلان مدمج</option>
-                    <option value="video">فيديو</option>
-                    <option value="live">البث المباشر</option>
-                    <option value="article">داخل المحتوى</option>
-                    <option value="section">قسم</option>
-                    <option value="homepage">الرئيسية</option>
-                  </select>
-                </div>
-
-                <div class="ez-commercial-field-group">
-                  <label>معرّف الموضع</label>
-                  <input
-                    id="commercial-placement-key"
-                    class="ez-commercial-input"
-                    placeholder="homepage-top"
-                  />
-                </div>
-
-                <div class="ez-commercial-field-group">
-                  <label>الحالة</label>
-                  <select
-                    id="commercial-placement-status"
-                    class="ez-commercial-select"
-                  >
-                    <option value="draft">مسودة</option>
-                    <option value="active">نشط</option>
-                    <option value="paused">متوقف</option>
-                    <option value="expired">منتهي</option>
-                  </select>
-                </div>
-
-                <div class="ez-commercial-field-group ez-commercial-full">
-                  <label>رابط الصورة</label>
-                  <input
-                    id="commercial-placement-image"
-                    class="ez-commercial-input"
-                    type="url"
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div class="ez-commercial-field-group ez-commercial-full">
-                  <label>رابط الفيديو</label>
-                  <input
-                    id="commercial-placement-video"
-                    class="ez-commercial-input"
-                    type="url"
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div class="ez-commercial-field-group ez-commercial-full">
-                  <label>رابط الوجهة</label>
-                  <input
-                    id="commercial-placement-destination"
-                    class="ez-commercial-input"
-                    type="url"
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div class="ez-commercial-field-group">
-                  <label>معرّف المحتوى</label>
-                  <input
-                    id="commercial-placement-content-id"
-                    class="ez-commercial-input"
-                    placeholder="اختياري"
-                  />
-                </div>
-
-                <div class="ez-commercial-field-group ez-commercial-full">
-                  <label>ملاحظات / Metadata بصيغة JSON</label>
-                  <textarea
-                    id="commercial-placement-metadata"
-                    class="ez-commercial-textarea"
-                    placeholder='{"campaign":"national-day","position":"top"}'
-                  ></textarea>
-                </div>
-
+                <button type="button" class="secondary" id="commercial-cancel">
+                  إلغاء
+                </button>
               </div>
-
-            </div>
-
-            <div class="ez-commercial-modal-foot">
-
-              <button
-                type="submit"
-                class="ez-commercial-btn ez-commercial-btn-primary"
-                id="commercial-placement-save"
-              >
-                حفظ الموضع
-              </button>
-
-              <button
-                type="button"
-                class="ez-commercial-btn ez-commercial-btn-light"
-                data-close-modal="placement"
-              >
-                إلغاء
-              </button>
-
-            </div>
-
-          </form>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderPreviewModal() {
-    return `
-      <div
-        id="ez-commercial-preview-modal"
-        class="ez-commercial-modal"
-        aria-hidden="true"
-      >
-        <div class="ez-commercial-modal-card">
-
-          <div class="ez-commercial-modal-head">
-            <h3>معاينة الإعلان</h3>
-
-            <button
-              type="button"
-              class="ez-commercial-close"
-              data-close-modal="preview"
-              aria-label="إغلاق"
-            >
-              ×
-            </button>
+            </form>
           </div>
-
-          <div
-            class="ez-commercial-modal-body"
-            id="ez-commercial-preview-body"
-          ></div>
-
         </div>
+      </div>
+    `;
+
+    bindEvents();
+  }
+
+  function renderStats() {
+    const element = document.querySelector("#commercial-stats");
+
+    if (!element) return;
+
+    const statistics = state.statistics || {};
+
+    const campaigns = Array.isArray(state.campaigns)
+      ? state.campaigns
+      : [];
+
+    const activeCampaigns = campaigns.filter(
+      (campaign) => campaign.status === "active"
+    ).length;
+
+    const totalBudget = campaigns.reduce(
+      (sum, campaign) => sum + Number(campaign.budget || 0),
+      0
+    );
+
+    const impressions = Number(
+      statistics.impressions ||
+      statistics.total_impressions ||
+      0
+    );
+
+    const clicks = Number(
+      statistics.clicks ||
+      statistics.total_clicks ||
+      0
+    );
+
+    element.innerHTML = `
+      <div class="stat">
+        <div class="stat-label">إجمالي الحملات</div>
+        <div class="stat-value">${formatNumber(campaigns.length)}</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">الحملات النشطة</div>
+        <div class="stat-value">${formatNumber(activeCampaigns)}</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">إجمالي الميزانيات</div>
+        <div class="stat-value">${formatMoney(totalBudget)}</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">الظهور</div>
+        <div class="stat-value">${formatNumber(impressions)}</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">النقرات</div>
+        <div class="stat-value">${formatNumber(clicks)}</div>
       </div>
     `;
   }
 
-  function bindEvents() {
-    document
-      .getElementById("ez-commercial-refresh")
-      ?.addEventListener("click", refresh);
+  function renderCampaigns() {
+    const element = document.querySelector("#commercial-list");
 
-    document
-      .getElementById("ez-commercial-new-campaign")
-      ?.addEventListener("click", () => {
-        openCampaignModal();
-      });
+    if (!element) return;
 
-    document
-      .getElementById("ez-commercial-search")
-      ?.addEventListener("input", (event) => {
-        state.filters.search = event.target.value.trim().toLowerCase();
-        renderCampaigns();
-      });
+    const campaigns = filteredCampaigns();
 
-    document
-      .getElementById("ez-commercial-status")
-      ?.addEventListener("change", (event) => {
-        state.filters.status = event.target.value;
-        renderCampaigns();
-      });
-
-    document
-      .getElementById("ez-commercial-type")
-      ?.addEventListener("change", (event) => {
-        state.filters.type = event.target.value;
-        renderCampaigns();
-      });
-
-    document
-      .getElementById("ez-commercial-clear-filter")
-      ?.addEventListener("click", () => {
-        state.filters.search = "";
-        state.filters.status = "all";
-        state.filters.type = "all";
-
-        const search = document.getElementById(
-          "ez-commercial-search"
-        );
-
-        const status = document.getElementById(
-          "ez-commercial-status"
-        );
-
-        const type = document.getElementById(
-          "ez-commercial-type"
-        );
-
-        if (search) search.value = "";
-        if (status) status.value = "all";
-        if (type) type.value = "all";
-
-        renderCampaigns();
-      });
-
-    document
-      .getElementById("ez-commercial-campaign-form")
-      ?.addEventListener("submit", saveCampaign);
-
-    document
-      .getElementById("ez-commercial-placement-form")
-      ?.addEventListener("submit", savePlacement);
-
-    document
-      .querySelectorAll("[data-close-modal]")
-      .forEach((button) => {
-        button.addEventListener("click", () => {
-          closeModal(button.dataset.closeModal);
-        });
-      });
-
-    document
-      .getElementById("ez-commercial-campaigns-body")
-      ?.addEventListener("click", handleCampaignAction);
-
-    document
-      .getElementById("ez-commercial-placements-body")
-      ?.addEventListener("click", handlePlacementAction);
-  }
-
-  async function refresh() {
-    if (state.loading) {
+    if (!campaigns.length) {
+      element.innerHTML = `
+        <div class="empty">
+          لا توجد حملات تجارية مطابقة للبحث أو الفلتر الحالي.
+        </div>
+      `;
       return;
     }
 
-    state.loading = true;
+    element.innerHTML = `
+      <div class="campaign-grid">
+        ${campaigns.map((campaign) => {
+          const status = campaign.status || "draft";
 
-    const root = document.getElementById("ez-commercial-admin");
+          return `
+            <article class="campaign-card">
+              <div class="campaign-top">
+                <div>
+                  <div class="campaign-name">
+                    ${escapeHtml(campaign.name || "حملة بدون اسم")}
+                  </div>
 
-    root?.classList.add("ez-commercial-loading");
+                  <div style="margin-top:7px;color:#7a92a1;font-size:12px;">
+                    ${escapeHtml(typeLabel(campaign.campaign_type))}
+                  </div>
+                </div>
 
-    try {
-      await Promise.all([
-        loadStatistics(),
-        loadCampaigns(),
-        loadActivePlacements()
-      ]);
+                <span class="badge ${statusClass(status)}">
+                  ${escapeHtml(statusLabel(status))}
+                </span>
+              </div>
 
-      renderKpis();
-      renderCampaigns();
-      renderPlacements();
-      populateCampaignSelect();
-    } catch (error) {
-      console.error("EZ MEDIA Commercial:", error);
+              <div class="campaign-meta">
+                <div class="meta-item">
+                  <span class="meta-label">المعلن</span>
+                  <span class="meta-value">
+                    ${escapeHtml(campaign.advertiser_name || "—")}
+                  </span>
+                </div>
 
-      showToast(
-        error.message || "تعذر تحميل البيانات التجارية",
-        "error"
-      );
-    } finally {
-      state.loading = false;
+                <div class="meta-item">
+                  <span class="meta-label">الراعي</span>
+                  <span class="meta-value">
+                    ${escapeHtml(campaign.sponsor_name || "—")}
+                  </span>
+                </div>
 
-      root?.classList.remove("ez-commercial-loading");
-    }
+                <div class="meta-item">
+                  <span class="meta-label">الميزانية</span>
+                  <span class="meta-value">
+                    ${formatMoney(
+                      campaign.budget,
+                      campaign.currency || "SAR"
+                    )}
+                  </span>
+                </div>
+
+                <div class="meta-item">
+                  <span class="meta-label">الأولوية</span>
+                  <span class="meta-value">
+                    ${formatNumber(campaign.priority)}
+                  </span>
+                </div>
+
+                <div class="meta-item">
+                  <span class="meta-label">البداية</span>
+                  <span class="meta-value">
+                    ${formatDate(campaign.start_at)}
+                  </span>
+                </div>
+
+                <div class="meta-item">
+                  <span class="meta-label">النهاية</span>
+                  <span class="meta-value">
+                    ${formatDate(campaign.end_at)}
+                  </span>
+                </div>
+              </div>
+
+              <div class="description">
+                ${escapeHtml(
+                  campaign.description ||
+                  "لا يوجد وصف للحملة."
+                )}
+              </div>
+
+              <div class="campaign-actions">
+                <button
+                  class="secondary"
+                  data-action="edit"
+                  data-id="${escapeHtml(campaign.id)}"
+                >
+                  تعديل
+                </button>
+
+                ${
+                  status === "draft" ||
+                  status === "pending" ||
+                  status === "approved"
+                    ? `
+                      <button
+                        class="primary"
+                        data-action="activate"
+                        data-id="${escapeHtml(campaign.id)}"
+                      >
+                        تفعيل
+                      </button>
+                    `
+                    : ""
+                }
+
+                ${
+                  status === "active"
+                    ? `
+                      <button
+                        class="secondary"
+                        data-action="pause"
+                        data-id="${escapeHtml(campaign.id)}"
+                      >
+                        إيقاف مؤقت
+                      </button>
+                    `
+                    : ""
+                }
+
+                ${
+                  status === "paused"
+                    ? `
+                      <button
+                        class="primary"
+                        data-action="activate"
+                        data-id="${escapeHtml(campaign.id)}"
+                      >
+                        إعادة التفعيل
+                      </button>
+                    `
+                    : ""
+                }
+
+                <button
+                  class="danger"
+                  data-action="delete"
+                  data-id="${escapeHtml(campaign.id)}"
+                >
+                  حذف
+                </button>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  async function loadCampaigns() {
+    const data = await request(`${API.campaigns}?limit=200`);
+
+    state.campaigns = normalizeList(data);
+
+    renderStats();
+    renderCampaigns();
   }
 
   async function loadStatistics() {
     try {
-      const data = await apiRequest(
-        `${API}/statistics`
-      );
+      const data = await request(API.statistics);
 
-      state.statistics = unwrapObject(data) || {};
+      state.statistics = data?.statistics || data || {};
     } catch (error) {
+      console.warn("تعذر تحميل الإحصائيات التجارية:", error);
       state.statistics = {};
-      throw error;
+    }
+
+    renderStats();
+  }
+
+  async function loadPlacements() {
+    try {
+      const data = await request(API.activePlacements);
+
+      state.placements = normalizeList(data);
+    } catch (error) {
+      console.warn("تعذر تحميل مواضع الإعلانات:", error);
+      state.placements = [];
     }
   }
 
-  async function loadCampaigns() {
-    const params = new URLSearchParams();
+  async function refresh() {
+    if (state.loading) return;
 
-    params.set("limit", "100");
+    state.loading = true;
 
-    if (state.filters.status !== "all") {
-      params.set("status", state.filters.status);
+    const errorElement = document.querySelector("#commercial-error");
+
+    if (errorElement) {
+      errorElement.innerHTML = "";
     }
 
-    if (state.filters.type !== "all") {
-      params.set("campaign_type", state.filters.type);
+    const list = document.querySelector("#commercial-list");
+
+    if (list && !state.campaigns.length) {
+      list.innerHTML = `<div class="loading">جاري تحميل المركز التجاري...</div>`;
     }
 
-    const data = await apiRequest(
-      `${API}/campaigns?${params.toString()}`
-    );
+    try {
+      await Promise.all([
+        loadCampaigns(),
+        loadStatistics(),
+        loadPlacements()
+      ]);
+    } catch (error) {
+      console.error(error);
 
-    state.campaigns = unwrapArray(data, [
-      "campaigns",
-      "items",
-      "results"
-    ]);
-  }
-
-  async function loadActivePlacements() {
-    const data = await apiRequest(
-      `${API}/placements/active`
-    );
-
-    state.activePlacements = unwrapArray(data, [
-      "placements",
-      "items",
-      "results"
-    ]);
-
-    state.placements = state.activePlacements;
-  }
-
-  function getFilteredCampaigns() {
-    return state.campaigns.filter((campaign) => {
-      const statusMatch =
-        state.filters.status === "all" ||
-        campaign.status === state.filters.status;
-
-      const typeMatch =
-        state.filters.type === "all" ||
-        campaign.campaign_type === state.filters.type;
-
-      const searchText = [
-        campaign.name,
-        campaign.advertiser_name,
-        campaign.sponsor_name,
-        campaign.contact_name,
-        campaign.description
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      const searchMatch =
-        !state.filters.search ||
-        searchText.includes(state.filters.search);
-
-      return statusMatch && typeMatch && searchMatch;
-    });
-  }
-
-  function renderCampaigns() {
-    const body = document.getElementById(
-      "ez-commercial-campaigns-body"
-    );
-
-    const count = document.getElementById(
-      "ez-commercial-campaign-count"
-    );
-
-    if (!body) return;
-
-    const campaigns = getFilteredCampaigns();
-
-    if (count) {
-      count.textContent =
-        `${formatNumber(campaigns.length)} حملة ظاهرة`;
-    }
-
-    if (!campaigns.length) {
-      body.innerHTML = `
-        <tr>
-          <td colspan="6">
-            <div class="ez-commercial-empty">
-              <div class="ez-commercial-empty-icon">📢</div>
-              <strong>لا توجد حملات</strong>
-              <div style="margin-top:6px;">
-                أنشئ أول حملة تجارية من زر «حملة جديدة».
-              </div>
-            </div>
-          </td>
-        </tr>
-      `;
-
-      return;
-    }
-
-    body.innerHTML = campaigns
-      .map((campaign) => {
-        return `
-          <tr>
-            <td>
-              <div class="ez-commercial-name">
-                ${escapeHTML(campaign.name || "بدون اسم")}
-              </div>
-
-              <div class="ez-commercial-sub">
-                ${escapeHTML(
-                  campaign.advertiser_name ||
-                  campaign.sponsor_name ||
-                  "بدون معلن/راعٍ"
-                )}
-              </div>
-            </td>
-
-            <td>
-              <span class="ez-commercial-badge">
-                ${escapeHTML(
-                  getCampaignTypeLabel(
-                    campaign.campaign_type
-                  )
-                )}
-              </span>
-            </td>
-
-            <td>
-              <span
-                class="ez-commercial-badge ${getStatusClass(
-                  campaign.status
-                )}"
-              >
-                ${escapeHTML(
-                  getCampaignStatusLabel(
-                    campaign.status
-                  )
-                )}
-              </span>
-            </td>
-
-            <td>
-              ${escapeHTML(
-                formatMoney(
-                  campaign.budget,
-                  campaign.currency
-                )
-              )}
-            </td>
-
-            <td>
-              <div>
-                ${escapeHTML(
-                  formatDate(campaign.start_at)
-                )}
-              </div>
-
-              <div class="ez-commercial-sub">
-                إلى
-                ${escapeHTML(
-                  formatDate(campaign.end_at)
-                )}
-              </div>
-            </td>
-
-            <td>
-              <div class="ez-commercial-row-actions">
-
-                <button
-                  class="ez-commercial-mini-btn"
-                  data-action="edit-campaign"
-                  data-id="${escapeHTML(campaign.id)}"
-                >
-                  تعديل
-                </button>
-
-                <button
-                  class="ez-commercial-mini-btn"
-                  data-action="placements"
-                  data-id="${escapeHTML(campaign.id)}"
-                >
-                  المواضع
-                </button>
-
-                <button
-                  class="ez-commercial-mini-btn"
-                  data-action="new-placement"
-                  data-id="${escapeHTML(campaign.id)}"
-                >
-                  ＋ إعلان
-                </button>
-
-                <button
-                  class="ez-commercial-mini-btn"
-                  data-action="preview-campaign"
-                  data-id="${escapeHTML(campaign.id)}"
-                >
-                  معاينة
-                </button>
-
-                <button
-                  class="ez-commercial-mini-btn danger"
-                  data-action="delete-campaign"
-                  data-id="${escapeHTML(campaign.id)}"
-                >
-                  حذف
-                </button>
-
-              </div>
-            </td>
-          </tr>
+      if (errorElement) {
+        errorElement.innerHTML = `
+          <div class="error">
+            تعذر تحميل بيانات المركز التجاري:
+            ${escapeHtml(error.message)}
+          </div>
         `;
-      })
-      .join("");
-  }
-
-  function renderPlacements() {
-    const body = document.getElementById(
-      "ez-commercial-placements-body"
-    );
-
-    if (!body) return;
-
-    if (!state.placements.length) {
-      body.innerHTML = `
-        <tr>
-          <td colspan="7">
-            <div class="ez-commercial-empty">
-              <div class="ez-commercial-empty-icon">🧩</div>
-              <strong>لا توجد مواضع إعلانية نشطة</strong>
-              <div style="margin-top:6px;">
-                أضف موضعًا من داخل الحملة.
-              </div>
-            </div>
-          </td>
-        </tr>
-      `;
-
-      return;
+      }
+    } finally {
+      state.loading = false;
     }
-
-    body.innerHTML = state.placements
-      .map((placement) => {
-        const campaign = findCampaign(
-          placement.campaign_id
-        );
-
-        return `
-          <tr>
-            <td>
-              <div class="ez-commercial-name">
-                ${escapeHTML(
-                  placement.title || "بدون عنوان"
-                )}
-              </div>
-
-              <div class="ez-commercial-sub">
-                ${escapeHTML(
-                  placement.placement_key ||
-                  "بدون معرّف موضع"
-                )}
-              </div>
-            </td>
-
-            <td>
-              ${escapeHTML(
-                campaign?.name ||
-                placement.campaign_name ||
-                "—"
-              )}
-            </td>
-
-            <td>
-              <span class="ez-commercial-badge">
-                ${escapeHTML(
-                  getPlacementTypeLabel(
-                    placement.placement_type
-                  )
-                )}
-              </span>
-            </td>
-
-            <td>
-              <span
-                class="ez-commercial-badge ${getStatusClass(
-                  placement.status
-                )}"
-              >
-                ${escapeHTML(
-                  placement.status || "—"
-                )}
-              </span>
-            </td>
-
-            <td>
-              ${formatNumber(
-                placement.impressions
-              )}
-            </td>
-
-            <td>
-              ${formatNumber(
-                placement.clicks
-              )}
-            </td>
-
-            <td>
-              <div class="ez-commercial-row-actions">
-
-                <button
-                  class="ez-commercial-mini-btn"
-                  data-placement-action="preview"
-                  data-id="${escapeHTML(placement.id)}"
-                >
-                  معاينة
-                </button>
-
-                <button
-                  class="ez-commercial-mini-btn"
-                  data-placement-action="edit"
-                  data-id="${escapeHTML(placement.id)}"
-                >
-                  تعديل
-                </button>
-
-                <button
-                  class="ez-commercial-mini-btn danger"
-                  data-placement-action="delete"
-                  data-id="${escapeHTML(placement.id)}"
-                >
-                  حذف
-                </button>
-
-              </div>
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
   }
 
-  function findCampaign(id) {
-    return state.campaigns.find(
-      (campaign) =>
-        String(campaign.id) === String(id)
-    );
-  }
-
-  function findPlacement(id) {
-    return state.placements.find(
-      (placement) =>
-        String(placement.id) === String(id)
-    );
-  }
-
-  function populateCampaignSelect(selectedId = null) {
-    const select = document.getElementById(
-      "commercial-placement-campaign"
+  function openModal(campaign = null) {
+    const backdrop = document.querySelector(
+      "#commercial-modal-backdrop"
     );
 
-    if (!select) return;
+    if (!backdrop) return;
 
-    const current =
-      selectedId ||
-      select.value ||
-      "";
-
-    select.innerHTML = `
-      <option value="">
-        اختر الحملة
-      </option>
-      ${state.campaigns
-        .map(
-          (campaign) => `
-            <option
-              value="${escapeHTML(campaign.id)}"
-              ${String(campaign.id) === String(current)
-                ? "selected"
-                : ""}
-            >
-              ${escapeHTML(
-                campaign.name || "بدون اسم"
-              )}
-            </option>
-          `
-        )
-        .join("")}
-    `;
-  }
-
-  function openCampaignModal(campaign = null) {
-    const modal = document.getElementById(
-      "ez-commercial-campaign-modal"
-    );
-
-    const title = document.getElementById(
-      "ez-commercial-campaign-modal-title"
-    );
-
-    state.editingCampaignId =
-      campaign?.id || null;
-
-    if (title) {
-      title.textContent = campaign
+    document.querySelector("#commercial-modal-title").textContent =
+      campaign
         ? "تعديل الحملة التجارية"
-        : "إنشاء حملة تجارية";
-    }
+        : "حملة تجارية جديدة";
 
-    setValue(
-      "commercial-campaign-name",
-      campaign?.name || ""
-    );
+    document.querySelector("#commercial-id").value =
+      campaign?.id || "";
 
-    setValue(
-      "commercial-campaign-type",
-      campaign?.campaign_type || "advertising"
-    );
+    document.querySelector("#commercial-name").value =
+      campaign?.name || "";
 
-    setValue(
-      "commercial-advertiser-name",
-      campaign?.advertiser_name || ""
-    );
+    document.querySelector("#commercial-type").value =
+      campaign?.campaign_type || "advertising";
 
-    setValue(
-      "commercial-sponsor-name",
-      campaign?.sponsor_name || ""
-    );
+    document.querySelector("#commercial-advertiser").value =
+      campaign?.advertiser_name || "";
 
-    setValue(
-      "commercial-contact-name",
-      campaign?.contact_name || ""
-    );
+    document.querySelector("#commercial-sponsor").value =
+      campaign?.sponsor_name || "";
 
-    setValue(
-      "commercial-contact-email",
-      campaign?.contact_email || ""
-    );
+    document.querySelector("#commercial-contact").value =
+      campaign?.contact_name || "";
 
-    setValue(
-      "commercial-contact-phone",
-      campaign?.contact_phone || ""
-    );
+    document.querySelector("#commercial-email").value =
+      campaign?.contact_email || "";
 
-    setValue(
-      "commercial-campaign-status",
-      campaign?.status || "draft"
-    );
+    document.querySelector("#commercial-phone").value =
+      campaign?.contact_phone || "";
 
-    setValue(
-      "commercial-campaign-budget",
-      campaign?.budget ?? ""
-    );
+    document.querySelector("#commercial-budget").value =
+      campaign?.budget ?? "";
 
-    setValue(
-      "commercial-campaign-currency",
-      campaign?.currency || "SAR"
-    );
+    document.querySelector("#commercial-currency").value =
+      campaign?.currency || "SAR";
 
-    setValue(
-      "commercial-campaign-priority",
-      campaign?.priority ?? 0
-    );
+    document.querySelector("#commercial-priority").value =
+      campaign?.priority ?? 0;
 
-    setDateValue(
-      "commercial-campaign-start",
-      campaign?.start_at
-    );
+    document.querySelector("#commercial-start").value =
+      toLocalDateTime(campaign?.start_at);
 
-    setDateValue(
-      "commercial-campaign-end",
-      campaign?.end_at
-    );
+    document.querySelector("#commercial-end").value =
+      toLocalDateTime(campaign?.end_at);
 
-    setValue(
-      "commercial-campaign-description",
-      campaign?.description || ""
-    );
+    document.querySelector("#commercial-description").value =
+      campaign?.description || "";
 
-    openModal("campaign");
+    backdrop.classList.add("open");
   }
 
-  function openPlacementModal(
-    placement = null,
-    campaignId = null
-  ) {
-    const modal = document.getElementById(
-      "ez-commercial-placement-modal"
+  function closeModal() {
+    const backdrop = document.querySelector(
+      "#commercial-modal-backdrop"
     );
 
-    const title = document.getElementById(
-      "ez-commercial-placement-modal-title"
-    );
-
-    state.editingPlacementId =
-      placement?.id || null;
-
-    if (title) {
-      title.textContent = placement
-        ? "تعديل الموضع الإعلاني"
-        : "إضافة موضع إعلاني";
-    }
-
-    populateCampaignSelect(
-      campaignId ||
-      placement?.campaign_id ||
-      ""
-    );
-
-    setValue(
-      "commercial-placement-campaign",
-      campaignId ||
-      placement?.campaign_id ||
-      ""
-    );
-
-    setValue(
-      "commercial-placement-title",
-      placement?.title || ""
-    );
-
-    setValue(
-      "commercial-placement-type",
-      placement?.placement_type || "banner"
-    );
-
-    setValue(
-      "commercial-placement-key",
-      placement?.placement_key || ""
-    );
-
-    setValue(
-      "commercial-placement-status",
-      placement?.status || "draft"
-    );
-
-    setValue(
-      "commercial-placement-image",
-      placement?.image_url || ""
-    );
-
-    setValue(
-      "commercial-placement-video",
-      placement?.video_url || ""
-    );
-
-    setValue(
-      "commercial-placement-destination",
-      placement?.destination_url || ""
-    );
-
-    setValue(
-      "commercial-placement-content-id",
-      placement?.content_id || ""
-    );
-
-    setValue(
-      "commercial-placement-metadata",
-      placement?.metadata
-        ? JSON.stringify(
-            placement.metadata,
-            null,
-            2
-          )
-        : ""
-    );
-
-    openModal("placement");
-  }
-
-  function setValue(id, value) {
-    const element = document.getElementById(id);
-
-    if (element) {
-      element.value = value;
+    if (backdrop) {
+      backdrop.classList.remove("open");
     }
   }
 
-  function setDateValue(id, value) {
-    const element = document.getElementById(id);
-
-    if (!element || !value) {
-      if (element) element.value = "";
-      return;
-    }
+  function toLocalDateTime(value) {
+    if (!value) return "";
 
     const date = new Date(value);
 
-    if (Number.isNaN(date.getTime())) {
-      element.value = "";
-      return;
-    }
+    if (Number.isNaN(date.getTime())) return "";
 
-    const local = new Date(
-      date.getTime() -
-      date.getTimezoneOffset() * 60000
-    );
+    const pad = (number) =>
+      String(number).padStart(2, "0");
 
-    element.value = local
-      .toISOString()
-      .slice(0, 16);
+    return [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate())
+    ].join("-") + "T" +
+      [
+        pad(date.getHours()),
+        pad(date.getMinutes())
+      ].join(":");
   }
 
-  function getValue(id) {
-    return document.getElementById(id)?.value?.trim() || "";
-  }
-
-  function getNumberValue(id) {
-    const value = getValue(id);
-
-    if (!value) {
-      return null;
-    }
-
-    const number = Number(value);
-
-    return Number.isFinite(number)
-      ? number
-      : null;
-  }
-
-  function getDateValue(id) {
-    const value = getValue(id);
-
-    if (!value) {
-      return null;
-    }
+  function fromLocalDateTime(value) {
+    if (!value) return null;
 
     const date = new Date(value);
 
@@ -2300,1023 +1088,229 @@
     return date.toISOString();
   }
 
+  function formPayload() {
+    return {
+      name: document.querySelector("#commercial-name").value.trim(),
+      campaign_type:
+        document.querySelector("#commercial-type").value,
+      advertiser_name:
+        document.querySelector("#commercial-advertiser").value.trim(),
+      sponsor_name:
+        document.querySelector("#commercial-sponsor").value.trim(),
+      contact_name:
+        document.querySelector("#commercial-contact").value.trim(),
+      contact_email:
+        document.querySelector("#commercial-email").value.trim(),
+      contact_phone:
+        document.querySelector("#commercial-phone").value.trim(),
+      budget:
+        Number(
+          document.querySelector("#commercial-budget").value || 0
+        ),
+      currency:
+        document.querySelector("#commercial-currency").value,
+      priority:
+        Number(
+          document.querySelector("#commercial-priority").value || 0
+        ),
+      start_at:
+        fromLocalDateTime(
+          document.querySelector("#commercial-start").value
+        ),
+      end_at:
+        fromLocalDateTime(
+          document.querySelector("#commercial-end").value
+        ),
+      description:
+        document.querySelector("#commercial-description").value.trim()
+    };
+  }
+
   async function saveCampaign(event) {
     event.preventDefault();
 
-    const saveButton = document.getElementById(
-      "commercial-campaign-save"
+    const id =
+      document.querySelector("#commercial-id").value.trim();
+
+    const payload = formPayload();
+
+    const button = document.querySelector(
+      "#commercial-form button[type='submit']"
     );
 
-    const payload = {
-      name: getValue(
-        "commercial-campaign-name"
-      ),
-      campaign_type: getValue(
-        "commercial-campaign-type"
-      ),
-      advertiser_name: getValue(
-        "commercial-advertiser-name"
-      ) || null,
-      sponsor_name: getValue(
-        "commercial-sponsor-name"
-      ) || null,
-      contact_name: getValue(
-        "commercial-contact-name"
-      ) || null,
-      contact_email: getValue(
-        "commercial-contact-email"
-      ) || null,
-      contact_phone: getValue(
-        "commercial-contact-phone"
-      ) || null,
-      status: getValue(
-        "commercial-campaign-status"
-      ),
-      budget: getNumberValue(
-        "commercial-campaign-budget"
-      ),
-      currency: getValue(
-        "commercial-campaign-currency"
-      ) || "SAR",
-      priority:
-        getNumberValue(
-          "commercial-campaign-priority"
-        ) ?? 0,
-      start_at: getDateValue(
-        "commercial-campaign-start"
-      ),
-      end_at: getDateValue(
-        "commercial-campaign-end"
-      ),
-      description:
-        getValue(
-          "commercial-campaign-description"
-        ) || null
-    };
-
-    if (!payload.name) {
-      showToast(
-        "اسم الحملة مطلوب",
-        "error"
-      );
-      return;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "جاري الحفظ...";
     }
 
     try {
-      setButtonLoading(
-        saveButton,
-        true,
-        "جاري الحفظ..."
-      );
-
-      if (state.editingCampaignId) {
-        await apiRequest(
-          `${API}/campaigns/${encodeURIComponent(
-            state.editingCampaignId
-          )}`,
-          {
-            method: "PATCH",
-            body: payload
-          }
-        );
-
-        showToast(
-          "تم تحديث الحملة بنجاح",
-          "success"
-        );
+      if (id) {
+        await request(`${API.campaigns}/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
       } else {
-        await apiRequest(
-          `${API}/campaigns`,
-          {
-            method: "POST",
-            body: payload
-          }
-        );
-
-        showToast(
-          "تم إنشاء الحملة بنجاح",
-          "success"
-        );
+        await request(API.campaigns, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
       }
 
-      closeModal("campaign");
+      closeModal();
+
+      await refresh();
+
+      alert(
+        id
+          ? "تم تحديث الحملة بنجاح."
+          : "تم إنشاء الحملة بنجاح."
+      );
+    } catch (error) {
+      alert(`تعذر حفظ الحملة: ${error.message}`);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "حفظ الحملة";
+      }
+    }
+  }
+
+  async function changeStatus(id, status) {
+    try {
+      await request(
+        `${API.campaigns}/${encodeURIComponent(id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status })
+        }
+      );
 
       await refresh();
     } catch (error) {
-      console.error(error);
-
-      showToast(
-        error.message ||
-          "تعذر حفظ الحملة",
-        "error"
-      );
-    } finally {
-      setButtonLoading(
-        saveButton,
-        false,
-        "حفظ الحملة"
-      );
+      alert(`تعذر تغيير حالة الحملة: ${error.message}`);
     }
   }
 
-  async function savePlacement(event) {
-    event.preventDefault();
-
-    const saveButton = document.getElementById(
-      "commercial-placement-save"
+  async function deleteCampaign(id) {
+    const campaign = state.campaigns.find(
+      (item) => String(item.id) === String(id)
     );
 
-    const campaignId = getValue(
-      "commercial-placement-campaign"
-    );
+    const name = campaign?.name || "هذه الحملة";
 
-    if (!campaignId) {
-      showToast(
-        "اختر الحملة أولًا",
-        "error"
-      );
-      return;
-    }
-
-    const metadataText = getValue(
-      "commercial-placement-metadata"
-    );
-
-    let metadata = null;
-
-    if (metadataText) {
-      try {
-        metadata = JSON.parse(metadataText);
-      } catch (_) {
-        showToast(
-          "صيغة Metadata غير صحيحة. استخدم JSON صالحًا.",
-          "error"
-        );
-        return;
-      }
-    }
-
-    const payload = {
-      placement_key:
-        getValue(
-          "commercial-placement-key"
-        ) || null,
-      placement_type:
-        getValue(
-          "commercial-placement-type"
-        ),
-      title:
-        getValue(
-          "commercial-placement-title"
-        ),
-      image_url:
-        getValue(
-          "commercial-placement-image"
-        ) || null,
-      video_url:
-        getValue(
-          "commercial-placement-video"
-        ) || null,
-      destination_url:
-        getValue(
-          "commercial-placement-destination"
-        ) || null,
-      content_id:
-        getValue(
-          "commercial-placement-content-id"
-        ) || null,
-      status:
-        getValue(
-          "commercial-placement-status"
-        ),
-      metadata
-    };
-
-    if (!payload.title) {
-      showToast(
-        "عنوان الإعلان مطلوب",
-        "error"
-      );
+    if (!confirm(`هل أنت متأكد من حذف "${name}"؟`)) {
       return;
     }
 
     try {
-      setButtonLoading(
-        saveButton,
-        true,
-        "جاري الحفظ..."
-      );
-
-      if (state.editingPlacementId) {
-        await apiRequest(
-          `${API}/campaigns/${encodeURIComponent(
-            campaignId
-          )}/placements/${encodeURIComponent(
-            state.editingPlacementId
-          )}`,
-          {
-            method: "PATCH",
-            body: payload
-          }
-        );
-      } else {
-        await apiRequest(
-          `${API}/campaigns/${encodeURIComponent(
-            campaignId
-          )}/placements`,
-          {
-            method: "POST",
-            body: payload
-          }
-        );
-      }
-
-      showToast(
-        state.editingPlacementId
-          ? "تم تحديث الموضع الإعلاني"
-          : "تم إنشاء الموضع الإعلاني",
-        "success"
-      );
-
-      closeModal("placement");
-
-      await refresh();
-    } catch (error) {
-      console.error(error);
-
-      showToast(
-        error.message ||
-          "تعذر حفظ الموضع الإعلاني",
-        "error"
-      );
-    } finally {
-      setButtonLoading(
-        saveButton,
-        false,
-        "حفظ الموضع"
-      );
-    }
-  }
-
-  function setButtonLoading(
-    button,
-    loading,
-    label
-  ) {
-    if (!button) return;
-
-    button.disabled = loading;
-
-    if (loading) {
-      button.innerHTML = `
-        <span class="ez-commercial-spinner"></span>
-        ${escapeHTML(label)}
-      `;
-    } else {
-      button.textContent = label;
-    }
-  }
-
-  async function handleCampaignAction(event) {
-    const button =
-      event.target.closest(
-        "[data-action]"
-      );
-
-    if (!button) return;
-
-    const action = button.dataset.action;
-    const id = button.dataset.id;
-
-    const campaign = findCampaign(id);
-
-    if (!campaign) {
-      showToast(
-        "الحملة غير موجودة",
-        "error"
-      );
-      return;
-    }
-
-    if (action === "edit-campaign") {
-      openCampaignModal(campaign);
-      return;
-    }
-
-    if (action === "new-placement") {
-      openPlacementModal(
-        null,
-        campaign.id
-      );
-      return;
-    }
-
-    if (action === "placements") {
-      openPlacementModal(
-        null,
-        campaign.id
-      );
-      return;
-    }
-
-    if (action === "preview-campaign") {
-      const placement =
-        state.placements.find(
-          (item) =>
-            String(
-              item.campaign_id
-            ) === String(campaign.id)
-        );
-
-      if (placement) {
-        openPlacementPreview(
-          placement
-        );
-      } else {
-        openCampaignPreview(
-          campaign
-        );
-      }
-
-      return;
-    }
-
-    if (action === "delete-campaign") {
-      await deleteCampaign(campaign);
-    }
-  }
-
-  async function handlePlacementAction(event) {
-    const button =
-      event.target.closest(
-        "[data-placement-action]"
-      );
-
-    if (!button) return;
-
-    const action =
-      button.dataset.placementAction;
-
-    const id = button.dataset.id;
-
-    const placement =
-      findPlacement(id);
-
-    if (!placement) {
-      showToast(
-        "الموضع الإعلاني غير موجود",
-        "error"
-      );
-      return;
-    }
-
-    if (action === "preview") {
-      openPlacementPreview(
-        placement
-      );
-      return;
-    }
-
-    if (action === "edit") {
-      openPlacementModal(
-        placement
-      );
-      return;
-    }
-
-    if (action === "delete") {
-      await deletePlacement(
-        placement
-      );
-    }
-  }
-
-  async function deleteCampaign(campaign) {
-    const confirmed = window.confirm(
-      `هل أنت متأكد من حذف الحملة:\n\n${campaign.name}\n\nسيتم حذف الحملة من النظام.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await apiRequest(
-        `${API}/campaigns/${encodeURIComponent(
-          campaign.id
-        )}`,
+      await request(
+        `${API.campaigns}/${encodeURIComponent(id)}`,
         {
           method: "DELETE"
         }
       );
 
-      showToast(
-        "تم حذف الحملة",
-        "success"
-      );
-
       await refresh();
     } catch (error) {
-      console.error(error);
-
-      showToast(
-        error.message ||
-          "تعذر حذف الحملة",
-        "error"
-      );
+      alert(`تعذر حذف الحملة: ${error.message}`);
     }
   }
 
-  async function deletePlacement(
-    placement
-  ) {
-    const campaignId =
-      placement.campaign_id;
-
-    if (!campaignId) {
-      showToast(
-        "لا يمكن تحديد الحملة المرتبطة بالإعلان",
-        "error"
-      );
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `هل أنت متأكد من حذف الإعلان:\n\n${placement.title || "بدون عنوان"}`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      /*
-       * API الخلفية الحالية تربط المواضع بالحملة.
-       * نحاول مسار الحذف المباشر أولًا.
-       */
-      try {
-        await apiRequest(
-          `${API}/campaigns/${encodeURIComponent(
-            campaignId
-          )}/placements/${encodeURIComponent(
-            placement.id
-          )}`,
-          {
-            method: "DELETE"
-          }
-        );
-      } catch (directError) {
-        /*
-         * إذا لم يكن مسار الحذف المباشر موجودًا
-         * في النسخة الحالية من الـ API، نستخدم
-         * تحديث الحالة بدلًا من إسقاط الواجهة.
-         */
-        await apiRequest(
-          `${API}/campaigns/${encodeURIComponent(
-            campaignId
-          )}/placements/${encodeURIComponent(
-            placement.id
-          )}`,
-          {
-            method: "PATCH",
-            body: {
-              status: "expired"
-            }
-          }
-        );
-      }
-
-      showToast(
-        "تم حذف/إيقاف الإعلان",
-        "success"
-      );
-
-      await refresh();
-    } catch (error) {
-      console.error(error);
-
-      showToast(
-        error.message ||
-          "تعذر حذف الإعلان",
-        "error"
-      );
-    }
-  }
-
-  function openCampaignPreview(
-    campaign
-  ) {
-    const body = document.getElementById(
-      "ez-commercial-preview-body"
-    );
-
-    if (!body) return;
-
-    body.innerHTML = `
-      <div class="ez-commercial-preview">
-
-        <div class="ez-commercial-preview-media">
-          <div style="
-            text-align:center;
-            padding:35px;
-          ">
-            <div style="
-              font-size:42px;
-              margin-bottom:10px;
-            ">
-              💼
-            </div>
-
-            <strong>
-              ${escapeHTML(
-                campaign.name ||
-                "حملة تجارية"
-              )}
-            </strong>
-          </div>
-        </div>
-
-        <div class="ez-commercial-preview-content">
-
-          <div style="
-            display:flex;
-            gap:7px;
-            flex-wrap:wrap;
-            margin-bottom:10px;
-          ">
-            <span class="ez-commercial-badge">
-              ${escapeHTML(
-                getCampaignTypeLabel(
-                  campaign.campaign_type
-                )
-              )}
-            </span>
-
-            <span
-              class="ez-commercial-badge ${getStatusClass(
-                campaign.status
-              )}"
-            >
-              ${escapeHTML(
-                getCampaignStatusLabel(
-                  campaign.status
-                )
-              )}
-            </span>
-          </div>
-
-          <h4>
-            ${escapeHTML(
-              campaign.name ||
-              "بدون اسم"
-            )}
-          </h4>
-
-          <p>
-            ${escapeHTML(
-              campaign.description ||
-              "لا يوجد وصف للحملة."
-            )}
-          </p>
-
-          ${
-            campaign.advertiser_name
-              ? `
-                <div class="ez-commercial-sub">
-                  المعلن:
-                  <strong>
-                    ${escapeHTML(
-                      campaign.advertiser_name
-                    )}
-                  </strong>
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            campaign.sponsor_name
-              ? `
-                <div class="ez-commercial-sub">
-                  الراعي:
-                  <strong>
-                    ${escapeHTML(
-                      campaign.sponsor_name
-                    )}
-                  </strong>
-                </div>
-              `
-              : ""
-          }
-
-          <div class="ez-commercial-sub" style="margin-top:10px;">
-            الميزانية:
-            ${escapeHTML(
-              formatMoney(
-                campaign.budget,
-                campaign.currency
-              )
-            )}
-          </div>
-
-        </div>
-      </div>
-    `;
-
-    openModal("preview");
-  }
-
-  function openPlacementPreview(
-    placement
-  ) {
-    const body = document.getElementById(
-      "ez-commercial-preview-body"
-    );
-
-    if (!body) return;
-
-    let media = "";
-
-    if (placement.video_url) {
-      media = `
-        <video
-          controls
-          playsinline
-          preload="metadata"
-          src="${escapeHTML(
-            placement.video_url
-          )}"
-        ></video>
-      `;
-    } else if (placement.image_url) {
-      media = `
-        <img
-          src="${escapeHTML(
-            placement.image_url
-          )}"
-          alt="${escapeHTML(
-            placement.title ||
-            "إعلان"
-          )}"
-        />
-      `;
-    } else {
-      media = `
-        <div style="
-          padding:45px;
-          text-align:center;
-          color:#64748b;
-        ">
-          لا توجد صورة أو فيديو لهذا الإعلان
-        </div>
-      `;
-    }
-
-    body.innerHTML = `
-      <div class="ez-commercial-preview">
-
-        <div class="ez-commercial-preview-media">
-          ${media}
-        </div>
-
-        <div class="ez-commercial-preview-content">
-
-          <div style="
-            display:flex;
-            gap:7px;
-            flex-wrap:wrap;
-            margin-bottom:10px;
-          ">
-
-            <span class="ez-commercial-badge">
-              ${escapeHTML(
-                getPlacementTypeLabel(
-                  placement.placement_type
-                )
-              )}
-            </span>
-
-            <span
-              class="ez-commercial-badge ${getStatusClass(
-                placement.status
-              )}"
-            >
-              ${escapeHTML(
-                placement.status ||
-                "—"
-              )}
-            </span>
-
-          </div>
-
-          <h4>
-            ${escapeHTML(
-              placement.title ||
-              "بدون عنوان"
-            )}
-          </h4>
-
-          <p>
-            معاينة موضع الإعلان كما سيظهر
-            داخل منصة EZ MEDIA.
-          </p>
-
-          ${
-            placement.destination_url
-              ? `
-                <a
-                  href="${escapeHTML(
-                    placement.destination_url
-                  )}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  فتح رابط الإعلان ↗
-                </a>
-              `
-              : ""
-          }
-
-          <div style="
-            margin-top:15px;
-            display:grid;
-            grid-template-columns:repeat(3,1fr);
-            gap:8px;
-          ">
-
-            <div style="
-              background:#f0f9ff;
-              padding:10px;
-              border-radius:10px;
-              text-align:center;
-            ">
-              <strong>
-                ${formatNumber(
-                  placement.impressions
-                )}
-              </strong>
-              <div class="ez-commercial-sub">
-                ظهور
-              </div>
-            </div>
-
-            <div style="
-              background:#f0f9ff;
-              padding:10px;
-              border-radius:10px;
-              text-align:center;
-            ">
-              <strong>
-                ${formatNumber(
-                  placement.clicks
-                )}
-              </strong>
-              <div class="ez-commercial-sub">
-                نقرات
-              </div>
-            </div>
-
-            <div style="
-              background:#f0f9ff;
-              padding:10px;
-              border-radius:10px;
-              text-align:center;
-            ">
-              <strong>
-                ${formatNumber(
-                  placement.completed_views
-                )}
-              </strong>
-              <div class="ez-commercial-sub">
-                مكتمل
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-    `;
-
-    openModal("preview");
-  }
-
-  function openModal(type) {
-    const ids = {
-      campaign:
-        "ez-commercial-campaign-modal",
-      placement:
-        "ez-commercial-placement-modal",
-      preview:
-        "ez-commercial-preview-modal"
-    };
-
-    const modal = document.getElementById(
-      ids[type]
-    );
-
-    if (!modal) return;
-
-    modal.classList.add(
-      "is-open"
-    );
-
-    modal.setAttribute(
-      "aria-hidden",
-      "false"
-    );
-
-    document.body.style.overflow =
-      "hidden";
-  }
-
-  function closeModal(type) {
-    const ids = {
-      campaign:
-        "ez-commercial-campaign-modal",
-      placement:
-        "ez-commercial-placement-modal",
-      preview:
-        "ez-commercial-preview-modal"
-    };
-
-    const modal = document.getElementById(
-      ids[type]
-    );
-
-    if (!modal) return;
-
-    modal.classList.remove(
-      "is-open"
-    );
-
-    modal.setAttribute(
-      "aria-hidden",
-      "true"
-    );
-
-    const anyOpen =
-      document.querySelector(
-        ".ez-commercial-modal.is-open"
-      );
-
-    if (!anyOpen) {
-      document.body.style.overflow =
-        "";
-    }
-
-    if (type === "campaign") {
-      state.editingCampaignId =
-        null;
-    }
-
-    if (type === "placement") {
-      state.editingPlacementId =
-        null;
-    }
-  }
-
-  function showToast(
-    message,
-    type = "success"
-  ) {
-    const toast = document.getElementById(
-      "ez-commercial-toast"
-    );
-
-    if (!toast) return;
-
-    toast.textContent = message;
-
-    toast.style.borderColor =
-      type === "error"
-        ? "#fecaca"
-        : "#bae6fd";
-
-    toast.style.color =
-      type === "error"
-        ? "#b91c1c"
-        : "#0369a1";
-
-    toast.classList.add(
-      "is-visible"
-    );
-
-    window.clearTimeout(
-      showToast.timer
-    );
-
-    showToast.timer =
-      window.setTimeout(() => {
-        toast.classList.remove(
-          "is-visible"
-        );
-      }, 3500);
-  }
-
-  document.addEventListener(
-    "keydown",
-    (event) => {
-      if (event.key !== "Escape") {
-        return;
-      }
-
-      [
-        "campaign",
-        "placement",
-        "preview"
-      ].forEach((type) => {
-        closeModal(type);
+  function bindEvents() {
+    document
+      .querySelector("#commercial-refresh")
+      ?.addEventListener("click", refresh);
+
+    document
+      .querySelector("#commercial-new")
+      ?.addEventListener("click", () => {
+        openModal();
       });
-    }
-  );
 
-  document.addEventListener(
-    "click",
-    (event) => {
-      if (
-        event.target.classList.contains(
-          "ez-commercial-modal"
-        )
-      ) {
-        const modal =
-          event.target;
+    document
+      .querySelector("#commercial-cancel")
+      ?.addEventListener("click", closeModal);
 
+    document
+      .querySelector("#commercial-modal-backdrop")
+      ?.addEventListener("click", (event) => {
         if (
-          modal.id ===
-          "ez-commercial-campaign-modal"
+          event.target.id ===
+          "commercial-modal-backdrop"
         ) {
-          closeModal("campaign");
+          closeModal();
+        }
+      });
+
+    document
+      .querySelector("#commercial-form")
+      ?.addEventListener("submit", saveCampaign);
+
+    document
+      .querySelector("#commercial-search")
+      ?.addEventListener("input", (event) => {
+        state.search = event.target.value;
+        renderCampaigns();
+      });
+
+    document
+      .querySelector("#commercial-filter")
+      ?.addEventListener("change", (event) => {
+        state.filter = event.target.value;
+        renderCampaigns();
+      });
+
+    document
+      .querySelector("#commercial-list")
+      ?.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-action]");
+
+        if (!button) return;
+
+        const action = button.dataset.action;
+        const id = button.dataset.id;
+
+        const campaign = state.campaigns.find(
+          (item) => String(item.id) === String(id)
+        );
+
+        if (action === "edit") {
+          openModal(campaign);
         }
 
-        if (
-          modal.id ===
-          "ez-commercial-placement-modal"
-        ) {
-          closeModal("placement");
+        if (action === "activate") {
+          changeStatus(id, "active");
         }
 
-        if (
-          modal.id ===
-          "ez-commercial-preview-modal"
-        ) {
-          closeModal("preview");
+        if (action === "pause") {
+          changeStatus(id, "paused");
         }
-      }
-    }
-  );
+
+        if (action === "delete") {
+          deleteCampaign(id);
+        }
+      });
+  }
 
   function initialize() {
-    ensureStyles();
+    const container = getContainer();
 
-    const mount =
-      getMount() ||
-      createMountIfNeeded();
+    if (!container) return;
 
-    if (!mount) {
-      return;
-    }
-
-    if (
-      document.getElementById(
-        "ez-commercial-admin"
-      )
-    ) {
-      return;
-    }
-
-    renderShell();
-
-    refresh().catch((error) => {
-      console.error(
-        "EZ MEDIA Commercial initialization:",
-        error
-      );
-    });
+    renderShell(container);
+    refresh();
   }
 
   window.EZMediaAdminCommercial = {
+    initialize,
     refresh,
-    openCampaign: openCampaignModal,
-    openPlacement: openPlacementModal,
-    previewPlacement: openPlacementPreview,
+    openModal,
     closeModal,
-    getState: () => ({
-      campaigns: [...state.campaigns],
-      placements: [...state.placements],
-      statistics: state.statistics
-    })
+    getState: () => ({ ...state })
   };
 
-  if (
-    document.readyState ===
-    "loading"
-  ) {
-    document.addEventListener(
-      "DOMContentLoaded",
-      initialize,
-      { once: true }
-    );
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initialize);
   } else {
     initialize();
   }
