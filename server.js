@@ -38,7 +38,7 @@ const {
 
 const {
   initializeMediaDatabase
-} = require("./src/database/media-init");
+} = require("./src/database/media-init-v2");
 
 const {
   initializeNotifications
@@ -826,10 +826,6 @@ app.use(
 
 async function initializeAdvancedEngines() {
 
-  /* -------------------------------------------------------
-     AUTONOMOUS OPERATIONS
-  ------------------------------------------------------- */
-
   try {
 
     if (
@@ -877,10 +873,6 @@ async function initializeAdvancedEngines() {
     );
   }
 
-  /* -------------------------------------------------------
-     AI COLLABORATION
-  ------------------------------------------------------- */
-
   try {
 
     if (
@@ -918,10 +910,6 @@ async function initializeAdvancedEngines() {
       error.message
     );
   }
-
-  /* -------------------------------------------------------
-     AUTONOMOUS AI AGENTS
-  ------------------------------------------------------- */
 
   try {
 
@@ -961,10 +949,6 @@ async function initializeAdvancedEngines() {
     );
   }
 
-  /* -------------------------------------------------------
-     MEDIA MEMORY
-  ------------------------------------------------------- */
-
   try {
 
     if (
@@ -1002,10 +986,6 @@ async function initializeAdvancedEngines() {
       error.message
     );
   }
-
-  /* -------------------------------------------------------
-     EVENT INTELLIGENCE
-  ------------------------------------------------------- */
 
   try {
 
@@ -1244,10 +1224,6 @@ const executiveCommand = {
           )
         ]);
 
-      /* ---------------------------------------------------
-         DATABASE
-      --------------------------------------------------- */
-
       let database =
         runtime.database.health;
 
@@ -1286,10 +1262,6 @@ const executiveCommand = {
           error.message;
       }
 
-      /* ---------------------------------------------------
-         NORMALIZED ENGINE DATA
-      --------------------------------------------------- */
-
       const operations =
         objectOrEmpty(
           operationsSnapshot.data
@@ -1314,10 +1286,6 @@ const executiveCommand = {
         objectOrEmpty(
           eventSnapshot.data
         );
-
-      /* ---------------------------------------------------
-         OPERATION COUNTERS
-      --------------------------------------------------- */
 
       const active =
         extractCount(
@@ -1382,10 +1350,6 @@ const executiveCommand = {
           ]
         );
 
-      /* ---------------------------------------------------
-         AI COUNTERS
-      --------------------------------------------------- */
-
       const agentsCount =
         extractCount(
           agents,
@@ -1432,10 +1396,6 @@ const executiveCommand = {
           ]
         );
 
-      /* ---------------------------------------------------
-         APPROVALS
-      --------------------------------------------------- */
-
       const approvals =
         extractCount(
           operations,
@@ -1449,10 +1409,6 @@ const executiveCommand = {
             "metrics.pendingApprovals"
           ]
         );
-
-      /* ---------------------------------------------------
-         MEMORY
-      --------------------------------------------------- */
 
       const memoryCount =
         extractCount(
@@ -1472,10 +1428,6 @@ const executiveCommand = {
           ]
         );
 
-      /* ---------------------------------------------------
-         EVENTS
-      --------------------------------------------------- */
-
       const eventCount =
         extractCount(
           events,
@@ -1493,10 +1445,6 @@ const executiveCommand = {
             "data.events"
           ]
         );
-
-      /* ---------------------------------------------------
-         ENGINE STATUS
-      --------------------------------------------------- */
 
       const operationEngineStatus =
         extractStatus(
@@ -1523,18 +1471,10 @@ const executiveCommand = {
           events
         );
 
-      /* ---------------------------------------------------
-         HUMAN APPROVAL
-      --------------------------------------------------- */
-
       const humanApproval =
         process.env
           .MEDIA_OPS_REQUIRE_HUMAN_APPROVAL !==
         "false";
-
-      /* ---------------------------------------------------
-         BROADCAST
-      --------------------------------------------------- */
 
       const socialBroadcast =
         process.env
@@ -1573,10 +1513,6 @@ const executiveCommand = {
             ? "partially_configured"
             : "not_connected"
       };
-
-      /* ---------------------------------------------------
-         SYSTEM MATRIX
-      --------------------------------------------------- */
 
       const systems = {
 
@@ -1710,10 +1646,6 @@ const executiveCommand = {
         }
       };
 
-      /* ---------------------------------------------------
-         EXECUTIVE STATE
-      --------------------------------------------------- */
-
       const automationStatus =
         runtime.autonomousOperations
           .started
@@ -1731,10 +1663,6 @@ const executiveCommand = {
           .available
           ? "available"
           : "not_connected";
-
-      /* ---------------------------------------------------
-         SNAPSHOT
-      --------------------------------------------------- */
 
       const snapshot = {
 
@@ -3339,10 +3267,6 @@ async function initializeAllSystems() {
     "[EZ MEDIA] Initializing EZ MEDIA 11.0..."
   );
 
-  /* -------------------------------------------------------
-     DATABASE
-  ------------------------------------------------------- */
-
   try {
 
     if (
@@ -3374,10 +3298,6 @@ async function initializeAllSystems() {
     );
   }
 
-  /* -------------------------------------------------------
-     MEDIA DATABASE
-  ------------------------------------------------------- */
-
   try {
 
     if (
@@ -3399,10 +3319,6 @@ async function initializeAllSystems() {
       error.message
     );
   }
-
-  /* -------------------------------------------------------
-     NOTIFICATIONS
-  ------------------------------------------------------- */
 
   try {
 
@@ -3431,10 +3347,6 @@ async function initializeAllSystems() {
       error.message
     );
   }
-
-  /* -------------------------------------------------------
-     DATABASE HEALTH
-  ------------------------------------------------------- */
 
   try {
 
@@ -3471,15 +3383,7 @@ async function initializeAllSystems() {
       error.message;
   }
 
-  /* -------------------------------------------------------
-     ADVANCED ENGINES
-  ------------------------------------------------------- */
-
   await initializeAdvancedEngines();
-
-  /* -------------------------------------------------------
-     REAL ROUTES
-  ------------------------------------------------------- */
 
   mountAutonomousOperationsRoutes();
 
@@ -3589,10 +3493,6 @@ async function startServer() {
 
   await startNotificationsWorkerSafe();
 
-  /* -------------------------------------------------------
-     EXECUTIVE REFRESH
-  ------------------------------------------------------- */
-
   try {
 
     await executiveCommand.refresh();
@@ -3603,10 +3503,6 @@ async function startServer() {
       .lastError =
       error.message;
   }
-
-  /* -------------------------------------------------------
-     LISTEN
-  ------------------------------------------------------- */
 
   server =
     app.listen(
