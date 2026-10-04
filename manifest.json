@@ -1,0 +1,24 @@
+{
+  "name": "EZ MEDIA Executive Command",
+  "short_name": "EZ MEDIA",
+  "description": "مركز القيادة التنفيذي الذكي لمنصة EZ MEDIA",
+  "start_url": "/executive-command-center/mobile/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "background_color": "#ffffff",
+  "theme_color": "#65cfff",
+  "icons": [
+    {
+      "src": "/executive-command-center/mobile/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/executive-command-center/mobile/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
