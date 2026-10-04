@@ -3,152 +3,169 @@
 const express = require("express");
 
 const {
-  createUser,
-  authenticateUser,
-  getSessionByToken,
-  revokeSession,
-  revokeAllUserSessions,
-  updateUser,
-  changePassword,
-  listUsers,
-  findUserById,
-  createAuditLog,
-  getRolePermissions
-} = require("../services/authService");
+  query
+} = require("../database/db");
 
 const {
   authenticateRequest,
   requirePermission,
-  requireSuperAdmin,
   getClientIp
 } = require("../middleware/auth");
 
 const router = express.Router();
 
-function getToken(req) {
-  if (req.auth && req.auth.token) {
-    return req.auth.token;
-  }
-
-  const authorization =
-    req.headers.authorization || "";
-
-  if (authorization.startsWith("Bearer ")) {
-    return authorization.slice(7).trim();
-  }
-
-  if (req.headers["x-session-token"]) {
-    return String(
-      req.headers["x-session-token"]
-    ).trim();
-  }
-
-  return null;
-}
-
 /*
 |--------------------------------------------------------------------------
-| تسجيل الدخول
-|--------------------------------------------------------------------------
-*/
-
-router.post(
-  "/login",
-  async (req, res, next) => {
-    try {
-      const {
-        username,
-        password,
-        deviceName
-      } = req.body || {};
-
-      if (!username || !password) {
-        return res.status(400).json({
-          success: false,
-          code: "MISSING_CREDENTIALS",
-          message:
-            "اسم المستخدم وكلمة المرور مطلوبان"
-        });
-      }
-
-      const result =
-        await authenticateUser({
-          username,
-          password,
-          ipAddress: getClientIp(req),
-          userAgent:
-            req.headers["user-agent"] || null,
-          deviceName:
-            deviceName || null
-        });
-
-      if (!result.success) {
-        await createAuditLog({
-          action: "login_failed",
-          module: "auth",
-          ipAddress: getClientIp(req),
-          userAgent:
-            req.headers["user-agent"] || null,
-          details: {
-            username,
-            code: result.code
-          }
-        });
-
-        return res.status(401).json(result);
-      }
-
-      await createAuditLog({
-        userId: result.user.id,
-        action: "login_success",
-        module: "auth",
-        ipAddress: getClientIp(req),
-        userAgent:
-          req.headers["user-agent"] || null,
-        details: {
-          sessionId: result.session.id,
-          deviceName:
-            deviceName || null
-        }
-      });
-
-      return res.json({
-        success: true,
-        authenticated: true,
-        platform: "EZ MEDIA",
-        version: "11.0.0",
-        token: result.token,
-        session: result.session,
-        user: result.user
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| التحقق من الجلسة الحالية
+| قائمة السجل الأمني
 |--------------------------------------------------------------------------
 */
 
 router.get(
-  "/me",
+  "/",
   authenticateRequest,
+  requirePermission("users.view"),
   async (req, res, next) => {
     try {
-      const permissions =
-        await getRolePermissions(
-          req.user.role
+      const {
+        limit = 100,
+        offset = 0,
+        action,
+        module,
+        userId,
+        resourceType,
+        search,
+        from,
+        to
+      } = req.query;
+
+      const conditions = [];
+      const values = [];
+      let index = 1;
+
+      if (action) {
+        conditions.push(
+          `a.action = $${index}`
         );
+        values.push(action);
+        index++;
+      }
+
+      if (module) {
+        conditions.push(
+          `a.module = $${index}`
+        );
+        values.push(module);
+        index++;
+      }
+
+      if (userId) {
+        conditions.push(
+          `a.user_id = $${index}`
+        );
+        values.push(userId);
+        index++;
+      }
+
+      if (resourceType) {
+        conditions.push(
+          `a.resource_type = $${index}`
+        );
+        values.push(resourceType);
+        index++;
+      }
+
+      if (search) {
+        conditions.push(`
+          (
+            a.action ILIKE $${index}
+            OR a.module ILIKE $${index}
+            OR a.resource_type ILIKE $${index}
+            OR u.full_name ILIKE $${index}
+            OR u.username ILIKE $${index}
+          )
+        `);
+
+        values.push(`%${search}%`);
+        index++;
+      }
+
+      if (from) {
+        conditions.push(
+          `a.created_at >= $${index}`
+        );
+        values.push(from);
+        index++;
+      }
+
+      if (to) {
+        conditions.push(
+          `a.created_at <= $${index}`
+        );
+        values.push(to);
+        index++;
+      }
+
+      const safeLimit = Math.min(
+        Math.max(Number(limit) || 100, 1),
+        500
+      );
+
+      const safeOffset = Math.max(
+        Number(offset) || 0,
+        0
+      );
+
+      values.push(safeLimit);
+      const limitIndex = index;
+      index++;
+
+      values.push(safeOffset);
+      const offsetIndex = index;
+
+      const where =
+        conditions.length > 0
+          ? `WHERE ${conditions.join(" AND ")}`
+          : "";
+
+      const result = await query(
+        `
+          SELECT
+            a.id,
+            a.user_id,
+            a.action,
+            a.module,
+            a.resource_type,
+            a.resource_id,
+            a.ip_address,
+            a.user_agent,
+            a.details,
+            a.created_at,
+
+            u.full_name,
+            u.username,
+            u.role
+
+          FROM admin_audit_logs a
+
+          LEFT JOIN admin_users u
+            ON u.id = a.user_id
+
+          ${where}
+
+          ORDER BY a.created_at DESC
+
+          LIMIT $${limitIndex}
+          OFFSET $${offsetIndex}
+        `,
+        values
+      );
 
       res.json({
         success: true,
-        authenticated: true,
-        user: req.user,
-        session: req.auth.session,
-        permissions
+        count: result.rows.length,
+        logs: result.rows.map(
+          normalizeAuditLog
+        )
       });
     } catch (error) {
       next(error);
@@ -158,36 +175,74 @@ router.get(
 
 /*
 |--------------------------------------------------------------------------
-| تسجيل الخروج
+| سجل مستخدم محدد
 |--------------------------------------------------------------------------
 */
 
-router.post(
-  "/logout",
+router.get(
+  "/user/:userId",
   authenticateRequest,
+  requirePermission("users.view"),
   async (req, res, next) => {
     try {
-      const token = getToken(req);
+      const {
+        limit = 100,
+        offset = 0
+      } = req.query;
 
-      await revokeSession(token);
+      const safeLimit = Math.min(
+        Math.max(Number(limit) || 100, 1),
+        500
+      );
 
-      await createAuditLog({
-        userId: req.user.id,
-        action: "logout",
-        module: "auth",
-        ipAddress: getClientIp(req),
-        userAgent:
-          req.headers["user-agent"] || null,
-        details: {
-          sessionId:
-            req.auth.session.id
-        }
-      });
+      const safeOffset = Math.max(
+        Number(offset) || 0,
+        0
+      );
+
+      const result = await query(
+        `
+          SELECT
+            a.id,
+            a.user_id,
+            a.action,
+            a.module,
+            a.resource_type,
+            a.resource_id,
+            a.ip_address,
+            a.user_agent,
+            a.details,
+            a.created_at,
+
+            u.full_name,
+            u.username,
+            u.role
+
+          FROM admin_audit_logs a
+
+          LEFT JOIN admin_users u
+            ON u.id = a.user_id
+
+          WHERE a.user_id = $1
+
+          ORDER BY a.created_at DESC
+
+          LIMIT $2
+          OFFSET $3
+        `,
+        [
+          req.params.userId,
+          safeLimit,
+          safeOffset
+        ]
+      );
 
       res.json({
         success: true,
-        authenticated: false,
-        message: "تم تسجيل الخروج بنجاح"
+        count: result.rows.length,
+        logs: result.rows.map(
+          normalizeAuditLog
+        )
       });
     } catch (error) {
       next(error);
@@ -197,37 +252,291 @@ router.post(
 
 /*
 |--------------------------------------------------------------------------
-| تسجيل الخروج من جميع الأجهزة
+| سجل عملية محددة
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/:id",
+  authenticateRequest,
+  requirePermission("users.view"),
+  async (req, res, next) => {
+    try {
+      const result = await query(
+        `
+          SELECT
+            a.id,
+            a.user_id,
+            a.action,
+            a.module,
+            a.resource_type,
+            a.resource_id,
+            a.ip_address,
+            a.user_agent,
+            a.details,
+            a.created_at,
+
+            u.full_name,
+            u.username,
+            u.role
+
+          FROM admin_audit_logs a
+
+          LEFT JOIN admin_users u
+            ON u.id = a.user_id
+
+          WHERE a.id = $1
+
+          LIMIT 1
+        `,
+        [req.params.id]
+      );
+
+      if (!result.rows[0]) {
+        return res.status(404).json({
+          success: false,
+          code: "AUDIT_LOG_NOT_FOUND",
+          message:
+            "السجل المطلوب غير موجود"
+        });
+      }
+
+      res.json({
+        success: true,
+        log: normalizeAuditLog(
+          result.rows[0]
+        )
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| إحصائيات السجل الأمني
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/statistics/summary",
+  authenticateRequest,
+  requirePermission("analytics.view"),
+  async (req, res, next) => {
+    try {
+      const [
+        totalResult,
+        todayResult,
+        actionResult,
+        moduleResult,
+        userResult,
+        failedLoginResult
+      ] = await Promise.all([
+        query(`
+          SELECT COUNT(*)::INTEGER AS total
+          FROM admin_audit_logs
+        `),
+
+        query(`
+          SELECT COUNT(*)::INTEGER AS total
+          FROM admin_audit_logs
+          WHERE created_at >= CURRENT_DATE
+        `),
+
+        query(`
+          SELECT
+            action,
+            COUNT(*)::INTEGER AS count
+          FROM admin_audit_logs
+          GROUP BY action
+          ORDER BY count DESC
+          LIMIT 20
+        `),
+
+        query(`
+          SELECT
+            module,
+            COUNT(*)::INTEGER AS count
+          FROM admin_audit_logs
+          WHERE module IS NOT NULL
+          GROUP BY module
+          ORDER BY count DESC
+          LIMIT 20
+        `),
+
+        query(`
+          SELECT
+            u.id,
+            u.full_name,
+            u.username,
+            COUNT(a.id)::INTEGER AS count
+          FROM admin_users u
+          INNER JOIN admin_audit_logs a
+            ON a.user_id = u.id
+          GROUP BY
+            u.id,
+            u.full_name,
+            u.username
+          ORDER BY count DESC
+          LIMIT 20
+        `),
+
+        query(`
+          SELECT
+            COUNT(*)::INTEGER AS total
+          FROM admin_audit_logs
+          WHERE action = 'login_failed'
+        `)
+      ]);
+
+      res.json({
+        success: true,
+        statistics: {
+          total:
+            totalResult.rows[0].total,
+
+          today:
+            todayResult.rows[0].total,
+
+          failedLogins:
+            failedLoginResult.rows[0].total,
+
+          byAction:
+            actionResult.rows,
+
+          byModule:
+            moduleResult.rows,
+
+          byUser:
+            userResult.rows
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| تسجيل حدث إداري مخصص
+|--------------------------------------------------------------------------
+|
+| هذا المسار لا يسمح للمستخدم بإرسال user_id
+| أو تزوير هوية المنفذ.
 |--------------------------------------------------------------------------
 */
 
 router.post(
-  "/logout-all",
+  "/event",
   authenticateRequest,
   async (req, res, next) => {
     try {
-      const count =
-        await revokeAllUserSessions(
-          req.user.id
-        );
+      const {
+        action,
+        module = null,
+        resourceType = null,
+        resourceId = null,
+        details = {}
+      } = req.body || {};
 
-      await createAuditLog({
-        userId: req.user.id,
-        action: "logout_all",
-        module: "auth",
-        ipAddress: getClientIp(req),
-        userAgent:
+      if (!action) {
+        return res.status(400).json({
+          success: false,
+          code: "ACTION_REQUIRED",
+          message:
+            "نوع العملية مطلوب"
+        });
+      }
+
+      const result = await query(
+        `
+          INSERT INTO admin_audit_logs (
+            user_id,
+            action,
+            module,
+            resource_type,
+            resource_id,
+            ip_address,
+            user_agent,
+            details
+          )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8
+          )
+          RETURNING *
+        `,
+        [
+          req.user.id,
+          action,
+          module,
+          resourceType,
+          resourceId,
+          getClientIp(req),
           req.headers["user-agent"] || null,
-        details: {
-          revokedSessions: count
-        }
+          JSON.stringify(details)
+        ]
+      );
+
+      res.status(201).json({
+        success: true,
+        log: normalizeAuditLog(
+          result.rows[0]
+        )
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| حذف السجلات القديمة
+|--------------------------------------------------------------------------
+|
+| هذه العملية للمدير الأعلى فقط.
+| الافتراضي: الاحتفاظ بالسجلات لمدة سنة.
+|--------------------------------------------------------------------------
+*/
+
+router.delete(
+  "/maintenance/old",
+  authenticateRequest,
+  requirePermission("users.manage"),
+  async (req, res, next) => {
+    try {
+      const months = Math.min(
+        Math.max(
+          Number(req.body?.months) || 12,
+          1
+        ),
+        120
+      );
+
+      const result = await query(
+        `
+          DELETE FROM admin_audit_logs
+          WHERE created_at <
+            NOW() - ($1 || ' months')::INTERVAL
+        `,
+        [months]
+      );
 
       res.json({
         success: true,
         message:
-          "تم إنهاء جميع جلسات المستخدم",
-        revokedSessions: count
+          "تم تنظيف السجلات القديمة",
+        deleted: result.rowCount,
+        retentionMonths: months
       });
     } catch (error) {
       next(error);
@@ -237,426 +546,41 @@ router.post(
 
 /*
 |--------------------------------------------------------------------------
-| إنشاء مستخدم
+| تحويل السجل إلى استجابة آمنة
 |--------------------------------------------------------------------------
 */
 
-router.post(
-  "/users",
-  authenticateRequest,
-  requirePermission("users.manage"),
-  async (req, res, next) => {
-    try {
-      const {
-        fullName,
-        username,
-        email,
-        password,
-        role,
-        phone,
-        avatarUrl,
-        status,
-        metadata
-      } = req.body || {};
+function normalizeAuditLog(row) {
+  return {
+    id: row.id,
 
-      if (
-        !fullName ||
-        !username ||
-        !password
-      ) {
-        return res.status(400).json({
-          success: false,
-          code: "MISSING_USER_FIELDS",
-          message:
-            "الاسم واسم المستخدم وكلمة المرور مطلوبة"
-        });
-      }
-
-      if (
-        role === "super_admin" &&
-        req.user.role !== "super_admin"
-      ) {
-        return res.status(403).json({
-          success: false,
-          code: "SUPER_ADMIN_REQUIRED",
-          message:
-            "إنشاء مدير أعلى متاح للمدير الأعلى فقط"
-        });
-      }
-
-      const user =
-        await createUser({
-          fullName,
-          username,
-          email,
-          password,
-          role,
-          phone,
-          avatarUrl,
-          status,
-          metadata
-        });
-
-      await createAuditLog({
-        userId: req.user.id,
-        action: "user_created",
-        module: "users",
-        resourceType: "admin_user",
-        resourceId: user.id,
-        ipAddress: getClientIp(req),
-        userAgent:
-          req.headers["user-agent"] || null,
-        details: {
-          username: user.username,
-          role: user.role
+    user: row.user_id
+      ? {
+          id: row.user_id,
+          fullName: row.full_name,
+          username: row.username,
+          role: row.role
         }
-      });
+      : null,
 
-      res.status(201).json({
-        success: true,
-        user
-      });
-    } catch (error) {
-      if (error.code === "23505") {
-        return res.status(409).json({
-          success: false,
-          code: "USER_ALREADY_EXISTS",
-          message:
-            "اسم المستخدم أو البريد الإلكتروني مستخدم مسبقًا"
-        });
-      }
+    action: row.action,
 
-      next(error);
-    }
-  }
-);
+    module: row.module,
 
-/*
-|--------------------------------------------------------------------------
-| قائمة المستخدمين
-|--------------------------------------------------------------------------
-*/
+    resource: {
+      type: row.resource_type,
+      id: row.resource_id
+    },
 
-router.get(
-  "/users",
-  authenticateRequest,
-  requirePermission("users.view"),
-  async (req, res, next) => {
-    try {
-      const {
-        limit,
-        offset,
-        search,
-        role,
-        status
-      } = req.query;
+    ipAddress: row.ip_address,
 
-      const users =
-        await listUsers({
-          limit,
-          offset,
-          search,
-          role,
-          status
-        });
+    userAgent: row.user_agent,
 
-      res.json({
-        success: true,
-        count: users.length,
-        users
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    details:
+      row.details || {},
 
-/*
-|--------------------------------------------------------------------------
-| مستخدم محدد
-|--------------------------------------------------------------------------
-*/
-
-router.get(
-  "/users/:id",
-  authenticateRequest,
-  requirePermission("users.view"),
-  async (req, res, next) => {
-    try {
-      const user =
-        await findUserById(
-          req.params.id
-        );
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          code: "USER_NOT_FOUND",
-          message: "المستخدم غير موجود"
-        });
-      }
-
-      const safeUser = {
-        id: user.id,
-        fullName: user.full_name,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        avatarUrl: user.avatar_url,
-        phone: user.phone,
-        lastLoginAt:
-          user.last_login_at,
-        createdAt:
-          user.created_at,
-        updatedAt:
-          user.updated_at
-      };
-
-      res.json({
-        success: true,
-        user: safeUser
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| تعديل مستخدم
-|--------------------------------------------------------------------------
-*/
-
-router.patch(
-  "/users/:id",
-  authenticateRequest,
-  requirePermission("users.manage"),
-  async (req, res, next) => {
-    try {
-      const targetUser =
-        await findUserById(
-          req.params.id
-        );
-
-      if (!targetUser) {
-        return res.status(404).json({
-          success: false,
-          code: "USER_NOT_FOUND",
-          message: "المستخدم غير موجود"
-        });
-      }
-
-      if (
-        targetUser.role === "super_admin" &&
-        req.user.role !== "super_admin"
-      ) {
-        return res.status(403).json({
-          success: false,
-          code: "SUPER_ADMIN_REQUIRED",
-          message:
-            "لا يمكن تعديل المدير الأعلى إلا بواسطة مدير أعلى"
-        });
-      }
-
-      if (
-        req.body.role === "super_admin" &&
-        req.user.role !== "super_admin"
-      ) {
-        return res.status(403).json({
-          success: false,
-          code: "SUPER_ADMIN_REQUIRED",
-          message:
-            "لا يمكن منح صلاحية المدير الأعلى"
-        });
-      }
-
-      const user =
-        await updateUser(
-          req.params.id,
-          req.body || {}
-        );
-
-      await createAuditLog({
-        userId: req.user.id,
-        action: "user_updated",
-        module: "users",
-        resourceType: "admin_user",
-        resourceId: user.id,
-        ipAddress: getClientIp(req),
-        userAgent:
-          req.headers["user-agent"] || null,
-        details: {
-          updatedFields:
-            Object.keys(req.body || {})
-        }
-      });
-
-      res.json({
-        success: true,
-        user
-      });
-    } catch (error) {
-      if (error.code === "23505") {
-        return res.status(409).json({
-          success: false,
-          code: "USER_ALREADY_EXISTS",
-          message:
-            "اسم المستخدم أو البريد الإلكتروني مستخدم مسبقًا"
-        });
-      }
-
-      next(error);
-    }
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| تغيير كلمة مرور المستخدم الحالي
-|--------------------------------------------------------------------------
-*/
-
-router.post(
-  "/change-password",
-  authenticateRequest,
-  async (req, res, next) => {
-    try {
-      const {
-        currentPassword,
-        newPassword
-      } = req.body || {};
-
-      if (
-        !currentPassword ||
-        !newPassword
-      ) {
-        return res.status(400).json({
-          success: false,
-          code: "MISSING_PASSWORDS",
-          message:
-            "كلمة المرور الحالية والجديدة مطلوبة"
-        });
-      }
-
-      const result =
-        await changePassword(
-          req.user.id,
-          currentPassword,
-          newPassword
-        );
-
-      if (!result.success) {
-        return res.status(400).json(result);
-      }
-
-      await createAuditLog({
-        userId: req.user.id,
-        action: "password_changed",
-        module: "auth",
-        ipAddress: getClientIp(req),
-        userAgent:
-          req.headers["user-agent"] || null
-      });
-
-      res.json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| إعادة التحقق من الجلسة
-|--------------------------------------------------------------------------
-*/
-
-router.get(
-  "/session",
-  authenticateRequest,
-  async (req, res, next) => {
-    try {
-      const token = getToken(req);
-
-      const session =
-        await getSessionByToken(token);
-
-      if (!session) {
-        return res.status(401).json({
-          success: false,
-          authenticated: false,
-          code: "INVALID_SESSION",
-          message:
-            "جلسة الدخول غير صالحة"
-        });
-      }
-
-      res.json({
-        success: true,
-        authenticated: true,
-        user: session.user,
-        session: session.session
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| إنهاء جلسات مستخدم آخر
-|--------------------------------------------------------------------------
-*/
-
-router.post(
-  "/users/:id/logout-all",
-  authenticateRequest,
-  requireSuperAdmin,
-  async (req, res, next) => {
-    try {
-      const targetUser =
-        await findUserById(
-          req.params.id
-        );
-
-      if (!targetUser) {
-        return res.status(404).json({
-          success: false,
-          code: "USER_NOT_FOUND",
-          message: "المستخدم غير موجود"
-        });
-      }
-
-      const count =
-        await revokeAllUserSessions(
-          req.params.id
-        );
-
-      await createAuditLog({
-        userId: req.user.id,
-        action: "user_sessions_revoked",
-        module: "users",
-        resourceType: "admin_user",
-        resourceId: req.params.id,
-        ipAddress: getClientIp(req),
-        userAgent:
-          req.headers["user-agent"] || null,
-        details: {
-          revokedSessions: count
-        }
-      });
-
-      res.json({
-        success: true,
-        revokedSessions: count
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    createdAt: row.created_at
+  };
+}
 
 module.exports = router;
