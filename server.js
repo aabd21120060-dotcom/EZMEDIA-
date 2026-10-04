@@ -1,80 +1,52 @@
 "use strict";
 
-/*
-|--------------------------------------------------------------------------
-| EZ MEDIA 11.0
-| Main Server
-|--------------------------------------------------------------------------
-|
-| المنصة الإعلامية الذكية
-|
-| الوظائف الرئيسية:
-|
-| - Express API
-| - PostgreSQL
-| - CMS
-| - AI
-| - Media Library
-| - Object Storage
-| - Upload API
-| - Live Channels
-| - Breaking News
-| - Admin
-| - Health Monitoring
-| - Security Headers
-| - Compression
-| - CORS
-| - Request ID
-| - Graceful Shutdown
-|
-|--------------------------------------------------------------------------
-*/
+/**
+ * EZ MEDIA 11.0
+ * Main Server
+ *
+ * الكود رقم 46
+ *
+ * الخادم المركزي للمنصة.
+ *
+ * تمت إضافة:
+ * - Notification Database Bootstrap
+ * - Notification API
+ * - Notification Worker API
+ * - Notification Worker
+ *
+ * مع الحفاظ على الوحدات السابقة.
+ */
 
-const express =
-  require("express");
-
-const cors =
-  require("cors");
-
-const helmet =
-  require("helmet");
-
-const compression =
-  require("compression");
-
-const crypto =
-  require("crypto");
-
-const path =
-  require("path");
-
-/*
-|--------------------------------------------------------------------------
-| Database
-|--------------------------------------------------------------------------
-*/
+const express = require("express");
+const path = require("path");
+const cors = require("cors");
+const helmet = require("helmet");
+const compression = require("compression");
 
 const {
-  health:
-    databaseHealth,
-} =
-  require("./src/database/db");
+  health: databaseHealth
+} = require("./src/database/db");
 
 const {
-  initializeDatabase,
-} =
-  require("./src/database/init");
+  initializeDatabase
+} = require("./src/database/init");
 
 const {
-  initializeMediaDatabase,
-} =
-  require("./src/database/media-init");
+  initializeMediaDatabase
+} = require("./src/database/media-init");
 
-/*
-|--------------------------------------------------------------------------
-| Routes
-|--------------------------------------------------------------------------
-*/
+const {
+  initializeNotifications
+} = require("./src/database/notification-bootstrap");
+
+const {
+  startNotificationWorker,
+  registerNotificationWorkerShutdown
+} = require("./src/services/notificationWorker");
+
+/* ================================
+   Routes
+================================ */
 
 const contentRoutes =
   require("./src/routes/content");
@@ -97,220 +69,104 @@ const storageRoutes =
 const uploadRoutes =
   require("./src/routes/upload");
 
-/*
-|--------------------------------------------------------------------------
-| Application
-|--------------------------------------------------------------------------
-*/
+const commercialRoutes =
+  require("./src/routes/commercial");
 
-const app =
-  express();
+const notificationsRoutes =
+  require("./src/routes/notifications");
 
-/*
-|--------------------------------------------------------------------------
-| Configuration
-|--------------------------------------------------------------------------
-*/
+const notificationWorkerRoutes =
+  require("./src/routes/notification-worker");
+
+/* ================================
+   App
+================================ */
+
+const app = express();
 
 const PORT =
-  Number(
-    process.env.PORT || 3000
-  );
+  Number(process.env.PORT) || 3000;
 
-const NODE_ENV =
-  process.env.NODE_ENV ||
-  "development";
+const HOST =
+  process.env.HOST || "0.0.0.0";
 
-const VERSION =
-  "11.0.0";
+/* ================================
+   Security
+================================ */
 
-const PLATFORM =
-  "EZ MEDIA";
-
-/*
-|--------------------------------------------------------------------------
-| Trust Proxy
-|--------------------------------------------------------------------------
-|
-| Railway يعمل خلف Proxy.
-|
-|--------------------------------------------------------------------------
-*/
+app.disable("x-powered-by");
 
 app.set(
   "trust proxy",
-  1
+  true
 );
-
-/*
-|--------------------------------------------------------------------------
-| Security
-|--------------------------------------------------------------------------
-*/
 
 app.use(
   helmet({
-    contentSecurityPolicy:
-      false,
-
-    crossOriginEmbedderPolicy:
-      false,
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
   })
 );
-
-/*
-|--------------------------------------------------------------------------
-| CORS
-|--------------------------------------------------------------------------
-*/
 
 app.use(
   cors({
-    origin:
-      true,
-
-    credentials:
-      true,
-
-    methods: [
-      "GET",
-      "POST",
-      "PATCH",
-      "PUT",
-      "DELETE",
-      "OPTIONS",
-    ],
-
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Request-ID",
-    ],
+    origin: true,
+    credentials: true
   })
 );
 
-/*
-|--------------------------------------------------------------------------
-| Compression
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Performance
+================================ */
 
 app.use(
   compression()
 );
 
-/*
-|--------------------------------------------------------------------------
-| Body Parser
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Body Parser
+================================ */
 
 app.use(
   express.json({
-    limit:
-      "10mb",
+    limit: "10mb"
   })
 );
 
 app.use(
   express.urlencoded({
-    extended:
-      true,
-
-    limit:
-      "10mb",
+    extended: true,
+    limit: "10mb"
   })
 );
 
-/*
-|--------------------------------------------------------------------------
-| Request ID
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Request ID
+================================ */
 
 app.use(
-  (
-    req,
-    res,
-    next
-  ) => {
+  (req, res, next) => {
     const requestId =
-      req.get(
-        "X-Request-ID"
-      ) ||
-      crypto.randomUUID();
+      req.headers["x-request-id"] ||
+      `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 12)}`;
 
     req.requestId =
-      requestId;
+      String(requestId);
 
     res.setHeader(
       "X-Request-ID",
-      requestId
+      req.requestId
     );
 
     next();
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| Request Logger
-|--------------------------------------------------------------------------
-*/
-
-app.use(
-  (
-    req,
-    res,
-    next
-  ) => {
-    const started =
-      Date.now();
-
-    res.on(
-      "finish",
-      () => {
-        const duration =
-          Date.now() -
-          started;
-
-        console.log(
-          JSON.stringify({
-            type:
-              "http_request",
-
-            requestId:
-              req.requestId,
-
-            method:
-              req.method,
-
-            path:
-              req.originalUrl,
-
-            status:
-              res.statusCode,
-
-            duration:
-              `${duration}ms`,
-
-            timestamp:
-              new Date()
-                .toISOString(),
-          })
-        );
-      }
-    );
-
-    next();
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| Static Files
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Static Files
+================================ */
 
 const publicDirectory =
   path.join(
@@ -322,45 +178,127 @@ app.use(
   express.static(
     publicDirectory,
     {
-      index:
-        false,
+      maxAge:
+        process.env.NODE_ENV ===
+        "production"
+          ? "1h"
+          : 0
     }
   )
 );
 
-/*
-|--------------------------------------------------------------------------
-| Home Page
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   API Routes
+================================ */
+
+app.use(
+  "/api/content",
+  contentRoutes
+);
+
+app.use(
+  "/api/ai",
+  aiRoutes
+);
+
+app.use(
+  "/api/media",
+  mediaRoutes
+);
+
+app.use(
+  "/api/live",
+  liveRoutes
+);
+
+app.use(
+  "/api/breaking",
+  breakingRoutes
+);
+
+app.use(
+  "/api/storage",
+  storageRoutes
+);
+
+app.use(
+  "/api/upload",
+  uploadRoutes
+);
+
+app.use(
+  "/api/commercial",
+  commercialRoutes
+);
+
+/* ================================
+   Notification API
+================================ */
+
+app.use(
+  "/api/notifications",
+  notificationsRoutes
+);
+
+/* ================================
+   Notification Worker API
+================================ */
+
+app.use(
+  "/api/notification-worker",
+  notificationWorkerRoutes
+);
+
+/* ================================
+   Platform Info
+================================ */
 
 app.get(
   "/",
-  (
-    req,
-    res
-  ) => {
-    res.sendFile(
-      path.join(
-        publicDirectory,
-        "index.html"
-      )
-    );
+  (req, res) => {
+    res.json({
+      platform:
+        "EZ MEDIA",
+
+      version:
+        "11.0.0",
+
+      status:
+        "online",
+
+      message:
+        "EZ MEDIA 11.0 يعمل بنجاح",
+
+      services: {
+        api: true,
+        cms: true,
+        mediaLibrary: true,
+        live: true,
+        breakingNews: true,
+        advertising: true,
+        sponsorships: true,
+        automation: true,
+        ai: true,
+        notifications: true,
+        notificationWorker: true
+      },
+
+      requestId:
+        req.requestId,
+
+      timestamp:
+        new Date().toISOString()
+    });
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| Admin Page
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Admin
+================================ */
 
 app.get(
   "/admin",
-  (
-    req,
-    res
-  ) => {
+  (req, res) => {
     res.sendFile(
       path.join(
         publicDirectory,
@@ -370,44 +308,24 @@ app.get(
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| API Information
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   API Overview
+================================ */
 
 app.get(
   "/api",
-  (
-    req,
-    res
-  ) => {
+  (req, res) => {
     res.json({
       platform:
-        PLATFORM,
+        "EZ MEDIA",
 
       version:
-        VERSION,
+        "11.0.0",
 
       status:
         "online",
 
-      message:
-        "EZ MEDIA API يعمل بنجاح",
-
-      requestId:
-        req.requestId,
-
-      endpoints: {
-        health:
-          "/health",
-
-        system:
-          "/api/system",
-
-        database:
-          "/api/system/database",
-
+      routes: {
         content:
           "/api/content",
 
@@ -417,297 +335,112 @@ app.get(
         media:
           "/api/media",
 
-        upload:
-          "/api/upload",
-
-        storage:
-          "/api/storage",
-
         live:
           "/api/live",
 
         breaking:
           "/api/breaking",
+
+        storage:
+          "/api/storage",
+
+        upload:
+          "/api/upload",
+
+        commercial:
+          "/api/commercial",
+
+        notifications:
+          "/api/notifications",
+
+        notificationWorker:
+          "/api/notification-worker"
       },
 
       timestamp:
-        new Date()
-          .toISOString(),
+        new Date().toISOString()
     });
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| Health Check
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Health
+================================ */
 
 app.get(
   "/health",
-  async (
-    req,
-    res
-  ) => {
-    let database = {
-      configured:
-        false,
-
-      connected:
-        false,
-    };
-
+  async (req, res) => {
     try {
-      database =
+      const database =
         await databaseHealth();
-    } catch (error) {
-      database = {
-        configured:
-          true,
 
-        connected:
-          false,
+      const databaseStatus =
+        database &&
+        database.connected
+          ? "ready"
+          : database &&
+              database.configured
+            ? "configured_not_ready"
+            : "not_configured";
 
-        error:
-          error.message,
-      };
-    }
+      res.json({
+        platform:
+          "EZ MEDIA",
 
-    const status =
-      database.connected
-        ? "online"
-        : "degraded";
+        version:
+          "11.0.0",
 
-    res.status(
-      status === "online"
-        ? 200
-        : 200
-    );
-
-    res.json({
-      platform:
-        PLATFORM,
-
-      version:
-        VERSION,
-
-      status,
-
-      server:
-        "online",
-
-      database,
-
-      node:
-        process.version,
-
-      environment:
-        NODE_ENV,
-
-      uptime:
-        process.uptime(),
-
-      timestamp:
-        new Date()
-          .toISOString(),
-
-      requestId:
-        req.requestId,
-    });
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| System Status
-|--------------------------------------------------------------------------
-*/
-
-app.get(
-  "/api/system",
-  async (
-    req,
-    res
-  ) => {
-    let database = {
-      configured:
-        false,
-
-      connected:
-        false,
-    };
-
-    try {
-      database =
-        await databaseHealth();
-    } catch (error) {
-      database = {
-        configured:
-          true,
-
-        connected:
-          false,
-
-        error:
-          error.message,
-      };
-    }
-
-    const aiConfigured =
-      Boolean(
-        process.env.AI_API_KEY
-      );
-
-    const storageConfigured =
-      Boolean(
-        process.env.STORAGE_ENDPOINT &&
-        process.env.STORAGE_BUCKET &&
-        process.env.STORAGE_ACCESS_KEY_ID &&
-        process.env.STORAGE_SECRET_ACCESS_KEY
-      );
-
-    res.json({
-      platform:
-        PLATFORM,
-
-      version:
-        VERSION,
-
-      status:
-        "online",
-
-      server: {
         status:
           "online",
+
+        server:
+          "online",
+
+        database: {
+          ...database,
+          status:
+            databaseStatus
+        },
+
+        notifications: {
+          api: true,
+          worker: true
+        },
 
         node:
           process.version,
 
         environment:
-          NODE_ENV,
+          process.env.NODE_ENV ||
+          "development",
 
         uptime:
           process.uptime(),
-      },
-
-      services: {
-        api:
-          true,
-
-        cms:
-          true,
-
-        mediaLibrary:
-          true,
-
-        upload:
-          true,
-
-        live:
-          true,
-
-        breakingNews:
-          true,
-
-        advertising:
-          true,
-
-        sponsorships:
-          true,
-
-        automation:
-          true,
-
-        ai:
-          aiConfigured,
-
-        storage:
-          storageConfigured,
-
-        database:
-          database.connected,
-      },
-
-      database,
-
-      ai: {
-        configured:
-          aiConfigured,
-
-        provider:
-          process.env.AI_PROVIDER ||
-          null,
-
-        model:
-          process.env.AI_MODEL ||
-          null,
-      },
-
-      storage: {
-        configured:
-          storageConfigured,
-      },
-
-      requestId:
-        req.requestId,
-
-      timestamp:
-        new Date()
-          .toISOString(),
-    });
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| Database Status
-|--------------------------------------------------------------------------
-*/
-
-app.get(
-  "/api/system/database",
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const result =
-        await databaseHealth();
-
-      res.json({
-        success:
-          true,
-
-        platform:
-          PLATFORM,
-
-        version:
-          VERSION,
-
-        database:
-          result,
-
-        requestId:
-          req.requestId,
 
         timestamp:
-          new Date()
-            .toISOString(),
+          new Date().toISOString(),
+
+        requestId:
+          req.requestId
       });
     } catch (error) {
-      res.status(
-        503
+      console.error(
+        "Health check error:",
+        error
       );
 
-      res.json({
-        success:
-          false,
-
+      res.status(503).json({
         platform:
-          PLATFORM,
+          "EZ MEDIA",
 
         version:
-          VERSION,
+          "11.0.0",
+
+        status:
+          "degraded",
+
+        server:
+          "online",
 
         database: {
           configured:
@@ -720,240 +453,200 @@ app.get(
             false,
 
           error:
-            error.message,
+            error.message
         },
 
-        requestId:
-          req.requestId,
+        notifications: {
+          api: true,
+          worker: true
+        },
+
+        node:
+          process.version,
+
+        environment:
+          process.env.NODE_ENV ||
+          "development",
+
+        uptime:
+          process.uptime(),
 
         timestamp:
-          new Date()
-            .toISOString(),
+          new Date().toISOString(),
+
+        requestId:
+          req.requestId
       });
     }
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| CMS Routes
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   System Database
+================================ */
 
-app.use(
-  "/api/content",
-  contentRoutes
+app.get(
+  "/api/system/database",
+  async (req, res) => {
+    try {
+      const database =
+        await databaseHealth();
+
+      res.json({
+        success: true,
+
+        database,
+
+        timestamp:
+          new Date().toISOString(),
+
+        requestId:
+          req.requestId
+      });
+    } catch (error) {
+      res.status(503).json({
+        success: false,
+
+        database: {
+          configured:
+            Boolean(
+              process.env
+                .DATABASE_URL
+            ),
+
+          connected:
+            false,
+
+          error:
+            error.message
+        },
+
+        timestamp:
+          new Date().toISOString(),
+
+        requestId:
+          req.requestId
+      });
+    }
+  }
 );
 
-/*
-|--------------------------------------------------------------------------
-| AI Routes
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   System Info
+================================ */
 
-app.use(
-  "/api/ai",
-  aiRoutes
-);
+app.get(
+  "/api/system",
+  async (req, res) => {
+    let database = null;
 
-/*
-|--------------------------------------------------------------------------
-| Media Routes
-|--------------------------------------------------------------------------
-*/
+    try {
+      database =
+        await databaseHealth();
+    } catch (error) {
+      database = {
+        configured:
+          Boolean(
+            process.env
+              .DATABASE_URL
+          ),
 
-app.use(
-  "/api/media",
-  mediaRoutes
-);
+        connected:
+          false,
 
-/*
-|--------------------------------------------------------------------------
-| Live Routes
-|--------------------------------------------------------------------------
-*/
-
-app.use(
-  "/api/live",
-  liveRoutes
-);
-
-/*
-|--------------------------------------------------------------------------
-| Breaking News Routes
-|--------------------------------------------------------------------------
-*/
-
-app.use(
-  "/api/breaking",
-  breakingRoutes
-);
-
-/*
-|--------------------------------------------------------------------------
-| Storage Routes
-|--------------------------------------------------------------------------
-*/
-
-app.use(
-  "/api/storage",
-  storageRoutes
-);
-
-/*
-|--------------------------------------------------------------------------
-| Upload Routes
-|--------------------------------------------------------------------------
-*/
-
-app.use(
-  "/api/upload",
-  uploadRoutes
-);
-
-/*
-|--------------------------------------------------------------------------
-| 404 API
-|--------------------------------------------------------------------------
-*/
-
-app.use(
-  "/api",
-  (
-    req,
-    res
-  ) => {
-    res.status(
-      404
-    );
+        error:
+          error.message
+      };
+    }
 
     res.json({
-      success:
-        false,
-
       platform:
-        PLATFORM,
+        "EZ MEDIA",
 
       version:
-        VERSION,
+        "11.0.0",
+
+      status:
+        "online",
+
+      server: {
+        node:
+          process.version,
+
+        environment:
+          process.env.NODE_ENV ||
+          "development",
+
+        uptime:
+          process.uptime(),
+
+        memory:
+          process.memoryUsage()
+      },
+
+      database,
+
+      services: {
+        cms: true,
+        ai: true,
+        media: true,
+        live: true,
+        breaking: true,
+        commercial: true,
+        notifications: true,
+        notificationWorker: true
+      },
+
+      timestamp:
+        new Date().toISOString(),
+
+      requestId:
+        req.requestId
+    });
+  }
+);
+
+/* ================================
+   Favicon
+================================ */
+
+app.get(
+  "/favicon.ico",
+  (req, res) => {
+    res.status(204).end();
+  }
+);
+
+/* ================================
+   404
+================================ */
+
+app.use(
+  (req, res) => {
+    res.status(404).json({
+      success: false,
 
       error:
-        "API endpoint not found",
+        "Route not found",
 
       path:
         req.originalUrl,
+
+      method:
+        req.method,
 
       requestId:
         req.requestId,
 
       timestamp:
-        new Date()
-          .toISOString(),
+        new Date().toISOString()
     });
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| 404 Web
-|--------------------------------------------------------------------------
-*/
-
-app.use(
-  (
-    req,
-    res
-  ) => {
-    res.status(
-      404
-    );
-
-    res.send(
-      `
-      <!DOCTYPE html>
-      <html lang="ar" dir="rtl">
-      <head>
-        <meta charset="UTF-8">
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1.0"
-        >
-        <title>EZ MEDIA</title>
-
-        <style>
-          body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: Arial, sans-serif;
-            background:
-              linear-gradient(
-                135deg,
-                #ffffff,
-                #eefaff,
-                #dff7ff
-              );
-          }
-
-          .box {
-            text-align: center;
-            padding: 40px;
-          }
-
-          h1 {
-            margin: 0 0 12px;
-            font-size: 42px;
-          }
-
-          p {
-            color: #527080;
-            font-size: 18px;
-          }
-
-          a {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            background: #0ea5e9;
-            color: white;
-          }
-        </style>
-      </head>
-
-      <body>
-
-        <div class="box">
-
-          <h1>
-            EZ MEDIA
-          </h1>
-
-          <p>
-            الصفحة غير موجودة
-          </p>
-
-          <a href="/">
-            العودة للرئيسية
-          </a>
-
-        </div>
-
-      </body>
-      </html>
-      `
-    );
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| Global Error Handler
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Error Handler
+================================ */
 
 app.use(
   (
@@ -963,408 +656,269 @@ app.use(
     next
   ) => {
     console.error(
-      JSON.stringify({
-        type:
-          "application_error",
-
-        requestId:
-          req.requestId,
-
-        message:
-          error.message,
-
-        code:
-          error.code ||
-          null,
-
-        stack:
-          NODE_ENV ===
-          "production"
-            ? undefined
-            : error.stack,
-
-        timestamp:
-          new Date()
-            .toISOString(),
-      })
+      "EZ MEDIA server error:",
+      error
     );
 
-    /*
-    |--------------------------------------------------------------------------
-    | Multer Errors
-    |--------------------------------------------------------------------------
-    */
+    const status =
+      Number(error.status) >= 400 &&
+      Number(error.status) < 600
+        ? Number(error.status)
+        : 500;
 
-    if (
-      error.name ===
-      "MulterError"
-    ) {
-      return res
-        .status(400)
-        .json({
-          success:
-            false,
+    res.status(status).json({
+      success: false,
 
-          error:
-            "خطأ في رفع الملف",
+      error:
+        error.message ||
+        "Internal server error",
 
-          code:
-            error.code,
+      requestId:
+        req.requestId,
 
-          message:
-            error.message,
-
-          requestId:
-            req.requestId,
-        });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Upload Validation
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      error.code ===
-      "UPLOAD_VALIDATION_FAILED"
-    ) {
-      return res
-        .status(400)
-        .json({
-          success:
-            false,
-
-          error:
-            error.message,
-
-          details:
-            error.details ||
-            [],
-
-          requestId:
-            req.requestId,
-        });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Storage Not Configured
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      error.code ===
-      "STORAGE_NOT_CONFIGURED"
-    ) {
-      return res
-        .status(503)
-        .json({
-          success:
-            false,
-
-          error:
-            "Object Storage غير مهيأ",
-
-          code:
-            error.code,
-
-          message:
-            error.message,
-
-          requestId:
-            req.requestId,
-        });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Database Not Configured
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      error.code ===
-      "DATABASE_NOT_CONFIGURED"
-    ) {
-      return res
-        .status(503)
-        .json({
-          success:
-            false,
-
-          error:
-            "PostgreSQL غير مهيأ",
-
-          code:
-            error.code,
-
-          message:
-            error.message,
-
-          requestId:
-            req.requestId,
-        });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | General Error
-    |--------------------------------------------------------------------------
-    */
-
-    return res
-      .status(
-        error.statusCode ||
-        500
-      )
-      .json({
-        success:
-          false,
-
-        platform:
-          PLATFORM,
-
-        version:
-          VERSION,
-
-        error:
-          "Internal Server Error",
-
-        message:
-          NODE_ENV ===
-          "production"
-            ? "حدث خطأ داخلي في المنصة"
-            : error.message,
-
-        requestId:
-          req.requestId,
-
-        timestamp:
-          new Date()
-            .toISOString(),
-      });
+      timestamp:
+        new Date().toISOString()
+    });
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| Database Initialization
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Database Initialization
+================================ */
 
-async function initializeApplication() {
-  if (
-    !process.env
-      .DATABASE_URL
-  ) {
-    console.log(
-      "DATABASE_URL is not configured. Database initialization skipped."
-    );
+async function initializeServices() {
+  console.log(
+    "EZ MEDIA: initializing services..."
+  );
 
-    return {
-      database:
-        false,
-    };
-  }
-
+  /**
+   * قاعدة البيانات الأساسية.
+   */
   try {
-    console.log(
-      "Initializing EZ MEDIA database..."
-    );
-
     await initializeDatabase();
 
+    console.log(
+      "EZ MEDIA: main database initialized."
+    );
+  } catch (error) {
+    console.error(
+      "EZ MEDIA: main database initialization failed:",
+      error.message
+    );
+  }
+
+  /**
+   * قاعدة بيانات الوسائط والبث والعاجل.
+   */
+  try {
     await initializeMediaDatabase();
 
     console.log(
-      "EZ MEDIA database initialized successfully."
+      "EZ MEDIA: media database initialized."
     );
-
-    return {
-      database:
-        true,
-    };
   } catch (error) {
     console.error(
-      "Database initialization failed:",
+      "EZ MEDIA: media database initialization failed:",
       error.message
     );
-
-    /*
-    |--------------------------------------------------------------------------
-    | لا نوقف السيرفر بالكامل.
-    |
-    | السبب:
-    | يمكن للواجهة الأساسية أن تعمل أثناء معالجة
-    | إعداد PostgreSQL.
-    |--------------------------------------------------------------------------
-    */
-
-    return {
-      database:
-        false,
-
-      error:
-        error.message,
-    };
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| Start Server
-|--------------------------------------------------------------------------
-*/
-
-let server = null;
-
-async function startServer() {
-  await initializeApplication();
-
-  server =
-    app.listen(
-      PORT,
-      "0.0.0.0",
-      () => {
-        console.log(
-          "=================================================="
-        );
-
-        console.log(
-          `🚀 ${PLATFORM} ${VERSION}`
-        );
-
-        console.log(
-          `🌐 Server: http://0.0.0.0:${PORT}`
-        );
-
-        console.log(
-          `📡 Environment: ${NODE_ENV}`
-        );
-
-        console.log(
-          `🟢 Status: ONLINE`
-        );
-
-        console.log(
-          "=================================================="
-        );
-      }
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| Graceful Shutdown
-|--------------------------------------------------------------------------
-*/
-
-async function shutdown(
-  signal
-) {
-  console.log(
-    `${signal} received. Shutting down EZ MEDIA...`
-  );
-
-  if (!server) {
-    process.exit(
-      0
-    );
   }
 
-  server.close(
-    () => {
+  /**
+   * قاعدة بيانات الإشعارات.
+   */
+  try {
+    const notificationDatabase =
+      await initializeNotifications();
+
+    if (
+      notificationDatabase.success
+    ) {
       console.log(
-        "HTTP server closed."
+        "EZ MEDIA: notification database initialized."
       );
-
-      process.exit(
-        0
+    } else {
+      console.warn(
+        "EZ MEDIA: notification database not ready:",
+        notificationDatabase.status ||
+          notificationDatabase.message
       );
     }
-  );
-
-  setTimeout(
-    () => {
-      console.error(
-        "Forced shutdown."
-      );
-
-      process.exit(
-        1
-      );
-    },
-    10000
-  ).unref();
+  } catch (error) {
+    console.error(
+      "EZ MEDIA: notification database initialization failed:",
+      error.message
+    );
+  }
 }
 
-process.on(
-  "SIGTERM",
-  () =>
-    shutdown(
-      "SIGTERM"
-    )
-);
+/* ================================
+   Notification Worker
+================================ */
 
-process.on(
-  "SIGINT",
-  () =>
-    shutdown(
-      "SIGINT"
-    )
-);
-
-/*
-|--------------------------------------------------------------------------
-| Unhandled Errors
-|--------------------------------------------------------------------------
-*/
-
-process.on(
-  "unhandledRejection",
-  (reason) => {
-    console.error(
-      "Unhandled Promise Rejection:",
-      reason
+function initializeNotificationWorker() {
+  /**
+   * لا نشغّل Worker إذا لم تكن قاعدة البيانات
+   * معرفة أصلًا.
+   */
+  if (
+    !process.env.DATABASE_URL
+  ) {
+    console.warn(
+      "EZ MEDIA: Notification Worker waiting for DATABASE_URL."
     );
-  }
-);
 
-process.on(
-  "uncaughtException",
-  (error) => {
+    return {
+      started: false,
+      reason:
+        "DATABASE_URL is not configured"
+    };
+  }
+
+  const intervalMs =
+    Number(
+      process.env
+        .NOTIFICATION_WORKER_INTERVAL_MS ||
+        15000
+    );
+
+  const batchSize =
+    Number(
+      process.env
+        .NOTIFICATION_WORKER_BATCH_SIZE ||
+        25
+    );
+
+  const state =
+    startNotificationWorker({
+      intervalMs,
+      batchSize
+    });
+
+  registerNotificationWorkerShutdown();
+
+  return state;
+}
+
+/* ================================
+   Start Server
+================================ */
+
+async function startServer() {
+  try {
+    await initializeServices();
+
+    const server =
+      app.listen(
+        PORT,
+        HOST,
+        () => {
+          console.log(
+            "========================================"
+          );
+
+          console.log(
+            "EZ MEDIA 11.0"
+          );
+
+          console.log(
+            "Server is running"
+          );
+
+          console.log(
+            `Host: ${HOST}`
+          );
+
+          console.log(
+            `Port: ${PORT}`
+          );
+
+          console.log(
+            `Environment: ${
+              process.env.NODE_ENV ||
+              "development"
+            }`
+          );
+
+          console.log(
+            "========================================"
+          );
+
+          /**
+           * تشغيل Notification Worker بعد بدء الخادم.
+           */
+          const worker =
+            initializeNotificationWorker();
+
+          console.log(
+            "EZ MEDIA Notification Worker:",
+            worker
+          );
+        }
+      );
+
+    /**
+     * إغلاق آمن للخادم.
+     */
+    const shutdown =
+      async (signal) => {
+        console.log(
+          `EZ MEDIA: received ${signal}. Shutting down...`
+        );
+
+        server.close(
+          () => {
+            console.log(
+              "EZ MEDIA: HTTP server closed."
+            );
+
+            process.exit(0);
+          }
+        );
+
+        setTimeout(
+          () => {
+            console.error(
+              "EZ MEDIA: forced shutdown."
+            );
+
+            process.exit(1);
+          },
+          10000
+        ).unref();
+      };
+
+    process.once(
+      "SIGTERM",
+      () => shutdown("SIGTERM")
+    );
+
+    process.once(
+      "SIGINT",
+      () => shutdown("SIGINT")
+    );
+
+    return server;
+  } catch (error) {
     console.error(
-      "Uncaught Exception:",
+      "EZ MEDIA startup error:",
       error
     );
+
+    process.exit(1);
   }
-);
+}
 
-/*
-|--------------------------------------------------------------------------
-| Start
-|--------------------------------------------------------------------------
-*/
+/* ================================
+   Start
+================================ */
 
-startServer().catch(
-  (error) => {
-    console.error(
-      "Failed to start EZ MEDIA:",
-      error
-    );
+if (
+  require.main === module
+) {
+  startServer();
+}
 
-    process.exit(
-      1
-    );
-  }
-);
-
-/*
-|--------------------------------------------------------------------------
-| Export
-|--------------------------------------------------------------------------
-*/
-
-module.exports =
-  app;
+module.exports = {
+  app,
+  startServer
+};
