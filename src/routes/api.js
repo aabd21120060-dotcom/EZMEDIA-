@@ -1,5 +1,7 @@
-import express from "express";
-import crypto from "node:crypto";
+'use strict';
+
+const express = require('express');
+const crypto = require('node:crypto');
 
 const router = express.Router();
 
@@ -10,21 +12,30 @@ function id() {
   return crypto.randomUUID();
 }
 
-router.get("/", (req, res) => {
+/*
+===========================================================
+ EZ MEDIA API
+ الإصدار 11.0.0
+===========================================================
+*/
+
+router.get('/', (req, res) => {
   res.json({
     success: true,
-    platform: "EZ MEDIA",
-    version: "11.0.0",
-    api: "online"
+    platform: 'EZ MEDIA',
+    version: '11.0.0',
+    api: 'online',
+    timestamp: new Date().toISOString()
   });
 });
 
-router.get("/status", (req, res) => {
+router.get('/status', (req, res) => {
   res.json({
     success: true,
-    platform: "EZ MEDIA",
-    version: "11.0.0",
-    status: "online",
+    platform: 'EZ MEDIA',
+    version: '11.0.0',
+    status: 'online',
+
     modules: {
       api: true,
       cms: true,
@@ -34,14 +45,22 @@ router.get("/status", (req, res) => {
       audit: true,
       worldRadar: false
     },
+
     timestamp: new Date().toISOString()
   });
 });
 
-router.post("/stories", (req, res) => {
+/*
+===========================================================
+ STORIES
+===========================================================
+*/
+
+router.post('/stories', (req, res) => {
   try {
     const story = {
       id: id(),
+
       storyKey: `EZ-${Date.now()}`,
 
       title: req.body?.title || null,
@@ -50,12 +69,12 @@ router.post("/stories", (req, res) => {
       body: req.body?.body || null,
 
       contentType:
-        req.body?.contentType || "news",
+        req.body?.contentType || 'news',
 
       language:
-        req.body?.language || "ar",
+        req.body?.language || 'ar',
 
-      status: "draft",
+      status: 'draft',
 
       primaryCategory: null,
       secondaryCategories: [],
@@ -73,7 +92,7 @@ router.post("/stories", (req, res) => {
       breakingCandidate: false,
 
       ai: {
-        status: "queued",
+        status: 'queued',
         agents: []
       },
 
@@ -89,7 +108,7 @@ router.post("/stories", (req, res) => {
     });
   } catch (error) {
     console.error(
-      "[EZ MEDIA] Story creation error:",
+      '[EZ MEDIA] Story creation error:',
       error
     );
 
@@ -100,7 +119,7 @@ router.post("/stories", (req, res) => {
   }
 });
 
-router.get("/stories", (req, res) => {
+router.get('/stories', (req, res) => {
   res.json({
     success: true,
     count: stories.size,
@@ -108,13 +127,13 @@ router.get("/stories", (req, res) => {
   });
 });
 
-router.get("/stories/:id", (req, res) => {
+router.get('/stories/:id', (req, res) => {
   const story = stories.get(req.params.id);
 
   if (!story) {
     return res.status(404).json({
       success: false,
-      error: "Story not found"
+      error: 'Story not found'
     });
   }
 
@@ -124,34 +143,34 @@ router.get("/stories/:id", (req, res) => {
   });
 });
 
-router.patch("/stories/:id", (req, res) => {
+router.patch('/stories/:id', (req, res) => {
   const story = stories.get(req.params.id);
 
   if (!story) {
     return res.status(404).json({
       success: false,
-      error: "Story not found"
+      error: 'Story not found'
     });
   }
 
   const allowedFields = [
-    "title",
-    "subtitle",
-    "summary",
-    "body",
-    "contentType",
-    "primaryCategory",
-    "secondaryCategories",
-    "topics",
-    "country",
-    "region",
-    "city",
-    "district",
-    "place",
-    "confidenceScore",
-    "importanceScore",
-    "breakingCandidate",
-    "status"
+    'title',
+    'subtitle',
+    'summary',
+    'body',
+    'contentType',
+    'primaryCategory',
+    'secondaryCategories',
+    'topics',
+    'country',
+    'region',
+    'city',
+    'district',
+    'place',
+    'confidenceScore',
+    'importanceScore',
+    'breakingCandidate',
+    'status'
   ];
 
   for (const field of allowedFields) {
@@ -160,8 +179,7 @@ router.patch("/stories/:id", (req, res) => {
     }
   }
 
-  story.updatedAt =
-    new Date().toISOString();
+  story.updatedAt = new Date().toISOString();
 
   stories.set(story.id, story);
 
@@ -171,106 +189,127 @@ router.patch("/stories/:id", (req, res) => {
   });
 });
 
+/*
+===========================================================
+ AI ORCHESTRATION
+===========================================================
+*/
+
 router.post(
-  "/stories/:id/orchestrate",
+  '/stories/:id/orchestrate',
   (req, res) => {
     const story = stories.get(req.params.id);
 
     if (!story) {
       return res.status(404).json({
         success: false,
-        error: "Story not found"
+        error: 'Story not found'
       });
     }
 
     const agents = [
-      "EZ_RESEARCH_AGENT",
-      "EZ_CLASSIFICATION_AGENT",
-      "EZ_VERIFICATION_AGENT",
-      "EZ_EDITORIAL_AGENT",
-      "EZ_SEO_AGENT",
-      "EZ_SOCIAL_AGENT"
+      'EZ_RESEARCH_AGENT',
+      'EZ_CLASSIFICATION_AGENT',
+      'EZ_VERIFICATION_AGENT',
+      'EZ_EDITORIAL_AGENT',
+      'EZ_SEO_AGENT',
+      'EZ_SOCIAL_AGENT'
     ];
 
     const runs = agents.map((agent) => ({
       id: id(),
       agent,
-      status: "queued",
+      status: 'queued',
       createdAt: new Date().toISOString()
     }));
 
     story.ai = {
-      status: "queued",
+      status: 'queued',
       agents: runs
     };
 
-    story.status = "researching";
-    story.updatedAt =
-      new Date().toISOString();
+    story.status = 'researching';
+    story.updatedAt = new Date().toISOString();
 
     stories.set(story.id, story);
 
     res.json({
       success: true,
       storyId: story.id,
+
       orchestration: {
-        status: "queued",
+        status: 'queued',
         runs
       }
     });
   }
 );
 
-router.get("/ai/agents", (req, res) => {
+/*
+===========================================================
+ AI AGENTS
+===========================================================
+*/
+
+router.get('/ai/agents', (req, res) => {
   res.json({
     success: true,
+
     agents: [
       {
-        id: "EZ_RESEARCH_AGENT",
-        name: "البحث",
-        status: "ready"
+        id: 'EZ_RESEARCH_AGENT',
+        name: 'البحث',
+        status: 'ready'
       },
       {
-        id: "EZ_CLASSIFICATION_AGENT",
-        name: "التصنيف",
-        status: "ready"
+        id: 'EZ_CLASSIFICATION_AGENT',
+        name: 'التصنيف',
+        status: 'ready'
       },
       {
-        id: "EZ_VERIFICATION_AGENT",
-        name: "التحقق",
-        status: "ready"
+        id: 'EZ_VERIFICATION_AGENT',
+        name: 'التحقق',
+        status: 'ready'
       },
       {
-        id: "EZ_EDITORIAL_AGENT",
-        name: "التحرير",
-        status: "ready"
+        id: 'EZ_EDITORIAL_AGENT',
+        name: 'التحرير',
+        status: 'ready'
       },
       {
-        id: "EZ_SEO_AGENT",
-        name: "SEO",
-        status: "ready"
+        id: 'EZ_SEO_AGENT',
+        name: 'SEO',
+        status: 'ready'
       },
       {
-        id: "EZ_SOCIAL_AGENT",
-        name: "التوزيع الاجتماعي",
-        status: "ready"
+        id: 'EZ_SOCIAL_AGENT',
+        name: 'التوزيع الاجتماعي',
+        status: 'ready'
       }
-    ]
+    ],
+
+    timestamp: new Date().toISOString()
   });
 });
 
-router.post("/workflow/jobs", (req, res) => {
+/*
+===========================================================
+ WORKFLOW
+===========================================================
+*/
+
+router.post('/workflow/jobs', (req, res) => {
   const job = {
     id: id(),
 
     jobType:
       req.body?.jobType ||
-      "content.process",
+      'content.process',
 
     priority:
       Number(req.body?.priority || 50),
 
-    status: "queued",
+    status: 'queued',
 
     payload:
       req.body?.payload || {},
@@ -287,7 +326,7 @@ router.post("/workflow/jobs", (req, res) => {
   });
 });
 
-router.get("/workflow/queue", (req, res) => {
+router.get('/workflow/queue', (req, res) => {
   res.json({
     success: true,
     count: jobs.length,
@@ -295,4 +334,45 @@ router.get("/workflow/queue", (req, res) => {
   });
 });
 
-export default router;
+/*
+===========================================================
+ API معلومات إضافية
+===========================================================
+*/
+
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    platform: 'EZ MEDIA',
+    version: '11.0.0',
+    status: 'healthy',
+    api: 'online',
+    timestamp: new Date().toISOString()
+  });
+});
+
+router.get('/modules', (req, res) => {
+  res.json({
+    success: true,
+
+    modules: {
+      api: true,
+      cms: true,
+      stories: true,
+      ai: true,
+      workflow: true,
+      audit: true,
+      worldRadar: false
+    },
+
+    timestamp: new Date().toISOString()
+  });
+});
+
+/*
+===========================================================
+ EXPORT
+===========================================================
+*/
+
+module.exports = router;
