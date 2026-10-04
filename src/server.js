@@ -4,6 +4,7 @@
 ===========================================================
  EZ MEDIA 11.0
  الخادم الرئيسي
+ API مباشر داخل server.js
  Node.js + Express + PostgreSQL
 ===========================================================
 */
@@ -29,7 +30,7 @@ const EXECUTIVE_DIR = path.join(
 
 /*
 ===========================================================
- الحزم
+ اختياري: الحزم
 ===========================================================
 */
 
@@ -41,44 +42,25 @@ let pg = null;
 try {
   cors = require('cors');
 } catch (error) {
-  console.error('[CORS]', error.message);
+  console.log('[EZ MEDIA] CORS غير متوفر.');
 }
 
 try {
   helmet = require('helmet');
 } catch (error) {
-  console.error('[HELMET]', error.message);
+  console.log('[EZ MEDIA] Helmet غير متوفر.');
 }
 
 try {
   compression = require('compression');
 } catch (error) {
-  console.error('[COMPRESSION]', error.message);
+  console.log('[EZ MEDIA] Compression غير متوفر.');
 }
 
 try {
   pg = require('pg');
 } catch (error) {
-  console.error('[PG]', error.message);
-}
-
-/*
-===========================================================
- API Router
-===========================================================
-*/
-
-let apiRouter = null;
-
-try {
-  apiRouter = require('./src/routes/api');
-
-  console.log('[EZ MEDIA] API Router loaded successfully.');
-} catch (error) {
-  console.error(
-    '[EZ MEDIA] API Router failed to load:',
-    error.message
-  );
+  console.log('[EZ MEDIA] PostgreSQL driver غير متوفر.');
 }
 
 /*
@@ -137,12 +119,13 @@ function now() {
 function sendJSON(res, data, status = 200) {
   return res
     .status(status)
-    .set(
-      'Cache-Control',
-      'no-store, no-cache, must-revalidate, proxy-revalidate'
-    )
-    .set('Pragma', 'no-cache')
-    .set('Expires', '0')
+    .set({
+      'Cache-Control':
+        'no-store, no-cache, must-revalidate, proxy-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'X-EZ-MEDIA-API': VERSION
+    })
     .json(data);
 }
 
@@ -153,6 +136,7 @@ function sendJSON(res, data, status = 200) {
 */
 
 let pool = null;
+
 let databaseConfigured = false;
 let databaseReady = false;
 let databaseError = null;
@@ -161,17 +145,22 @@ if (pg && process.env.DATABASE_URL) {
   try {
     pool = new pg.Pool({
       connectionString: process.env.DATABASE_URL,
+
       ssl: {
         rejectUnauthorized: false
       },
+
       max: 10,
+
       idleTimeoutMillis: 30000,
+
       connectionTimeoutMillis: 10000
     });
 
     databaseConfigured = true;
 
     pool.on('error', (error) => {
+      databaseReady = false;
       databaseError = error.message;
 
       console.error(
@@ -179,7 +168,11 @@ if (pg && process.env.DATABASE_URL) {
         error.message
       );
     });
+
   } catch (error) {
+
+    databaseConfigured = false;
+    databaseReady = false;
     databaseError = error.message;
 
     console.error(
@@ -196,21 +189,24 @@ if (pg && process.env.DATABASE_URL) {
 */
 
 async function initializeDatabase() {
+
   if (!pool) {
+
     console.log(
-      '[EZ MEDIA] DATABASE_URL is not configured.'
+      '[EZ MEDIA] DATABASE_URL غير مهيأ.'
     );
 
     return;
   }
 
   try {
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ez_media_system_state (
         id INTEGER PRIMARY KEY,
-        platform VARCHAR(100),
-        version VARCHAR(50),
-        status VARCHAR(50),
+        platform VARCHAR(100) NOT NULL,
+        version VARCHAR(50) NOT NULL,
+        status VARCHAR(50) NOT NULL,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
@@ -218,10 +214,23 @@ async function initializeDatabase() {
     await pool.query(
       `
       INSERT INTO ez_media_system_state
-        (id, platform, version, status)
+        (
+          id,
+          platform,
+          version,
+          status
+        )
+
       VALUES
-        (1, $1, $2, $3)
+        (
+          1,
+          $1,
+          $2,
+          $3
+        )
+
       ON CONFLICT (id)
+
       DO UPDATE SET
         platform = EXCLUDED.platform,
         version = EXCLUDED.version,
@@ -239,9 +248,11 @@ async function initializeDatabase() {
     databaseError = null;
 
     console.log(
-      '[EZ MEDIA] PostgreSQL connected.'
+      '[EZ MEDIA] PostgreSQL متصل.'
     );
+
   } catch (error) {
+
     databaseReady = false;
     databaseError = error.message;
 
@@ -254,32 +265,21 @@ async function initializeDatabase() {
 
 /*
 ===========================================================
- الحالة
+ حالة النظام
 ===========================================================
 */
 
 const serverStartedAt = Date.now();
 
-function systemState() {
+function getDatabaseState() {
+
   return {
-    platform: PLATFORM,
-    version: VERSION,
-    status: 'online',
+    configured: databaseConfigured,
 
-    server: {
-      online: true,
-      node: process.version,
-      environment:
-        process.env.NODE_ENV || 'production',
-      uptime: process.uptime(),
-      startedAt:
-        new Date(serverStartedAt).toISOString()
-    },
+    ready: databaseReady,
 
-    database: {
-      configured: databaseConfigured,
-      ready: databaseReady,
-      message: databaseConfigured
+    message:
+      databaseConfigured
         ? (
             databaseReady
               ? 'PostgreSQL connected'
@@ -289,7 +289,39 @@ function systemState() {
                 )
           )
         : 'DATABASE_URL is not configured'
+  };
+}
+
+function getSystemState() {
+
+  return {
+
+    platform: PLATFORM,
+
+    version: VERSION,
+
+    status: 'online',
+
+    server: {
+
+      online: true,
+
+      node: process.version,
+
+      environment:
+        process.env.NODE_ENV ||
+        'production',
+
+      uptime: process.uptime(),
+
+      startedAt:
+        new Date(
+          serverStartedAt
+        ).toISOString()
     },
+
+    database:
+      getDatabaseState(),
 
     timestamp: now()
   };
@@ -297,111 +329,766 @@ function systemState() {
 
 /*
 ===========================================================
- ROOT
+ مراقبة كل طلب API
 ===========================================================
 */
 
-app.get('/', (req, res) => {
-  sendJSON(res, {
-    ...systemState(),
-
-    message:
-      'EZ MEDIA 11.0 API is running',
-
-    endpoints: {
-      api: '/api',
-      apiStatus: '/api/status',
-      apiHealth: '/api/health',
-
-      executivePing:
-        '/api/executive-command/ping',
-
-      executiveStatus:
-        '/api/executive-command/status',
-
-      operations:
-        '/autonomous-media-operations/'
-    }
-  });
-});
-
-/*
-===========================================================
- HEALTH
-===========================================================
-*/
-
-app.get('/health', (req, res) => {
-  sendJSON(res, {
-    ...systemState(),
-
-    health:
-      databaseConfigured
-        ? (
-            databaseReady
-              ? 'healthy'
-              : 'degraded'
-          )
-        : 'healthy-without-database'
-  });
-});
-
-/*
-===========================================================
- API ROUTER الحقيقي
-===========================================================
-
- مهم جدًا:
- api.js أصبح الآن مربوطًا رسميًا بـ /api
-
- مثال:
-
- /api
- /api/status
- /api/health
- /api/stories
- /api/ai/agents
- /api/workflow/jobs
- /api/workflow/queue
-
-===========================================================
-*/
-
-if (apiRouter) {
-  app.use('/api', apiRouter);
+app.use('/api', (req, res, next) => {
 
   console.log(
-    '[EZ MEDIA] /api router mounted.'
+    `[EZ MEDIA API] ${req.method} ${req.originalUrl}`
   );
-} else {
-  console.error(
-    '[EZ MEDIA] /api router is unavailable.'
+
+  res.set(
+    'X-EZ-MEDIA-API',
+    VERSION
+  );
+
+  next();
+});
+
+/*
+===========================================================
+ API ROOT
+===========================================================
+*/
+
+app.get(
+  '/api',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+        success: true,
+
+        ok: true,
+
+        platform: PLATFORM,
+
+        version: VERSION,
+
+        api: 'online',
+
+        architecture:
+          'direct-server-api',
+
+        router:
+          'disabled',
+
+        database:
+          getDatabaseState(),
+
+        endpoints: {
+
+          root:
+            '/api',
+
+          status:
+            '/api/status',
+
+          health:
+            '/api/health',
+
+          modules:
+            '/api/modules',
+
+          stories:
+            '/api/stories',
+
+          agents:
+            '/api/ai/agents',
+
+          workflow:
+            '/api/workflow/queue',
+
+          executivePing:
+            '/api/executive-command/ping',
+
+          executiveStatus:
+            '/api/executive-command/status'
+        },
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+/*
+===========================================================
+ API STATUS
+===========================================================
+*/
+
+app.get(
+  '/api/status',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        platform: PLATFORM,
+
+        version: VERSION,
+
+        status: 'online',
+
+        api: {
+
+          online: true,
+
+          architecture:
+            'direct-server-api',
+
+          router:
+            false
+        },
+
+        server: {
+
+          online: true,
+
+          node:
+            process.version,
+
+          uptime:
+            process.uptime()
+        },
+
+        database:
+          getDatabaseState(),
+
+        modules: {
+
+          api: true,
+
+          cms: true,
+
+          stories: true,
+
+          ai: true,
+
+          workflow: true,
+
+          executiveCommand: true,
+
+          autonomousOperations: true,
+
+          mediaLibrary: true,
+
+          advertising: true,
+
+          sponsorships: true,
+
+          crm: true,
+
+          broadcasting: true,
+
+          scheduling: true,
+
+          security: true,
+
+          legal: true,
+
+          ethics: true
+        },
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+/*
+===========================================================
+ API HEALTH
+===========================================================
+*/
+
+app.get(
+  '/api/health',
+  async (req, res) => {
+
+    let database =
+      getDatabaseState();
+
+    if (pool) {
+
+      try {
+
+        await pool.query(
+          'SELECT 1'
+        );
+
+        databaseReady = true;
+        databaseError = null;
+
+        database =
+          getDatabaseState();
+
+      } catch (error) {
+
+        databaseReady = false;
+        databaseError = error.message;
+
+        database =
+          getDatabaseState();
+      }
+    }
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        platform: PLATFORM,
+
+        version: VERSION,
+
+        health: {
+
+          api: 'healthy',
+
+          server: 'healthy',
+
+          database:
+            database.ready
+              ? 'healthy'
+              : (
+                  database.configured
+                    ? 'degraded'
+                    : 'not-configured'
+                )
+        },
+
+        database,
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+/*
+===========================================================
+ API MODULES
+===========================================================
+*/
+
+app.get(
+  '/api/modules',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        platform: PLATFORM,
+
+        version: VERSION,
+
+        modules: [
+
+          {
+            id: 'api',
+            name: 'API',
+            status: 'online'
+          },
+
+          {
+            id: 'cms',
+            name: 'CMS',
+            status: 'ready'
+          },
+
+          {
+            id: 'ai',
+            name: 'AI Orchestration',
+            status: 'ready'
+          },
+
+          {
+            id: 'workflow',
+            name: 'Workflow Engine',
+            status: 'ready'
+          },
+
+          {
+            id: 'executive',
+            name: 'Executive Command Center',
+            status: 'online'
+          },
+
+          {
+            id: 'operations',
+            name: 'Autonomous Media Operations',
+            status: 'online'
+          },
+
+          {
+            id: 'database',
+            name: 'PostgreSQL',
+            status:
+              databaseConfigured
+                ? (
+                    databaseReady
+                      ? 'online'
+                      : 'degraded'
+                  )
+                : 'not-configured'
+          },
+
+          {
+            id: 'broadcasting',
+            name: 'Broadcasting',
+            status: 'ready'
+          },
+
+          {
+            id: 'advertising',
+            name: 'Advertising',
+            status: 'ready'
+          },
+
+          {
+            id: 'sponsorships',
+            name: 'Sponsorships',
+            status: 'ready'
+          },
+
+          {
+            id: 'crm',
+            name: 'CRM',
+            status: 'ready'
+          },
+
+          {
+            id: 'security',
+            name: 'Security',
+            status: 'ready'
+          },
+
+          {
+            id: 'legal',
+            name: 'Legal',
+            status: 'ready'
+          },
+
+          {
+            id: 'ethics',
+            name: 'Ethics',
+            status: 'ready'
+          }
+        ],
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+/*
+===========================================================
+ STORIES
+===========================================================
+*/
+
+const stories = new Map();
+
+function createId() {
+
+  return (
+    Date.now().toString(36) +
+    '-' +
+    Math.random()
+      .toString(36)
+      .slice(2, 10)
   );
 }
 
+app.get(
+  '/api/stories',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        total:
+          stories.size,
+
+        items:
+          Array.from(
+            stories.values()
+          ),
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.post(
+  '/api/stories',
+  (req, res) => {
+
+    const body =
+      req.body || {};
+
+    const story = {
+
+      id:
+        createId(),
+
+      title:
+        body.title ||
+        null,
+
+      summary:
+        body.summary ||
+        null,
+
+      category:
+        body.category ||
+        null,
+
+      status:
+        body.status ||
+        'draft',
+
+      source:
+        body.source ||
+        null,
+
+      createdAt:
+        now(),
+
+      updatedAt:
+        now()
+    };
+
+    stories.set(
+      story.id,
+      story
+    );
+
+    return sendJSON(
+      res,
+      {
+        success: true,
+        ok: true,
+        story
+      },
+      201
+    );
+  }
+);
+
+app.get(
+  '/api/stories/:id',
+  (req, res) => {
+
+    const story =
+      stories.get(
+        req.params.id
+      );
+
+    if (!story) {
+
+      return sendJSON(
+        res,
+        {
+          success: false,
+          ok: false,
+          error:
+            'Story not found'
+        },
+        404
+      );
+    }
+
+    return sendJSON(
+      res,
+      {
+        success: true,
+        ok: true,
+        story
+      }
+    );
+  }
+);
+
+app.patch(
+  '/api/stories/:id',
+  (req, res) => {
+
+    const story =
+      stories.get(
+        req.params.id
+      );
+
+    if (!story) {
+
+      return sendJSON(
+        res,
+        {
+          success: false,
+          ok: false,
+          error:
+            'Story not found'
+        },
+        404
+      );
+    }
+
+    const body =
+      req.body || {};
+
+    const updated = {
+
+      ...story,
+
+      ...body,
+
+      id:
+        story.id,
+
+      updatedAt:
+        now()
+    };
+
+    stories.set(
+      story.id,
+      updated
+    );
+
+    return sendJSON(
+      res,
+      {
+        success: true,
+        ok: true,
+        story: updated
+      }
+    );
+  }
+);
+
 /*
 ===========================================================
- API FALLBACK
+ AI AGENTS
 ===========================================================
 */
 
-app.get('/api', (req, res) => {
-  sendJSON(res, {
-    success: true,
+app.get(
+  '/api/ai',
+  (req, res) => {
 
-    platform: PLATFORM,
-    version: VERSION,
+    return sendJSON(
+      res,
+      {
 
-    api: 'online',
+        success: true,
 
-    routerLoaded: Boolean(apiRouter),
+        ok: true,
 
-    message:
-      'EZ MEDIA API Gateway is online.',
+        ai: {
 
-    timestamp: now()
-  });
-});
+          enabled: true,
+
+          architecture:
+            'orchestration-ready',
+
+          providerConfigured:
+            Boolean(
+              process.env.OPENAI_API_KEY ||
+              process.env.AI_API_KEY
+            ),
+
+          humanApprovalRequired:
+            true
+        },
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.get(
+  '/api/ai/agents',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        agents: [
+
+          {
+            id: 'news-analysis',
+            name: 'News Analysis Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'verification',
+            name: 'Verification Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'editorial',
+            name: 'Editorial Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'content',
+            name: 'Content Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'audience',
+            name: 'Audience Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'advertising',
+            name: 'Advertising Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'sponsorship',
+            name: 'Sponsorship Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'security',
+            name: 'Security Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'legal',
+            name: 'Legal Review Agent',
+            status: 'ready'
+          },
+
+          {
+            id: 'ethics',
+            name: 'Ethics Review Agent',
+            status: 'ready'
+          }
+        ],
+
+        humanApprovalRequired:
+          true,
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+/*
+===========================================================
+ WORKFLOW
+===========================================================
+*/
+
+const workflowJobs = [];
+
+app.get(
+  '/api/workflow/queue',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        total:
+          workflowJobs.length,
+
+        queue:
+          workflowJobs,
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.post(
+  '/api/workflow/jobs',
+  (req, res) => {
+
+    const body =
+      req.body || {};
+
+    const job = {
+
+      id:
+        createId(),
+
+      type:
+        body.type ||
+        'general',
+
+      status:
+        'pending',
+
+      payload:
+        body.payload ||
+        {},
+
+      createdAt:
+        now()
+    };
+
+    workflowJobs.push(
+      job
+    );
+
+    return sendJSON(
+      res,
+      {
+        success: true,
+        ok: true,
+        job
+      },
+      201
+    );
+  }
+);
 
 /*
 ===========================================================
@@ -412,21 +1099,31 @@ app.get('/api', (req, res) => {
 app.get(
   '/api/executive-command/ping',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
-      success: true,
 
-      platform: PLATFORM,
-      version: VERSION,
+    return sendJSON(
+      res,
+      {
 
-      service:
-        'Executive Command Center',
+        success: true,
 
-      message:
-        'Executive Command API is reachable.',
+        ok: true,
 
-      timestamp: now()
-    });
+        platform: PLATFORM,
+
+        version: VERSION,
+
+        service:
+          'Executive Command Center',
+
+        status:
+          'reachable',
+
+        message:
+          'Executive Command API is reachable.',
+
+        timestamp: now()
+      }
+    );
   }
 );
 
@@ -434,714 +1131,964 @@ app.get(
   '/api/executive-command/status',
   async (req, res) => {
 
-    let database = {
-      configured: databaseConfigured,
-      ready: databaseReady,
-      message:
-        databaseConfigured
-          ? (
-              databaseReady
-                ? 'PostgreSQL connected'
-                : (
-                    databaseError ||
-                    'PostgreSQL not ready'
-                  )
-            )
-          : 'DATABASE_URL is not configured'
-    };
+    let database =
+      getDatabaseState();
 
     if (pool) {
+
       try {
-        await pool.query('SELECT 1');
+
+        await pool.query(
+          'SELECT 1'
+        );
 
         databaseReady = true;
         databaseError = null;
 
-        database = {
-          configured: true,
-          ready: true,
-          message:
-            'PostgreSQL connected'
-        };
+        database =
+          getDatabaseState();
+
       } catch (error) {
+
         databaseReady = false;
         databaseError = error.message;
 
-        database = {
-          configured: true,
-          ready: false,
-          message: error.message
-        };
+        database =
+          getDatabaseState();
       }
     }
 
-    sendJSON(res, {
-      ok: true,
-      success: true,
+    return sendJSON(
+      res,
+      {
 
-      platform: PLATFORM,
-      version: VERSION,
+        success: true,
 
-      status: 'online',
+        ok: true,
 
-      server: {
-        online: true,
-        node: process.version,
-        uptime: process.uptime()
-      },
+        platform: PLATFORM,
 
-      database,
+        version: VERSION,
 
-      executive: {
-        automation: 'ready',
-        broadcasting: 'ready',
-        scheduling: 'ready',
-        workflow: 'ready'
-      },
+        status: 'online',
 
-      ai: {
-        enabled: true,
-        mode: 'orchestration-ready',
-        humanApprovalRequired: true
-      },
+        database,
 
-      operations: {
-        center: 'online',
-        autonomous: true,
-        humanApprovalRequired: true
-      },
+        executive: {
 
-      business: {
-        advertising: 'ready',
-        sponsorships: 'ready',
-        crm: 'ready'
-      },
+          automation:
+            'ready',
 
-      timestamp: now()
-    });
+          broadcasting:
+            'ready',
+
+          scheduling:
+            'ready',
+
+          workflow:
+            'ready',
+
+          operations:
+            'online'
+        },
+
+        ai: {
+
+          enabled: true,
+
+          mode:
+            'orchestration-ready',
+
+          humanApprovalRequired:
+            true
+        },
+
+        business: {
+
+          advertising:
+            'ready',
+
+          sponsorships:
+            'ready',
+
+          crm:
+            'ready'
+        },
+
+        timestamp: now()
+      }
+    );
   }
 );
-
-/*
-===========================================================
- EXECUTIVE HEALTH
-===========================================================
-*/
 
 app.get(
   '/api/executive-command/health',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      platform: PLATFORM,
-      version: VERSION,
+    return sendJSON(
+      res,
+      {
 
-      service:
-        'Executive Command Center',
+        success: true,
 
-      health: {
-        api: 'healthy',
-        server: 'healthy',
+        ok: true,
 
-        database:
-          databaseConfigured
-            ? (
-                databaseReady
-                  ? 'healthy'
-                  : 'degraded'
-              )
-            : 'not-configured',
+        service:
+          'Executive Command Center',
 
-        interface: 'available'
-      },
+        health: {
 
-      timestamp: now()
-    });
+          api:
+            'healthy',
+
+          server:
+            'healthy',
+
+          database:
+            databaseConfigured
+              ? (
+                  databaseReady
+                    ? 'healthy'
+                    : 'degraded'
+                )
+              : 'not-configured',
+
+          interface:
+            'available'
+        },
+
+        timestamp: now()
+      }
+    );
   }
 );
-
-/*
-===========================================================
- EXECUTIVE DASHBOARD
-===========================================================
-*/
 
 app.get(
   '/api/executive-command/dashboard',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      platform: PLATFORM,
-      version: VERSION,
+    return sendJSON(
+      res,
+      {
 
-      dashboard: {
-        status: 'online',
+        success: true,
 
-        systems: {
-          total: 0,
-          online: 0,
-          degraded: 0,
-          offline: 0
+        ok: true,
+
+        dashboard: {
+
+          status:
+            'online',
+
+          systems: {
+
+            total: 0,
+
+            online: 0,
+
+            degraded: 0,
+
+            offline: 0
+          },
+
+          operations: {
+
+            active: 0,
+
+            pending: 0,
+
+            completed: 0,
+
+            failed: 0
+          },
+
+          ai: {
+
+            enabled: true,
+
+            agents: 10,
+
+            missions: 0
+          },
+
+          approvals: {
+
+            pending: 0,
+
+            required: 0
+          },
+
+          business: {
+
+            audience: null,
+
+            advertising: null,
+
+            revenue: null,
+
+            crm: null
+          }
         },
 
-        operations: {
-          active: 0,
-          pending: 0,
-          completed: 0,
-          failed: 0
-        },
-
-        ai: {
-          enabled: true,
-          agents: 0,
-          missions: 0
-        },
-
-        approvals: {
-          pending: 0,
-          required: 0
-        },
-
-        business: {
-          audience: null,
-          advertising: null,
-          revenue: null,
-          crm: null
-        }
-      },
-
-      timestamp: now()
-    });
+        timestamp: now()
+      }
+    );
   }
 );
-
-/*
-===========================================================
- EXECUTIVE SYSTEMS
-===========================================================
-*/
 
 app.get(
   '/api/executive-command/systems',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      systems: [
-        {
-          id: 'api',
-          name: 'API',
-          status: 'online'
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        systems: [
+
+          {
+            id: 'api',
+            name: 'API',
+            status: 'online'
+          },
+
+          {
+            id: 'executive-command',
+            name:
+              'Executive Command Center',
+            status: 'online'
+          },
+
+          {
+            id: 'autonomous-operations',
+            name:
+              'Autonomous Media Operations',
+            status: 'online'
+          },
+
+          {
+            id: 'database',
+            name: 'PostgreSQL',
+            status:
+              databaseConfigured
+                ? (
+                    databaseReady
+                      ? 'online'
+                      : 'degraded'
+                  )
+                : 'not-configured'
+          },
+
+          {
+            id: 'ai',
+            name:
+              'AI Orchestration',
+            status:
+              'ready'
+          }
+        ],
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.get(
+  '/api/executive-command/ai',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        ai: {
+
+          enabled: true,
+
+          autonomousMode:
+            true,
+
+          humanApprovalRequired:
+            true,
+
+          agents:
+            10,
+
+          missions:
+            0,
+
+          capabilities: [
+
+            'news-analysis',
+
+            'content-analysis',
+
+            'verification',
+
+            'editorial-assistance',
+
+            'broadcast-preparation',
+
+            'audience-analysis',
+
+            'advertising-assistance',
+
+            'business-assistance',
+
+            'security-analysis',
+
+            'legal-review',
+
+            'ethics-review',
+
+            'executive-analysis'
+          ]
         },
-        {
-          id: 'executive-command',
-          name:
-            'Executive Command Center',
-          status: 'online'
-        },
-        {
-          id: 'autonomous-operations',
-          name:
-            'Autonomous Media Operations',
-          status: 'online'
-        },
-        {
-          id: 'database',
-          name: 'PostgreSQL',
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.get(
+  '/api/executive-command/operations',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        operations: {
+
           status:
+            'online',
+
+          active: 0,
+
+          pending: 0,
+
+          completed: 0,
+
+          failed: 0
+        },
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.get(
+  '/api/executive-command/business',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        business: {
+
+          audience:
+            null,
+
+          advertising: {
+
+            status:
+              'ready'
+          },
+
+          sponsorships: {
+
+            status:
+              'ready'
+          },
+
+          crm: {
+
+            status:
+              'ready'
+          },
+
+          revenue:
+            null
+        },
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.get(
+  '/api/executive-command/approvals',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        approvals: {
+
+          pending:
+            0,
+
+          required:
+            0,
+
+          items:
+            []
+        },
+
+        policy: {
+
+          humanApprovalRequired:
+            true,
+
+          automaticPublishing:
+            false,
+
+          automaticBroadcasting:
+            false
+        },
+
+        timestamp: now()
+      }
+    );
+  }
+);
+
+app.get(
+  '/api/executive-command/matrix',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        matrix: {
+
+          api:
+            'online',
+
+          database:
             databaseConfigured
               ? (
                   databaseReady
                     ? 'online'
                     : 'degraded'
                 )
-              : 'not-configured'
-        },
-        {
-          id: 'ai',
-          name: 'AI Orchestration',
-          status: 'ready'
-        }
-      ],
+              : 'not-configured',
 
-      timestamp: now()
-    });
-  }
-);
+          ai:
+            'ready',
 
-/*
-===========================================================
- EXECUTIVE AI
-===========================================================
-*/
+          operations:
+            'online',
 
-app.get(
-  '/api/executive-command/ai',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
+          automation:
+            'ready',
 
-      ai: {
-        enabled: true,
-        autonomousMode: true,
-        humanApprovalRequired: true,
+          broadcasting:
+            'ready',
 
-        agents: {
-          total: 0,
-          active: 0
-        },
+          scheduling:
+            'ready',
 
-        missions: {
-          total: 0,
-          active: 0
+          advertising:
+            'ready',
+
+          sponsorships:
+            'ready',
+
+          crm:
+            'ready',
+
+          security:
+            'ready',
+
+          legal:
+            'ready',
+
+          ethics:
+            'ready'
         },
 
-        capabilities: [
-          'news-analysis',
-          'content-analysis',
-          'verification',
-          'editorial-assistance',
-          'broadcast-preparation',
-          'audience-analysis',
-          'advertising-assistance',
-          'business-assistance',
-          'security-analysis',
-          'legal-review',
-          'ethics-review',
-          'executive-analysis'
-        ]
-      },
-
-      timestamp: now()
-    });
+        timestamp: now()
+      }
+    );
   }
 );
-
-/*
-===========================================================
- EXECUTIVE OPERATIONS
-===========================================================
-*/
-
-app.get(
-  '/api/executive-command/operations',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
-
-      operations: {
-        status: 'online',
-        active: 0,
-        pending: 0,
-        completed: 0,
-        failed: 0
-      },
-
-      timestamp: now()
-    });
-  }
-);
-
-/*
-===========================================================
- EXECUTIVE BUSINESS
-===========================================================
-*/
-
-app.get(
-  '/api/executive-command/business',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
-
-      business: {
-        audience: null,
-
-        advertising: {
-          status: 'ready'
-        },
-
-        sponsorships: {
-          status: 'ready'
-        },
-
-        crm: {
-          status: 'ready'
-        },
-
-        revenue: null
-      },
-
-      timestamp: now()
-    });
-  }
-);
-
-/*
-===========================================================
- EXECUTIVE APPROVALS
-===========================================================
-*/
-
-app.get(
-  '/api/executive-command/approvals',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
-
-      approvals: {
-        pending: 0,
-        required: 0,
-        items: []
-      },
-
-      policy: {
-        humanApprovalRequired: true,
-        automaticPublishing: false,
-        automaticBroadcasting: false
-      },
-
-      timestamp: now()
-    });
-  }
-);
-
-/*
-===========================================================
- EXECUTIVE MATRIX
-===========================================================
-*/
-
-app.get(
-  '/api/executive-command/matrix',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
-
-      matrix: {
-        api: 'online',
-
-        database:
-          databaseConfigured
-            ? (
-                databaseReady
-                  ? 'online'
-                  : 'degraded'
-              )
-            : 'not-configured',
-
-        ai: 'ready',
-        operations: 'online',
-        automation: 'ready',
-        broadcasting: 'ready',
-        scheduling: 'ready',
-        advertising: 'ready',
-        sponsorships: 'ready',
-        crm: 'ready',
-        security: 'ready',
-        legal: 'ready',
-        ethics: 'ready'
-      },
-
-      timestamp: now()
-    });
-  }
-);
-
-/*
-===========================================================
- EXECUTIVE REFRESH
-===========================================================
-*/
 
 app.post(
   '/api/executive-command/refresh',
   async (req, res) => {
 
     if (pool) {
+
       try {
-        await pool.query('SELECT 1');
+
+        await pool.query(
+          'SELECT 1'
+        );
 
         databaseReady = true;
         databaseError = null;
+
       } catch (error) {
+
         databaseReady = false;
-        databaseError = error.message;
+        databaseError =
+          error.message;
       }
     }
 
-    sendJSON(res, {
-      ok: true,
-      refreshed: true,
-      timestamp: now()
-    });
+    return sendJSON(
+      res,
+      {
+
+        success: true,
+
+        ok: true,
+
+        refreshed:
+          true,
+
+        database:
+          getDatabaseState(),
+
+        timestamp:
+          now()
+      }
+    );
   }
 );
-
-/*
-===========================================================
- EXECUTIVE ANALYSIS
-===========================================================
-*/
 
 app.post(
   '/api/executive-command/analysis',
   (req, res) => {
 
-    const request =
+    const body =
       req.body || {};
 
-    sendJSON(res, {
-      ok: true,
+    return sendJSON(
+      res,
+      {
 
-      analysis: {
-        mode:
-          'local-orchestration',
+        success: true,
 
-        requestReceived: true,
+        ok: true,
 
-        topic:
-          request.topic || null,
+        analysis: {
 
-        recommendation:
-          'يجب استخدام بيانات حقيقية قبل اتخاذ أي قرار تنفيذي.',
+          mode:
+            'local-orchestration',
 
-        requiresHumanApproval:
-          true
-      },
+          requestReceived:
+            true,
 
-      timestamp: now()
-    });
+          topic:
+            body.topic ||
+            null,
+
+          recommendation:
+            'يجب استخدام بيانات حقيقية قبل اتخاذ أي قرار تنفيذي.',
+
+          requiresHumanApproval:
+            true
+        },
+
+        timestamp: now()
+      }
+    );
   }
 );
 
 /*
 ===========================================================
- AUTONOMOUS MEDIA OPERATIONS
+ OPERATIONS
 ===========================================================
 */
 
 app.get(
   '/api/operations/health',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      service:
-        'Autonomous Media Operations Center',
+    return sendJSON(
+      res,
+      {
 
-      status: 'online',
+        success: true,
 
-      timestamp: now()
-    });
+        ok: true,
+
+        service:
+          'Autonomous Media Operations Center',
+
+        status:
+          'online',
+
+        timestamp: now()
+      }
+    );
   }
 );
 
 app.get(
   '/api/operations/status',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      status: 'online',
+    return sendJSON(
+      res,
+      {
 
-      automation: {
-        enabled: true,
-        autoNews: true,
-        autoContent: true,
-        autoDistribution: false,
-        autoBroadcast: false
-      },
+        success: true,
 
-      humanApprovalRequired:
-        true,
+        ok: true,
 
-      timestamp: now()
-    });
+        status:
+          'online',
+
+        automation: {
+
+          enabled:
+            true,
+
+          autoNews:
+            true,
+
+          autoContent:
+            true,
+
+          autoDistribution:
+            false,
+
+          autoBroadcast:
+            false
+        },
+
+        humanApprovalRequired:
+          true,
+
+        timestamp: now()
+      }
+    );
   }
 );
 
 app.get(
   '/api/operations/dashboard',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      dashboard: {
-        status: 'online',
-        activeOperations: 0,
-        pendingOperations: 0,
-        approvals: 0,
-        events: 0
-      },
+    return sendJSON(
+      res,
+      {
 
-      timestamp: now()
-    });
-  }
-);
+        success: true,
 
-app.get(
-  '/api/operations/statistics',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
+        ok: true,
 
-      statistics: {
-        events: 0,
-        operations: 0,
-        active: 0,
-        completed: 0,
-        failed: 0,
-        approvals: 0
-      },
+        dashboard: {
 
-      timestamp: now()
-    });
-  }
-);
+          status:
+            'online',
 
-app.post(
-  '/api/operations/start',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
-      status: 'started',
-      message:
-        'تم تشغيل مركز العمليات.',
-      timestamp: now()
-    });
-  }
-);
+          activeOperations:
+            0,
 
-app.post(
-  '/api/operations/stop',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
-      status: 'stopped',
-      message:
-        'تم إيقاف مركز العمليات.',
-      timestamp: now()
-    });
+          pendingOperations:
+            0,
+
+          approvals:
+            0,
+
+          events:
+            0
+        },
+
+        timestamp:
+          now()
+      }
+    );
   }
 );
 
 /*
 ===========================================================
- محتوى / AI / LIVE / AUTOMATION
+ CONTENT
 ===========================================================
 */
 
 app.get(
   '/api/content',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
-      items: [],
-      total: 0,
-      timestamp: now()
-    });
+
+    return sendJSON(
+      res,
+      {
+
+        success:
+          true,
+
+        ok:
+          true,
+
+        items:
+          [],
+
+        total:
+          0,
+
+        timestamp:
+          now()
+      }
+    );
   }
 );
 
-app.get(
-  '/api/ai',
-  (req, res) => {
-    sendJSON(res, {
-      ok: true,
-
-      ai: {
-        enabled: true,
-
-        providerConfigured:
-          Boolean(
-            process.env.OPENAI_API_KEY ||
-            process.env.AI_API_KEY
-          ),
-
-        humanApprovalRequired:
-          true
-      },
-
-      timestamp: now()
-    });
-  }
-);
+/*
+===========================================================
+ LIVE
+===========================================================
+*/
 
 app.get(
   '/api/live',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      live: {
-        status: 'ready',
-        active: false,
-        broadcastConfigured: false
-      },
+    return sendJSON(
+      res,
+      {
 
-      timestamp: now()
-    });
+        success:
+          true,
+
+        ok:
+          true,
+
+        live: {
+
+          status:
+            'ready',
+
+          active:
+            false,
+
+          broadcastConfigured:
+            false
+        },
+
+        timestamp:
+          now()
+      }
+    );
   }
 );
+
+/*
+===========================================================
+ AUTOMATION
+===========================================================
+*/
 
 app.get(
   '/api/automation',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      automation: {
-        enabled: true,
-        status: 'ready',
-        humanApprovalRequired: true
-      },
+    return sendJSON(
+      res,
+      {
 
-      timestamp: now()
-    });
+        success:
+          true,
+
+        ok:
+          true,
+
+        automation: {
+
+          enabled:
+            true,
+
+          status:
+            'ready',
+
+          humanApprovalRequired:
+            true
+        },
+
+        timestamp:
+          now()
+      }
+    );
   }
 );
+
+/*
+===========================================================
+ STORAGE
+===========================================================
+*/
 
 app.get(
   '/api/storage',
   (req, res) => {
-    sendJSON(res, {
-      ok: true,
 
-      storage: {
-        configured:
-          Boolean(
-            process.env.STORAGE_BUCKET ||
-            process.env.S3_BUCKET ||
-            process.env.CLOUDINARY_URL
-          ),
+    const configured =
+      Boolean(
+        process.env.STORAGE_BUCKET ||
+        process.env.S3_BUCKET ||
+        process.env.CLOUDINARY_URL
+      );
 
-        provider: null
-      },
+    return sendJSON(
+      res,
+      {
 
-      timestamp: now()
-    });
+        success:
+          true,
+
+        ok:
+          true,
+
+        storage: {
+
+          configured,
+
+          provider:
+            null
+        },
+
+        timestamp:
+          now()
+      }
+    );
   }
 );
+
+/*
+===========================================================
+ UPLOAD
+===========================================================
+*/
 
 app.post(
   '/api/upload',
   (req, res) => {
-    sendJSON(
+
+    return sendJSON(
       res,
       {
-        ok: false,
+
+        success:
+          false,
+
+        ok:
+          false,
 
         message:
-          'خدمة رفع الملفات تحتاج ربط التخزين السحابي الفعلي قبل استقبال الملفات.',
+          'خدمة رفع الملفات تحتاج ربط التخزين السحابي الفعلي.',
 
-        configured: false,
+        configured:
+          false,
 
-        timestamp: now()
+        timestamp:
+          now()
       },
+
       501
+    );
+  }
+);
+
+/*
+===========================================================
+ ROOT
+===========================================================
+*/
+
+app.get(
+  '/',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        ...getSystemState(),
+
+        message:
+          'EZ MEDIA 11.0 is running.',
+
+        architecture:
+          'Direct Server API',
+
+        api:
+          '/api',
+
+        apiStatus:
+          '/api/status',
+
+        apiHealth:
+          '/api/health',
+
+        operations:
+          '/autonomous-media-operations/'
+      }
+    );
+  }
+);
+
+/*
+===========================================================
+ HEALTH
+===========================================================
+*/
+
+app.get(
+  '/health',
+  (req, res) => {
+
+    return sendJSON(
+      res,
+      {
+
+        ...getSystemState(),
+
+        health:
+          databaseConfigured
+            ? (
+                databaseReady
+                  ? 'healthy'
+                  : 'degraded'
+              )
+            : 'healthy-without-database'
+      }
     );
   }
 );
@@ -1159,8 +2106,11 @@ if (fs.existsSync(EXECUTIVE_DIR)) {
     express.static(
       EXECUTIVE_DIR,
       {
-        index: 'index.html',
-        fallthrough: true
+        index:
+          'index.html',
+
+        fallthrough:
+          true
       }
     )
   );
@@ -1176,18 +2126,34 @@ app.get(
         'index.html'
       );
 
-    if (fs.existsSync(indexFile)) {
-      return res.sendFile(indexFile);
+    if (
+      fs.existsSync(
+        indexFile
+      )
+    ) {
+
+      return res.sendFile(
+        indexFile
+      );
     }
 
     return sendJSON(
       res,
       {
-        ok: false,
+
+        success:
+          false,
+
+        ok:
+          false,
+
         error:
           'Executive UI index.html not found',
-        expectedPath: indexFile
+
+        expectedPath:
+          indexFile
       },
+
       404
     );
   }
@@ -1203,18 +2169,34 @@ app.get(
         'index.html'
       );
 
-    if (fs.existsSync(indexFile)) {
-      return res.sendFile(indexFile);
+    if (
+      fs.existsSync(
+        indexFile
+      )
+    ) {
+
+      return res.sendFile(
+        indexFile
+      );
     }
 
     return sendJSON(
       res,
       {
-        ok: false,
+
+        success:
+          false,
+
+        ok:
+          false,
+
         error:
           'Executive UI index.html not found',
-        expectedPath: indexFile
+
+        expectedPath:
+          indexFile
       },
+
       404
     );
   }
@@ -1226,13 +2208,18 @@ app.get(
 ===========================================================
 */
 
-if (fs.existsSync(PUBLIC_DIR)) {
+if (
+  fs.existsSync(
+    PUBLIC_DIR
+  )
+) {
 
   app.use(
     express.static(
       PUBLIC_DIR,
       {
-        fallthrough: true
+        fallthrough:
+          true
       }
     )
   );
@@ -1247,21 +2234,35 @@ if (fs.existsSync(PUBLIC_DIR)) {
 app.use(
   (req, res) => {
 
-    sendJSON(
+    return sendJSON(
       res,
       {
-        ok: false,
 
-        error: 'Not Found',
+        success:
+          false,
+
+        ok:
+          false,
+
+        error:
+          'Not Found',
 
         path:
           req.originalUrl,
 
-        platform: PLATFORM,
-        version: VERSION,
+        method:
+          req.method,
 
-        timestamp: now()
+        platform:
+          PLATFORM,
+
+        version:
+          VERSION,
+
+        timestamp:
+          now()
       },
+
       404
     );
   }
@@ -1274,21 +2275,36 @@ app.use(
 */
 
 app.use(
-  (error, req, res, next) => {
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
 
     console.error(
       '[EZ MEDIA SERVER ERROR]',
       error
     );
 
-    if (res.headersSent) {
-      return next(error);
+    if (
+      res.headersSent
+    ) {
+
+      return next(
+        error
+      );
     }
 
-    sendJSON(
+    return sendJSON(
       res,
       {
-        ok: false,
+
+        success:
+          false,
+
+        ok:
+          false,
 
         error:
           'Internal Server Error',
@@ -1296,11 +2312,15 @@ app.use(
         message:
           process.env.NODE_ENV ===
           'production'
+
             ? 'حدث خطأ داخلي في الخادم.'
+
             : error.message,
 
-        timestamp: now()
+        timestamp:
+          now()
       },
+
       500
     );
   }
@@ -1321,6 +2341,10 @@ async function startServer() {
 
   console.log(
     ' EZ MEDIA 11.0'
+  );
+
+  console.log(
+    ' DIRECT API SERVER'
   );
 
   console.log(
@@ -1349,9 +2373,11 @@ async function startServer() {
   );
 
   console.log(
-    `API Router loaded: ${
-      Boolean(apiRouter)
-    }`
+    'API Router: DISABLED'
+  );
+
+  console.log(
+    'API Architecture: DIRECT'
   );
 
   console.log(
@@ -1366,6 +2392,7 @@ async function startServer() {
     () => {
 
       console.log('');
+
       console.log(
         '=============================================='
       );
@@ -1383,12 +2410,21 @@ async function startServer() {
       );
 
       console.log('');
+
       console.log(
         'API: /api'
       );
 
       console.log(
         'API Status: /api/status'
+      );
+
+      console.log(
+        'API Health: /api/health'
+      );
+
+      console.log(
+        'API Modules: /api/modules'
       );
 
       console.log(
@@ -1401,6 +2437,12 @@ async function startServer() {
 
       console.log(
         'Operations: /autonomous-media-operations/'
+      );
+
+      console.log('');
+
+      console.log(
+        'DIRECT API READY'
       );
 
       console.log(
