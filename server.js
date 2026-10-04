@@ -6,6 +6,16 @@
  INTELLIGENT MEDIA PLATFORM
  EXECUTIVE COMMAND CENTER
 ============================================================
+
+ ROOT SERVER
+ /server.js
+
+ التشغيل:
+ node server.js
+
+ Railway:
+ start = node server.js
+============================================================
 */
 
 const express = require("express");
@@ -166,46 +176,66 @@ const runtime = {
 
   database: {
     initialized: false,
+
     configured:
       Boolean(process.env.DATABASE_URL),
+
     ready: false,
+
     health: null,
+
     error: null
   },
 
   notifications: {
     initialized: false,
+
     workerStarted: false,
+
     error: null
   },
 
   autonomousOperations: {
     available: false,
+
     initialized: false,
+
     routeMounted: false,
+
     started: false,
+
     lastError: null
   },
 
   eventIntelligence: {
     available: false,
+
     initialized: false,
+
     routeMounted: false,
+
     lastError: null
   },
 
   ai: {
     available: true,
+
     collaboration: false,
+
     autonomousAgents: false,
+
     memory: false,
+
     eventIntelligence: false
   },
 
   executiveCommand: {
     available: true,
+
     status: "online",
+
     lastRefresh: null,
+
     lastError: null
   }
 };
@@ -216,9 +246,13 @@ const runtime = {
 
 const engines = {
   autonomousOperations: null,
+
   collaboration: null,
+
   autonomousAgents: null,
+
   memory: null,
+
   eventIntelligence: null
 };
 
@@ -262,63 +296,420 @@ app.use(
    REQUEST ID
 ========================================================= */
 
-app.use((req, res, next) => {
-  const requestId =
-    req.headers["x-request-id"] ||
-    `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 10)}`;
+app.use(
+  (req, res, next) => {
 
-  req.requestId = requestId;
+    const requestId =
+      req.headers["x-request-id"] ||
+      `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
 
-  res.setHeader(
-    "X-EZ-MEDIA-Request-ID",
-    requestId
-  );
+    req.requestId =
+      requestId;
 
-  next();
-});
+    res.setHeader(
+      "X-EZ-MEDIA-Request-ID",
+      requestId
+    );
+
+    next();
+  }
+);
 
 /* =========================================================
    REQUEST LOG
 ========================================================= */
 
-app.use((req, res, next) => {
-  const started =
-    Date.now();
+app.use(
+  (req, res, next) => {
 
-  res.on("finish", () => {
-    const duration =
-      Date.now() - started;
+    const started =
+      Date.now();
 
-    console.log(
-      JSON.stringify({
-        platform: "EZ MEDIA",
-        method: req.method,
-        path: req.originalUrl,
-        status: res.statusCode,
-        durationMs: duration,
-        requestId: req.requestId,
-        timestamp:
-          new Date().toISOString()
-      })
+    res.on(
+      "finish",
+      () => {
+
+        const duration =
+          Date.now() - started;
+
+        console.log(
+          JSON.stringify({
+            platform:
+              "EZ MEDIA",
+
+            method:
+              req.method,
+
+            path:
+              req.originalUrl,
+
+            status:
+              res.statusCode,
+
+            durationMs:
+              duration,
+
+            requestId:
+              req.requestId,
+
+            timestamp:
+              new Date().toISOString()
+          })
+        );
+      }
     );
-  });
 
-  next();
-});
+    next();
+  }
+);
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function objectOrEmpty(value) {
+
+  if (
+    value &&
+    typeof value === "object"
+  ) {
+
+    return value;
+  }
+
+  return {};
+}
+
+function numberOrNull(value) {
+
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+
+    return null;
+  }
+
+  const number =
+    Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+function firstDefined(...values) {
+
+  for (
+    const value of values
+  ) {
+
+    if (
+      value !== undefined &&
+      value !== null
+    ) {
+
+      return value;
+    }
+  }
+
+  return null;
+}
+
+/* =========================================================
+   NESTED VALUE READER
+========================================================= */
+
+function getByPath(
+  source,
+  pathExpression
+) {
+
+  if (
+    source === undefined ||
+    source === null
+  ) {
+
+    return undefined;
+  }
+
+  const parts =
+    String(pathExpression)
+      .split(".");
+
+  let current =
+    source;
+
+  for (
+    const part of parts
+  ) {
+
+    if (
+      current === undefined ||
+      current === null
+    ) {
+
+      return undefined;
+    }
+
+    current =
+      current[part];
+  }
+
+  return current;
+}
+
+/* =========================================================
+   COUNT READER
+========================================================= */
+
+function extractCount(
+  source,
+  keys
+) {
+
+  const data =
+    objectOrEmpty(source);
+
+  for (
+    const key of keys
+  ) {
+
+    const value =
+      getByPath(
+        data,
+        key
+      );
+
+    if (
+      Array.isArray(value)
+    ) {
+
+      return value.length;
+    }
+
+    const number =
+      numberOrNull(value);
+
+    if (
+      number !== null
+    ) {
+
+      return number;
+    }
+  }
+
+  return null;
+}
+
+/* =========================================================
+   STATUS READER
+========================================================= */
+
+function extractStatus(
+  source
+) {
+
+  const data =
+    objectOrEmpty(source);
+
+  return firstDefined(
+
+    getByPath(
+      data,
+      "status"
+    ),
+
+    getByPath(
+      data,
+      "state"
+    ),
+
+    getByPath(
+      data,
+      "mode"
+    ),
+
+    getByPath(
+      data,
+      "health"
+    ),
+
+    getByPath(
+      data,
+      "system.status"
+    ),
+
+    getByPath(
+      data,
+      "system.state"
+    )
+  );
+}
+
+/* =========================================================
+   BOOLEAN READER
+========================================================= */
+
+function extractBoolean(
+  source,
+  keys
+) {
+
+  const data =
+    objectOrEmpty(source);
+
+  for (
+    const key of keys
+  ) {
+
+    const value =
+      getByPath(
+        data,
+        key
+      );
+
+    if (
+      typeof value ===
+      "boolean"
+    ) {
+
+      return value;
+    }
+
+    if (
+      value === "true"
+    ) {
+
+      return true;
+    }
+
+    if (
+      value === "false"
+    ) {
+
+      return false;
+    }
+  }
+
+  return null;
+}
+
+/* =========================================================
+   SAFE ENGINE READ
+========================================================= */
+
+async function safeEngineRead(
+  engine,
+  methods = [
+    "dashboard",
+    "status",
+    "health",
+    "statistics",
+    "getDashboard",
+    "getStatus",
+    "getHealth",
+    "getStatistics"
+  ]
+) {
+
+  if (!engine) {
+
+    return {
+
+      available:
+        false,
+
+      data:
+        {},
+
+      method:
+        null,
+
+      error:
+        null
+    };
+  }
+
+  let lastError =
+    null;
+
+  for (
+    const method of methods
+  ) {
+
+    try {
+
+      if (
+        typeof engine[method] ===
+        "function"
+      ) {
+
+        const result =
+          await engine[method]();
+
+        return {
+
+          available:
+            true,
+
+          data:
+            result === undefined
+              ? {}
+              : result,
+
+          method,
+
+          error:
+            null
+        };
+      }
+
+    } catch (error) {
+
+      lastError =
+        error;
+    }
+  }
+
+  return {
+
+    available:
+      true,
+
+    data:
+      {},
+
+    method:
+      null,
+
+    error:
+      lastError
+        ? lastError.message
+        : null
+  };
+}
 
 /* =========================================================
    STATIC PUBLIC
 ========================================================= */
 
 const publicPath =
-  path.join(__dirname, "public");
+  path.join(
+    __dirname,
+    "public"
+  );
 
 app.use(
-  express.static(publicPath, {
-    fallthrough: true
-  })
+  express.static(
+    publicPath,
+    {
+      fallthrough: true
+    }
+  )
 );
 
 /* =========================================================
@@ -337,9 +728,14 @@ app.use(
   express.static(
     autonomousOperationsUIPath,
     {
-      index: "index.html",
-      fallthrough: false,
-      redirect: true
+      index:
+        "index.html",
+
+      fallthrough:
+        false,
+
+      redirect:
+        true
     }
   )
 );
@@ -347,6 +743,7 @@ app.use(
 app.get(
   "/autonomous-media-operations",
   (req, res) => {
+
     res.sendFile(
       path.join(
         autonomousOperationsUIPath,
@@ -359,6 +756,7 @@ app.get(
 app.get(
   "/autonomous-media-operations/",
   (req, res) => {
+
     res.sendFile(
       path.join(
         autonomousOperationsUIPath,
@@ -423,273 +821,6 @@ app.use(
 );
 
 /* =========================================================
-   HELPERS
-========================================================= */
-
-function objectOrEmpty(value) {
-  if (
-    value &&
-    typeof value === "object"
-  ) {
-    return value;
-  }
-
-  return {};
-}
-
-function numberOrNull(value) {
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
-    return null;
-  }
-
-  const number =
-    Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : null;
-}
-
-function firstDefined(...values) {
-  for (const value of values) {
-    if (
-      value !== undefined &&
-      value !== null
-    ) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-/* =========================================================
-   NESTED VALUE READER
-========================================================= */
-
-function getByPath(
-  source,
-  pathExpression
-) {
-  if (
-    source === undefined ||
-    source === null
-  ) {
-    return undefined;
-  }
-
-  const parts =
-    String(pathExpression)
-      .split(".");
-
-  let current =
-    source;
-
-  for (
-    const part of parts
-  ) {
-    if (
-      current === undefined ||
-      current === null
-    ) {
-      return undefined;
-    }
-
-    current =
-      current[part];
-  }
-
-  return current;
-}
-
-/* =========================================================
-   COUNT READER
-========================================================= */
-
-function extractCount(
-  source,
-  keys
-) {
-  const data =
-    objectOrEmpty(source);
-
-  for (
-    const key of keys
-  ) {
-
-    const value =
-      getByPath(
-        data,
-        key
-      );
-
-    if (
-      Array.isArray(value)
-    ) {
-      return value.length;
-    }
-
-    const number =
-      numberOrNull(value);
-
-    if (
-      number !== null
-    ) {
-      return number;
-    }
-  }
-
-  return null;
-}
-
-/* =========================================================
-   STATUS READER
-========================================================= */
-
-function extractStatus(
-  source
-) {
-  const data =
-    objectOrEmpty(source);
-
-  return firstDefined(
-    getByPath(data, "status"),
-    getByPath(data, "state"),
-    getByPath(data, "mode"),
-    getByPath(data, "health"),
-    getByPath(data, "system.status"),
-    getByPath(data, "system.state")
-  );
-}
-
-/* =========================================================
-   BOOLEAN READER
-========================================================= */
-
-function extractBoolean(
-  source,
-  keys
-) {
-  const data =
-    objectOrEmpty(source);
-
-  for (
-    const key of keys
-  ) {
-    const value =
-      getByPath(
-        data,
-        key
-      );
-
-    if (
-      typeof value ===
-      "boolean"
-    ) {
-      return value;
-    }
-
-    if (
-      value === "true"
-    ) {
-      return true;
-    }
-
-    if (
-      value === "false"
-    ) {
-      return false;
-    }
-  }
-
-  return null;
-}
-
-/* =========================================================
-   SAFE ENGINE READ
-========================================================= */
-
-async function safeEngineRead(
-  engine,
-  methods = [
-    "dashboard",
-    "status",
-    "health",
-    "statistics",
-    "getDashboard",
-    "getStatus",
-    "getHealth",
-    "getStatistics"
-  ]
-) {
-
-  if (!engine) {
-    return {
-      available: false,
-      data: {},
-      method: null,
-      error: null
-    };
-  }
-
-  let lastError =
-    null;
-
-  for (
-    const method of methods
-  ) {
-
-    try {
-
-      if (
-        typeof engine[method] ===
-        "function"
-      ) {
-
-        const result =
-          await engine[method]();
-
-        return {
-          available: true,
-
-          data:
-            result === undefined
-              ? {}
-              : result,
-
-          method,
-
-          error:
-            null
-        };
-      }
-
-    } catch (error) {
-
-      lastError =
-        error;
-    }
-  }
-
-  return {
-    available: true,
-
-    data: {},
-
-    method: null,
-
-    error:
-      lastError
-        ? lastError.message
-        : null
-  };
-}
-
-/* =========================================================
    ENGINE INITIALIZATION
 ========================================================= */
 
@@ -721,10 +852,12 @@ async function initializeAdvancedEngines() {
           new Engine();
 
         runtime.autonomousOperations
-          .available = true;
+          .available =
+          true;
 
         runtime.autonomousOperations
-          .initialized = true;
+          .initialized =
+          true;
 
         console.log(
           "[EZ MEDIA] Autonomous Operations Engine: READY"
@@ -896,10 +1029,12 @@ async function initializeAdvancedEngines() {
           new Engine();
 
         runtime.eventIntelligence
-          .available = true;
+          .available =
+          true;
 
         runtime.eventIntelligence
-          .initialized = true;
+          .initialized =
+          true;
 
         runtime.ai.eventIntelligence =
           true;
@@ -950,7 +1085,7 @@ function mountAutonomousOperationsRoutes() {
 
     if (
       typeof factory !==
-        "function" ||
+      "function" ||
       !engines.autonomousOperations
     ) {
 
@@ -975,7 +1110,8 @@ function mountAutonomousOperationsRoutes() {
       );
 
       runtime.autonomousOperations
-        .routeMounted = true;
+        .routeMounted =
+        true;
 
       console.log(
         "[EZ MEDIA] /api/operations mounted"
@@ -1004,6 +1140,7 @@ function mountEventIntelligenceRoutes() {
   if (
     !eventIntelligenceRoutesModule
   ) {
+
     return;
   }
 
@@ -1021,6 +1158,7 @@ function mountEventIntelligenceRoutes() {
       typeof factory !==
       "function"
     ) {
+
       return;
     }
 
@@ -1038,7 +1176,8 @@ function mountEventIntelligenceRoutes() {
       );
 
       runtime.eventIntelligence
-        .routeMounted = true;
+        .routeMounted =
+        true;
 
       console.log(
         "[EZ MEDIA] Event Intelligence Router mounted"
@@ -1059,8 +1198,7 @@ function mountEventIntelligenceRoutes() {
 }
 
 /* =========================================================
-   EXECUTIVE COMMAND CENTER
-   CODE 122
+   EXECUTIVE COMMAND CENTER ENGINE
 ========================================================= */
 
 const executiveCommand = {
@@ -1082,29 +1220,29 @@ const executiveCommand = {
         agentsSnapshot,
         memorySnapshot,
         eventSnapshot
-      ] = await Promise.all([
+      ] =
+        await Promise.all([
 
-        safeEngineRead(
-          engines.autonomousOperations
-        ),
+          safeEngineRead(
+            engines.autonomousOperations
+          ),
 
-        safeEngineRead(
-          engines.collaboration
-        ),
+          safeEngineRead(
+            engines.collaboration
+          ),
 
-        safeEngineRead(
-          engines.autonomousAgents
-        ),
+          safeEngineRead(
+            engines.autonomousAgents
+          ),
 
-        safeEngineRead(
-          engines.memory
-        ),
+          safeEngineRead(
+            engines.memory
+          ),
 
-        safeEngineRead(
-          engines.eventIntelligence
-        )
-
-      ]);
+          safeEngineRead(
+            engines.eventIntelligence
+          )
+        ]);
 
       /* ---------------------------------------------------
          DATABASE
@@ -1136,7 +1274,7 @@ const executiveCommand = {
             data.connected === true ||
             data.ok === true ||
             data.status ===
-              "healthy";
+            "healthy";
         }
 
       } catch (error) {
@@ -1357,7 +1495,7 @@ const executiveCommand = {
         );
 
       /* ---------------------------------------------------
-         REAL ENGINE STATUS
+         ENGINE STATUS
       --------------------------------------------------- */
 
       const operationEngineStatus =
@@ -1437,7 +1575,7 @@ const executiveCommand = {
       };
 
       /* ---------------------------------------------------
-         REAL SYSTEM MATRIX
+         SYSTEM MATRIX
       --------------------------------------------------- */
 
       const systems = {
@@ -1573,7 +1711,7 @@ const executiveCommand = {
       };
 
       /* ---------------------------------------------------
-         EXECUTIVE STATUS
+         EXECUTIVE STATE
       --------------------------------------------------- */
 
       const automationStatus =
@@ -1584,10 +1722,6 @@ const executiveCommand = {
               .initialized
           ? "ready"
           : "unavailable";
-
-      /*
-       * لا يتم إعطاء حالة جاهز لمحرك غير موجود.
-       */
 
       const schedulingStatus =
         "not_connected";
@@ -1851,6 +1985,138 @@ const executiveCommand = {
 };
 
 /* =========================================================
+   GUARANTEED EXECUTIVE API RESPONSE
+========================================================= */
+
+function executiveSafeResponse(
+  res,
+  builder
+) {
+
+  try {
+
+    const result =
+      builder();
+
+    if (
+      result &&
+      typeof result.then ===
+      "function"
+    ) {
+
+      return result
+        .then(
+          (data) => {
+
+            if (
+              !res.headersSent
+            ) {
+
+              return res
+                .status(200)
+                .json(data);
+            }
+          }
+        )
+        .catch(
+          (error) => {
+
+            console.error(
+              "[EZ MEDIA] Executive API Error:",
+              error
+            );
+
+            if (
+              !res.headersSent
+            ) {
+
+              return res
+                .status(200)
+                .json({
+
+                  platform:
+                    "EZ MEDIA",
+
+                  version:
+                    VERSION,
+
+                  status:
+                    "degraded",
+
+                  service:
+                    "Executive Command Center",
+
+                  error:
+                    error.message,
+
+                  database:
+                    runtime.database,
+
+                  ai:
+                    runtime.ai,
+
+                  operations:
+                    runtime.autonomousOperations,
+
+                  timestamp:
+                    new Date().toISOString()
+                });
+            }
+          }
+        );
+    }
+
+    return res
+      .status(200)
+      .json(result);
+
+  } catch (error) {
+
+    console.error(
+      "[EZ MEDIA] Executive API Error:",
+      error
+    );
+
+    if (
+      !res.headersSent
+    ) {
+
+      return res
+        .status(200)
+        .json({
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          status:
+            "degraded",
+
+          service:
+            "Executive Command Center",
+
+          error:
+            error.message,
+
+          database:
+            runtime.database,
+
+          ai:
+            runtime.ai,
+
+          operations:
+            runtime.autonomousOperations,
+
+          timestamp:
+            new Date().toISOString()
+        });
+    }
+  }
+}
+
+/* =========================================================
    EXECUTIVE API
 ========================================================= */
 
@@ -1858,11 +2124,27 @@ app.get(
   "/api/executive-command/status",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json(
-      snapshot
+        const snapshot =
+          await executiveCommand.refresh();
+
+        return {
+
+          ...snapshot,
+
+          api: {
+
+            available:
+              true,
+
+            endpoint:
+              "/api/executive-command/status"
+          }
+        };
+      }
     );
   }
 );
@@ -1871,32 +2153,44 @@ app.get(
   "/api/executive-command/health",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
+        const snapshot =
+          await executiveCommand.refresh();
 
-      platform:
-        "EZ MEDIA",
+        return {
 
-      service:
-        "Executive Command Center",
+          platform:
+            "EZ MEDIA",
 
-      status:
-        snapshot.status,
+          version:
+            VERSION,
 
-      timestamp:
-        new Date().toISOString(),
+          service:
+            "Executive Command Center",
 
-      database:
-        snapshot.database,
+          status:
+            snapshot.status,
 
-      ai:
-        snapshot.ai,
+          api:
+            "online",
 
-      operations:
-        snapshot.operations
-    });
+          timestamp:
+            new Date().toISOString(),
+
+          database:
+            snapshot.database,
+
+          ai:
+            snapshot.ai,
+
+          operations:
+            snapshot.operations
+        };
+      }
+    );
   }
 );
 
@@ -1904,13 +2198,29 @@ app.get(
   "/api/executive-command/dashboard",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
-      dashboard:
-        snapshot
-    });
+        const snapshot =
+          await executiveCommand.refresh();
+
+        return {
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          status:
+            snapshot.status,
+
+          dashboard:
+            snapshot
+        };
+      }
+    );
   }
 );
 
@@ -1918,13 +2228,26 @@ app.get(
   "/api/executive-command/systems",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
-      systems:
-        snapshot.systems
-    });
+        const snapshot =
+          await executiveCommand.refresh();
+
+        return {
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          systems:
+            snapshot.systems
+        };
+      }
+    );
   }
 );
 
@@ -1932,13 +2255,26 @@ app.get(
   "/api/executive-command/ai",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
-      ai:
-        snapshot.ai
-    });
+        const snapshot =
+          await executiveCommand.refresh();
+
+        return {
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          ai:
+            snapshot.ai
+        };
+      }
+    );
   }
 );
 
@@ -1946,13 +2282,26 @@ app.get(
   "/api/executive-command/operations",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
-      operations:
-        snapshot.operations
-    });
+        const snapshot =
+          await executiveCommand.refresh();
+
+        return {
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          operations:
+            snapshot.operations
+        };
+      }
+    );
   }
 );
 
@@ -1960,13 +2309,26 @@ app.get(
   "/api/executive-command/approvals",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
-      approvals:
-        snapshot.approvals
-    });
+        const snapshot =
+          await executiveCommand.refresh();
+
+        return {
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          approvals:
+            snapshot.approvals
+        };
+      }
+    );
   }
 );
 
@@ -1974,13 +2336,26 @@ app.get(
   "/api/executive-command/business",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
-      business:
-        snapshot.business
-    });
+        const snapshot =
+          await executiveCommand.refresh();
+
+        return {
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          business:
+            snapshot.business
+        };
+      }
+    );
   }
 );
 
@@ -1988,35 +2363,47 @@ app.get(
   "/api/executive-command/matrix",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
+        const snapshot =
+          await executiveCommand.refresh();
 
-      matrix: {
+        return {
 
-        systems:
-          snapshot.systems,
+          platform:
+            "EZ MEDIA",
 
-        ai:
-          snapshot.ai,
+          version:
+            VERSION,
 
-        operations:
-          snapshot.operations,
+          matrix: {
 
-        approvals:
-          snapshot.approvals,
+            systems:
+              snapshot.systems,
 
-        broadcasting:
-          snapshot.broadcasting,
+            ai:
+              snapshot.ai,
 
-        business:
-          snapshot.business,
+            operations:
+              snapshot.operations,
 
-        database:
-          snapshot.database
+            approvals:
+              snapshot.approvals,
+
+            broadcasting:
+              snapshot.broadcasting,
+
+            business:
+              snapshot.business,
+
+            database:
+              snapshot.database
+          }
+        };
       }
-    });
+    );
   }
 );
 
@@ -2024,17 +2411,29 @@ app.post(
   "/api/executive-command/refresh",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    res.json({
+        const snapshot =
+          await executiveCommand.refresh();
 
-      success:
-        true,
+        return {
 
-      data:
-        snapshot
-    });
+          success:
+            true,
+
+          platform:
+            "EZ MEDIA",
+
+          version:
+            VERSION,
+
+          data:
+            snapshot
+        };
+      }
+    );
   }
 );
 
@@ -2042,101 +2441,107 @@ app.post(
   "/api/executive-command/analysis",
   async (req, res) => {
 
-    const snapshot =
-      await executiveCommand.refresh();
+    return executiveSafeResponse(
+      res,
+      async () => {
 
-    const recommendations =
-      [];
+        const snapshot =
+          await executiveCommand.refresh();
 
-    if (
-      !snapshot.database.ready
-    ) {
+        const recommendations =
+          [];
 
-      recommendations.push(
-        "قاعدة البيانات غير جاهزة حاليًا."
-      );
-    }
+        if (
+          !snapshot.database.ready
+        ) {
 
-    if (
-      !snapshot.operations.available
-    ) {
+          recommendations.push(
+            "قاعدة البيانات غير جاهزة حاليًا."
+          );
+        }
 
-      recommendations.push(
-        "محرك العمليات المستقلة غير متاح."
-      );
-    }
+        if (
+          !snapshot.operations.available
+        ) {
 
-    if (
-      snapshot.operations.available &&
-      !snapshot.operations.started
-    ) {
+          recommendations.push(
+            "محرك العمليات المستقلة غير متاح."
+          );
+        }
 
-      recommendations.push(
-        "محرك العمليات متاح لكنه غير مشغّل."
-      );
-    }
+        if (
+          snapshot.operations.available &&
+          !snapshot.operations.started
+        ) {
 
-    if (
-      snapshot.broadcasting.status ===
-      "not_connected"
-    ) {
+          recommendations.push(
+            "محرك العمليات متاح لكنه غير مشغّل."
+          );
+        }
 
-      recommendations.push(
-        "لا يوجد تكامل بث خارجي فعلي متصل حاليًا."
-      );
-    }
+        if (
+          snapshot.broadcasting.status ===
+          "not_connected"
+        ) {
 
-    if (
-      snapshot.executive.scheduling ===
-      "not_connected"
-    ) {
+          recommendations.push(
+            "لا يوجد تكامل بث خارجي فعلي متصل حاليًا."
+          );
+        }
 
-      recommendations.push(
-        "محرك الجدولة التنفيذي غير متصل حاليًا."
-      );
-    }
+        if (
+          snapshot.executive.scheduling ===
+          "not_connected"
+        ) {
 
-    if (
-      recommendations.length ===
-      0
-    ) {
+          recommendations.push(
+            "محرك الجدولة التنفيذي غير متصل حاليًا."
+          );
+        }
 
-      recommendations.push(
-        "لا توجد ملاحظات حرجة في الحالة الحالية."
-      );
-    }
+        if (
+          recommendations.length ===
+          0
+        ) {
 
-    res.json({
+          recommendations.push(
+            "لا توجد ملاحظات حرجة في الحالة الحالية."
+          );
+        }
 
-      success:
-        true,
+        return {
 
-      mode:
-        "local-runtime-analysis",
+          success:
+            true,
 
-      timestamp:
-        new Date().toISOString(),
+          platform:
+            "EZ MEDIA",
 
-      recommendations,
+          version:
+            VERSION,
 
-      snapshot
-    });
+          mode:
+            "local-runtime-analysis",
+
+          timestamp:
+            new Date().toISOString(),
+
+          recommendations,
+
+          snapshot
+        };
+      }
+    );
   }
 );
 
 /* =========================================================
    OPERATIONS FALLBACK
-   IMPORTANT ROUTE-ORDER FIX
 ========================================================= */
 
 app.get(
   "/api/operations/health",
   (req, res, next) => {
-
-    /*
-     * إذا كان الراوتر الحقيقي مركبًا،
-     * يتم تمرير الطلب إليه.
-     */
 
     if (
       runtime.autonomousOperations
@@ -2189,11 +2594,6 @@ app.get(
 app.get(
   "/api/operations/status",
   (req, res, next) => {
-
-    /*
-     * إذا كان الراوتر الحقيقي مركبًا،
-     * يتم تمرير الطلب إليه.
-     */
 
     if (
       runtime.autonomousOperations
@@ -2278,8 +2678,29 @@ app.get(
         executiveCommand:
           "/api/executive-command/status",
 
+        executiveHealth:
+          "/api/executive-command/health",
+
         executiveDashboard:
           "/api/executive-command/dashboard",
+
+        executiveSystems:
+          "/api/executive-command/systems",
+
+        executiveAI:
+          "/api/executive-command/ai",
+
+        executiveOperations:
+          "/api/executive-command/operations",
+
+        executiveApprovals:
+          "/api/executive-command/approvals",
+
+        executiveBusiness:
+          "/api/executive-command/business",
+
+        executiveMatrix:
+          "/api/executive-command/matrix",
 
         operations:
           "/api/operations/status",
@@ -2331,7 +2752,9 @@ app.get(
         ) {
 
           health = {
+
             ...health,
+
             ...result
           };
         }
@@ -2480,16 +2903,37 @@ app.get(
         executive:
           "/api/executive-command/status",
 
+        executiveHealth:
+          "/api/executive-command/health",
+
         dashboard:
           "/api/executive-command/dashboard",
 
+        systems:
+          "/api/executive-command/systems",
+
+        ai:
+          "/api/executive-command/ai",
+
         operations:
+          "/api/executive-command/operations",
+
+        approvals:
+          "/api/executive-command/approvals",
+
+        business:
+          "/api/executive-command/business",
+
+        matrix:
+          "/api/executive-command/matrix",
+
+        operationsStatus:
           "/api/operations/status",
 
         content:
           "/api/content",
 
-        ai:
+        aiApi:
           "/api/ai",
 
         media:
@@ -2586,7 +3030,9 @@ app.get(
         if (health) {
 
           result = {
+
             ...result,
+
             ...health
           };
         }
@@ -2679,18 +3125,28 @@ app.get(
       agents: [
 
         "EZ WORLD RADAR",
-        "EZ DISCOVERY",
-        "EZ RESEARCHER",
-        "EZ VERIFY",
-        "EZ STORY",
-        "EZ EDITOR",
-        "EZ VIDEO",
-        "EZ AUDIO",
-        "EZ LIVE",
-        "EZ PUBLISHER",
-        "EZ SOCIAL",
-        "EZ ANALYTICS"
 
+        "EZ DISCOVERY",
+
+        "EZ RESEARCHER",
+
+        "EZ VERIFY",
+
+        "EZ STORY",
+
+        "EZ EDITOR",
+
+        "EZ VIDEO",
+
+        "EZ AUDIO",
+
+        "EZ LIVE",
+
+        "EZ PUBLISHER",
+
+        "EZ SOCIAL",
+
+        "EZ ANALYTICS"
       ]
     });
   }
@@ -2816,7 +3272,8 @@ app.use(
         "المسار المطلوب غير موجود.",
 
       requestId:
-        req.requestId || null
+        req.requestId ||
+        null
     });
   }
 );
@@ -2846,7 +3303,8 @@ app.use(
     }
 
     res.status(
-      error.status || 500
+      error.status ||
+      500
     );
 
     res.json({
@@ -2862,7 +3320,8 @@ app.use(
         "حدث خطأ داخلي.",
 
       requestId:
-        req.requestId || null,
+        req.requestId ||
+        null,
 
       timestamp:
         new Date().toISOString()
@@ -3000,7 +3459,7 @@ async function initializeAllSystems() {
         data.connected === true ||
         data.ok === true ||
         data.status ===
-          "healthy";
+        "healthy";
     }
 
   } catch (error) {
@@ -3041,6 +3500,7 @@ async function startAutonomousOperations() {
     engines.autonomousOperations;
 
   if (!engine) {
+
     return;
   }
 
@@ -3054,7 +3514,8 @@ async function startAutonomousOperations() {
       await engine.start();
 
       runtime.autonomousOperations
-        .started = true;
+        .started =
+        true;
 
       console.log(
         "[EZ MEDIA] Autonomous Operations started"
@@ -3068,7 +3529,8 @@ async function startAutonomousOperations() {
       error.message;
 
     runtime.autonomousOperations
-      .started = false;
+      .started =
+      false;
 
     console.error(
       "[EZ MEDIA] Autonomous Operations start:",
@@ -3093,7 +3555,8 @@ async function startNotificationsWorkerSafe() {
       await startNotificationWorker();
 
       runtime.notifications
-        .workerStarted = true;
+        .workerStarted =
+        true;
 
       console.log(
         "[EZ MEDIA] Notification Worker started"
@@ -3126,10 +3589,9 @@ async function startServer() {
 
   await startNotificationsWorkerSafe();
 
-  /*
-   * تحديث Executive Command Center
-   * بعد اكتمال تهيئة وتشغيل المحركات.
-   */
+  /* -------------------------------------------------------
+     EXECUTIVE REFRESH
+  ------------------------------------------------------- */
 
   try {
 
@@ -3141,6 +3603,10 @@ async function startServer() {
       .lastError =
       error.message;
   }
+
+  /* -------------------------------------------------------
+     LISTEN
+  ------------------------------------------------------- */
 
   server =
     app.listen(
@@ -3239,6 +3705,14 @@ async function startServer() {
         );
 
         console.log(
+          "EXECUTIVE HEALTH: /api/executive-command/health"
+        );
+
+        console.log(
+          "EXECUTIVE DASHBOARD: /api/executive-command/dashboard"
+        );
+
+        console.log(
           "OPERATIONS: /api/operations/status"
         );
 
@@ -3280,7 +3754,8 @@ async function shutdown(
         .stop();
 
       runtime.autonomousOperations
-        .started = false;
+        .started =
+        false;
     }
 
   } catch (error) {
