@@ -1,1047 +1,852 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
-  <meta charset="UTF-8" />
+
+  <meta charset="UTF-8">
+
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  />
+    content="width=device-width, initial-scale=1.0"
+  >
 
-  <title>EZ MEDIA — AI Command Center</title>
+  <title>
+    EZ MEDIA — Executive Command Center 2.0
+  </title>
 
   <meta
     name="description"
-    content="مركز القيادة الذكي لمنصة EZ MEDIA"
-  />
+    content="مركز القيادة التنفيذي الذكي لمنصة EZ MEDIA"
+  >
 
-  <meta name="theme-color" content="#07111f" />
+  <link
+    rel="stylesheet"
+    href="/executive-command-center/styles.css"
+  >
 
-  <link rel="stylesheet" href="/ai-command-center/styles.css" />
 </head>
 
 <body>
 
-  <!-- =========================================================
-       EZ MEDIA — AI COMMAND CENTER
-       CODE 63
-       Frontend Dashboard
-       ========================================================= -->
+<div id="app">
 
-  <div id="app">
+  <!-- =====================================================
+       TOP NAVIGATION
+  ====================================================== -->
 
-    <!-- =======================================================
-         TOP BAR
-         ======================================================= -->
+  <header class="topbar">
 
-    <header class="topbar">
+    <div class="brand">
 
-      <div class="brand">
-
-        <div class="brand-mark">
-          <span>EZ</span>
-        </div>
-
-        <div class="brand-text">
-          <strong>EZ MEDIA</strong>
-          <small>AI COMMAND CENTER</small>
-        </div>
-
+      <div class="brand-logo">
+        EZ
       </div>
 
-      <div class="top-status">
+      <div class="brand-text">
 
-        <div class="connection-status" id="connectionStatus">
-          <span class="status-dot"></span>
-          <span id="connectionText">جاري الاتصال...</span>
-        </div>
+        <strong>
+          EZ MEDIA
+        </strong>
 
-        <div class="system-time" id="systemTime">
-          --:--:--
-        </div>
-
-        <button
-          class="icon-button"
-          id="refreshButton"
-          title="تحديث البيانات"
-          type="button"
-        >
-          ↻
-        </button>
+        <span>
+          EXECUTIVE COMMAND
+        </span>
 
       </div>
-
-    </header>
-
-
-    <!-- =======================================================
-         MAIN LAYOUT
-         ======================================================= -->
-
-    <div class="layout">
-
-      <!-- =====================================================
-           SIDEBAR
-           ===================================================== -->
-
-      <aside class="sidebar" id="sidebar">
-
-        <div class="sidebar-header">
-          <span>مركز القيادة</span>
-
-          <button
-            class="sidebar-close"
-            id="sidebarClose"
-            type="button"
-          >
-            ×
-          </button>
-        </div>
-
-        <nav class="navigation">
-
-          <button
-            class="nav-item active"
-            data-section="dashboard"
-            type="button"
-          >
-            <span class="nav-icon">⌂</span>
-            <span>لوحة القيادة</span>
-          </button>
-
-          <button
-            class="nav-item"
-            data-section="ai"
-            type="button"
-          >
-            <span class="nav-icon">✦</span>
-            <span>الذكاء الاصطناعي</span>
-          </button>
-
-          <button
-            class="nav-item"
-            data-section="plans"
-            type="button"
-          >
-            <span class="nav-icon">◈</span>
-            <span>خطط AI</span>
-          </button>
-
-          <button
-            class="nav-item"
-            data-section="review"
-            type="button"
-          >
-            <span class="nav-icon">✓</span>
-            <span>المراجعة البشرية</span>
-          </button>
-
-          <button
-            class="nav-item"
-            data-section="automation"
-            type="button"
-          >
-            <span class="nav-icon">⚙</span>
-            <span>الأتمتة</span>
-          </button>
-
-          <button
-            class="nav-item"
-            data-section="alerts"
-            type="button"
-          >
-            <span class="nav-icon">!</span>
-            <span>التنبيهات</span>
-          </button>
-
-          <button
-            class="nav-item"
-            data-section="usage"
-            type="button"
-          >
-            <span class="nav-icon">▥</span>
-            <span>الاستهلاك والإحصائيات</span>
-          </button>
-
-          <button
-            class="nav-item"
-            data-section="events"
-            type="button"
-          >
-            <span class="nav-icon">◌</span>
-            <span>السجل والأحداث</span>
-          </button>
-
-        </nav>
-
-        <div class="sidebar-footer">
-
-          <button
-            class="danger-button"
-            id="emergencyButton"
-            type="button"
-          >
-            <span>⛔</span>
-            <span>إيقاف طارئ للذكاء</span>
-          </button>
-
-          <button
-            class="resume-button"
-            id="resumeButton"
-            type="button"
-          >
-            <span>▶</span>
-            <span>استئناف النظام</span>
-          </button>
-
-        </div>
-
-      </aside>
-
-
-      <!-- =====================================================
-           CONTENT
-           ===================================================== -->
-
-      <main class="content">
-
-        <!-- Mobile Header -->
-
-        <div class="mobile-header">
-
-          <button
-            class="menu-button"
-            id="menuButton"
-            type="button"
-          >
-            ☰
-          </button>
-
-          <div>
-            <strong>EZ MEDIA</strong>
-            <small>AI COMMAND CENTER</small>
-          </div>
-
-        </div>
-
-
-        <!-- ===================================================
-             DASHBOARD SECTION
-             =================================================== -->
-
-        <section
-          class="dashboard-section active"
-          id="section-dashboard"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">EZ MEDIA INTELLIGENCE</span>
-
-              <h1>مركز القيادة الذكي</h1>
-
-              <p>
-                التحكم والمراقبة والتحليل والتشغيل الذكي لجميع أنظمة
-                المنصة من مكان واحد.
-              </p>
-            </div>
-
-            <div class="page-actions">
-
-              <button
-                class="secondary-button"
-                id="dashboardRefresh"
-                type="button"
-              >
-                ↻ تحديث
-              </button>
-
-            </div>
-
-          </div>
-
-
-          <!-- System State -->
-
-          <div class="hero-status-card">
-
-            <div class="hero-status-main">
-
-              <div class="large-status-icon" id="mainStatusIcon">
-                ✦
-              </div>
-
-              <div>
-
-                <span class="status-label">
-                  الحالة العامة
-                </span>
-
-                <h2 id="mainStatus">
-                  جاري التحميل...
-                </h2>
-
-                <p id="mainStatusDescription">
-                  يتم الاتصال بمركز القيادة الذكي.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div class="hero-status-meta">
-
-              <div>
-                <span>الإصدار</span>
-                <strong id="platformVersion">—</strong>
-              </div>
-
-              <div>
-                <span>AI Provider</span>
-                <strong id="aiProvider">—</strong>
-              </div>
-
-              <div>
-                <span>آخر تحديث</span>
-                <strong id="lastUpdate">—</strong>
-              </div>
-
-            </div>
-
-          </div>
-
-
-          <!-- KPI Cards -->
-
-          <div class="stats-grid">
-
-            <article class="stat-card">
-
-              <div class="stat-card-top">
-                <span>حالة AI</span>
-                <span class="stat-icon">✦</span>
-              </div>
-
-              <strong id="statAI">—</strong>
-
-              <small id="statAIDetail">
-                —
-              </small>
-
-            </article>
-
-
-            <article class="stat-card">
-
-              <div class="stat-card-top">
-                <span>الخطط النشطة</span>
-                <span class="stat-icon">◈</span>
-              </div>
-
-              <strong id="statPlans">0</strong>
-
-              <small>
-                خطط معالجة ذكية
-              </small>
-
-            </article>
-
-
-            <article class="stat-card">
-
-              <div class="stat-card-top">
-                <span>مراجعات معلقة</span>
-                <span class="stat-icon">✓</span>
-              </div>
-
-              <strong id="statReviews">0</strong>
-
-              <small>
-                تحتاج قرارًا بشريًا
-              </small>
-
-            </article>
-
-
-            <article class="stat-card">
-
-              <div class="stat-card-top">
-                <span>مهام الأتمتة</span>
-                <span class="stat-icon">⚙</span>
-              </div>
-
-              <strong id="statAutomation">0</strong>
-
-              <small>
-                قيد التنفيذ أو الانتظار
-              </small>
-
-            </article>
-
-
-            <article class="stat-card">
-
-              <div class="stat-card-top">
-                <span>التنبيهات</span>
-                <span class="stat-icon">!</span>
-              </div>
-
-              <strong id="statAlerts">0</strong>
-
-              <small>
-                تنبيهات النظام
-              </small>
-
-            </article>
-
-
-            <article class="stat-card">
-
-              <div class="stat-card-top">
-                <span>الاستخدام</span>
-                <span class="stat-icon">▥</span>
-              </div>
-
-              <strong id="statUsage">0</strong>
-
-              <small>
-                طلبات AI
-              </small>
-
-            </article>
-
-          </div>
-
-
-          <!-- AI Command -->
-
-          <div class="dashboard-grid">
-
-            <section class="panel command-panel">
-
-              <div class="panel-header">
-
-                <div>
-                  <span class="eyebrow">AI COMMAND</span>
-                  <h3>أمر جديد للذكاء الاصطناعي</h3>
-                </div>
-
-                <span class="live-badge">
-                  LIVE
-                </span>
-
-              </div>
-
-              <textarea
-                id="commandInput"
-                class="command-input"
-                placeholder="اكتب الأمر الذي تريد من مركز الذكاء تنفيذه..."
-              ></textarea>
-
-              <div class="command-options">
-
-                <select id="commandType">
-
-                  <option value="analyze-content">
-                    تحليل محتوى
-                  </option>
-
-                  <option value="analyze-news">
-                    تحليل خبر
-                  </option>
-
-                  <option value="breaking-news">
-                    خبر عاجل
-                  </option>
-
-                  <option value="summarize">
-                    تلخيص
-                  </option>
-
-                  <option value="generate-title">
-                    إنشاء عنوان
-                  </option>
-
-                  <option value="seo">
-                    تحسين SEO
-                  </option>
-
-                  <option value="fact-check">
-                    تدقيق الحقائق
-                  </option>
-
-                  <option value="risk-analysis">
-                    تحليل المخاطر
-                  </option>
-
-                  <option value="publishing-decision">
-                    قرار النشر
-                  </option>
-
-                </select>
-
-                <button
-                  class="primary-button"
-                  id="executeCommand"
-                  type="button"
-                >
-                  ✦ تنفيذ الأمر
-                </button>
-
-              </div>
-
-              <div
-                class="command-result"
-                id="commandResult"
-              >
-                <span>
-                  نتيجة الأمر ستظهر هنا.
-                </span>
-              </div>
-
-            </section>
-
-
-            <!-- Active Plans -->
-
-            <section class="panel">
-
-              <div class="panel-header">
-
-                <div>
-                  <span class="eyebrow">ACTIVE PLANS</span>
-                  <h3>الخطط النشطة</h3>
-                </div>
-
-                <button
-                  class="text-button"
-                  data-section-link="plans"
-                  type="button"
-                >
-                  عرض الكل
-                </button>
-
-              </div>
-
-              <div
-                class="list-container"
-                id="activePlansList"
-              >
-                <div class="empty-state">
-                  جاري التحميل...
-                </div>
-              </div>
-
-            </section>
-
-          </div>
-
-
-          <!-- Lower Dashboard -->
-
-          <div class="dashboard-grid">
-
-            <section class="panel">
-
-              <div class="panel-header">
-
-                <div>
-                  <span class="eyebrow">ALERTS</span>
-                  <h3>آخر التنبيهات</h3>
-                </div>
-
-                <button
-                  class="text-button"
-                  data-section-link="alerts"
-                  type="button"
-                >
-                  الكل
-                </button>
-
-              </div>
-
-              <div
-                class="list-container"
-                id="dashboardAlerts"
-              >
-                <div class="empty-state">
-                  لا توجد تنبيهات.
-                </div>
-              </div>
-
-            </section>
-
-
-            <section class="panel">
-
-              <div class="panel-header">
-
-                <div>
-                  <span class="eyebrow">EVENTS</span>
-                  <h3>آخر الأحداث</h3>
-                </div>
-
-                <button
-                  class="text-button"
-                  data-section-link="events"
-                  type="button"
-                >
-                  السجل
-                </button>
-
-              </div>
-
-              <div
-                class="list-container"
-                id="dashboardEvents"
-              >
-                <div class="empty-state">
-                  جاري التحميل...
-                </div>
-              </div>
-
-            </section>
-
-          </div>
-
-        </section>
-
-
-        <!-- ===================================================
-             AI SECTION
-             =================================================== -->
-
-        <section
-          class="dashboard-section"
-          id="section-ai"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">ARTIFICIAL INTELLIGENCE</span>
-              <h1>الذكاء الاصطناعي</h1>
-              <p>
-                حالة المحرك ومزود الذكاء والعمليات الذكية.
-              </p>
-            </div>
-
-          </div>
-
-          <div class="info-grid">
-
-            <div class="info-card">
-              <span>AI Core</span>
-              <strong id="aiCoreStatus">—</strong>
-            </div>
-
-            <div class="info-card">
-              <span>Provider</span>
-              <strong id="providerStatus">—</strong>
-            </div>
-
-            <div class="info-card">
-              <span>Orchestrator</span>
-              <strong id="orchestratorStatus">—</strong>
-            </div>
-
-            <div class="info-card">
-              <span>Automation</span>
-              <strong id="automationStatus">—</strong>
-            </div>
-
-          </div>
-
-          <section class="panel">
-
-            <div class="panel-header">
-
-              <div>
-                <span class="eyebrow">AI OPERATIONS</span>
-                <h3>العمليات المتاحة</h3>
-              </div>
-
-            </div>
-
-            <div
-              class="operations-grid"
-              id="operationsGrid"
-            ></div>
-
-          </section>
-
-        </section>
-
-
-        <!-- ===================================================
-             PLANS
-             =================================================== -->
-
-        <section
-          class="dashboard-section"
-          id="section-plans"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">AI PLANS</span>
-              <h1>خطط الذكاء الاصطناعي</h1>
-              <p>
-                مراقبة وإدارة خطط المعالجة الذكية.
-              </p>
-            </div>
-
-            <button
-              class="secondary-button"
-              id="plansRefresh"
-              type="button"
-            >
-              ↻ تحديث
-            </button>
-
-          </div>
-
-          <section class="panel">
-
-            <div
-              class="table-container"
-              id="plansTable"
-            >
-              <div class="empty-state">
-                جاري تحميل الخطط...
-              </div>
-            </div>
-
-          </section>
-
-        </section>
-
-
-        <!-- ===================================================
-             HUMAN REVIEW
-             =================================================== -->
-
-        <section
-          class="dashboard-section"
-          id="section-review"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">HUMAN REVIEW</span>
-              <h1>المراجعة البشرية</h1>
-              <p>
-                القرارات التي تحتاج موافقة بشرية قبل التنفيذ.
-              </p>
-            </div>
-
-          </div>
-
-          <div class="stats-grid">
-
-            <article class="stat-card">
-              <span>المعلقة</span>
-              <strong id="reviewPending">0</strong>
-            </article>
-
-            <article class="stat-card">
-              <span>الموافق عليها</span>
-              <strong id="reviewApproved">0</strong>
-            </article>
-
-            <article class="stat-card">
-              <span>المرفوضة</span>
-              <strong id="reviewRejected">0</strong>
-            </article>
-
-          </div>
-
-          <section class="panel">
-
-            <div
-              class="review-list"
-              id="reviewList"
-            >
-              <div class="empty-state">
-                جاري تحميل المراجعات...
-              </div>
-            </div>
-
-          </section>
-
-        </section>
-
-
-        <!-- ===================================================
-             AUTOMATION
-             =================================================== -->
-
-        <section
-          class="dashboard-section"
-          id="section-automation"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">AUTOMATION ENGINE</span>
-              <h1>الأتمتة الذكية</h1>
-              <p>
-                مراقبة محرك SOURCE → INGEST → ANALYZE → AI →
-                REVIEW → STORE → PUBLISH.
-              </p>
-            </div>
-
-          </div>
-
-          <div class="info-grid">
-
-            <div class="info-card">
-              <span>المحرك</span>
-              <strong id="automationEngineState">—</strong>
-            </div>
-
-            <div class="info-card">
-              <span>Workers</span>
-              <strong id="automationWorkers">—</strong>
-            </div>
-
-            <div class="info-card">
-              <span>قيد التنفيذ</span>
-              <strong id="automationRunning">—</strong>
-            </div>
-
-            <div class="info-card">
-              <span>في الانتظار</span>
-              <strong id="automationQueued">—</strong>
-            </div>
-
-          </div>
-
-          <section class="panel">
-
-            <div class="panel-header">
-              <div>
-                <span class="eyebrow">WORKFLOWS</span>
-                <h3>مسارات الأتمتة</h3>
-              </div>
-            </div>
-
-            <div
-              class="workflow-grid"
-              id="workflowGrid"
-            ></div>
-
-          </section>
-
-        </section>
-
-
-        <!-- ===================================================
-             ALERTS
-             =================================================== -->
-
-        <section
-          class="dashboard-section"
-          id="section-alerts"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">SYSTEM ALERTS</span>
-              <h1>التنبيهات</h1>
-              <p>
-                التنبيهات التشغيلية والذكاء والأمنية.
-              </p>
-            </div>
-
-          </div>
-
-          <section class="panel">
-
-            <div
-              class="alerts-list"
-              id="alertsList"
-            >
-              <div class="empty-state">
-                لا توجد تنبيهات حالياً.
-              </div>
-            </div>
-
-          </section>
-
-        </section>
-
-
-        <!-- ===================================================
-             USAGE
-             =================================================== -->
-
-        <section
-          class="dashboard-section"
-          id="section-usage"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">AI USAGE</span>
-              <h1>الاستهلاك والإحصائيات</h1>
-              <p>
-                مؤشرات استخدام الذكاء الاصطناعي والأداء.
-              </p>
-            </div>
-
-          </div>
-
-          <div class="stats-grid">
-
-            <article class="stat-card">
-              <span>إجمالي الطلبات</span>
-              <strong id="usageRequests">0</strong>
-            </article>
-
-            <article class="stat-card">
-              <span>الطلبات الناجحة</span>
-              <strong id="usageSuccess">0</strong>
-            </article>
-
-            <article class="stat-card">
-              <span>الأخطاء</span>
-              <strong id="usageErrors">0</strong>
-            </article>
-
-            <article class="stat-card">
-              <span>متوسط الزمن</span>
-              <strong id="usageDuration">0 ms</strong>
-            </article>
-
-          </div>
-
-          <section class="panel">
-
-            <div class="panel-header">
-              <div>
-                <span class="eyebrow">USAGE DETAILS</span>
-                <h3>تفاصيل الاستخدام</h3>
-              </div>
-            </div>
-
-            <pre
-              class="json-viewer"
-              id="usageViewer"
-            >جاري التحميل...</pre>
-
-          </section>
-
-        </section>
-
-
-        <!-- ===================================================
-             EVENTS
-             =================================================== -->
-
-        <section
-          class="dashboard-section"
-          id="section-events"
-        >
-
-          <div class="page-header">
-
-            <div>
-              <span class="eyebrow">SYSTEM EVENTS</span>
-              <h1>السجل والأحداث</h1>
-              <p>
-                سجل العمليات والأحداث الصادرة من الأنظمة الذكية.
-              </p>
-            </div>
-
-          </div>
-
-          <section class="panel">
-
-            <div
-              class="events-list"
-              id="eventsList"
-            >
-              <div class="empty-state">
-                جاري تحميل السجل...
-              </div>
-            </div>
-
-          </section>
-
-        </section>
-
-      </main>
 
     </div>
 
 
-    <!-- =======================================================
-         TOAST
-         ======================================================= -->
+    <div class="live-system">
 
-    <div
-      class="toast-container"
-      id="toastContainer"
-    ></div>
+      <span
+        id="systemDot"
+        class="system-dot"
+      ></span>
+
+      <span id="systemState">
+        جاري الاتصال...
+      </span>
+
+    </div>
 
 
-    <!-- =======================================================
-         MODAL
-         ======================================================= -->
+    <div class="top-actions">
 
-    <div
-      class="modal-overlay"
-      id="modalOverlay"
-      hidden
-    >
+      <button
+        id="refreshBtn"
+        class="btn btn-light"
+      >
+        تحديث
+      </button>
 
-      <div class="modal">
+      <button
+        id="runBtn"
+        class="btn btn-primary"
+      >
+        تشغيل التحليل
+      </button>
 
-        <div class="modal-header">
+    </div>
 
-          <h3 id="modalTitle">
-            تأكيد العملية
-          </h3>
+  </header>
+
+
+  <!-- =====================================================
+       MAIN
+  ====================================================== -->
+
+  <main class="main-container">
+
+
+    <!-- ===================================================
+         HERO
+    ==================================================== -->
+
+    <section class="hero">
+
+      <div class="hero-content">
+
+        <span class="eyebrow">
+          AI EXECUTIVE INTELLIGENCE
+        </span>
+
+        <h1>
+          مركز القيادة التنفيذي
+        </h1>
+
+        <p>
+          العقل التشغيلي لمنصة EZ MEDIA:
+          يراقب الأنظمة، يحلل الأداء،
+          يكتشف المخاطر، ويرتب أولويات التنفيذ.
+        </p>
+
+        <div class="hero-actions">
 
           <button
-            id="modalClose"
-            type="button"
+            id="heroRun"
+            class="btn btn-primary"
           >
-            ×
+            تشغيل دورة الذكاء
           </button>
+
+          <button
+            id="heroEmergency"
+            class="btn btn-danger-outline"
+          >
+            إيقاف طارئ
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="hero-score">
+
+        <span>
+          Executive Score
+        </span>
+
+        <strong id="overallScore">
+          —
+        </strong>
+
+        <small id="overallStatus">
+          —
+        </small>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         WHAT IS HAPPENING
+    ==================================================== -->
+
+    <section class="command-grid">
+
+      <article class="command-card large">
+
+        <div class="card-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              AI LIVE ANALYSIS
+            </span>
+
+            <h2>
+              ماذا يحدث الآن؟
+            </h2>
+
+          </div>
+
+          <span class="ai-badge">
+            AI
+          </span>
 
         </div>
 
         <div
-          class="modal-body"
-          id="modalBody"
-        ></div>
+          id="liveAnalysis"
+          class="analysis-box"
+        >
+          جاري تحليل المنصة...
+        </div>
 
-        <div class="modal-actions">
+      </article>
 
-          <button
-            class="secondary-button"
-            id="modalCancel"
-            type="button"
-          >
-            إلغاء
-          </button>
 
-          <button
-            class="danger-button"
-            id="modalConfirm"
-            type="button"
-          >
-            تأكيد
-          </button>
+      <article class="command-card">
+
+        <div class="card-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              NEXT MOVE
+            </span>
+
+            <h2>
+              ماذا أفعل؟
+            </h2>
+
+          </div>
 
         </div>
+
+        <div
+          id="nextMove"
+          class="next-move"
+        >
+          جاري تحديد الأولوية...
+        </div>
+
+      </article>
+
+    </section>
+
+
+    <!-- ===================================================
+         SCORE MATRIX
+    ==================================================== -->
+
+    <section>
+
+      <div class="section-title">
+
+        <div>
+
+          <span class="eyebrow">
+            EXECUTIVE METRICS
+          </span>
+
+          <h2>
+            مؤشرات القرار
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div class="score-grid">
+
+        <div class="score-card">
+
+          <span>
+            صحة المنصة
+          </span>
+
+          <strong id="healthScore">
+            —
+          </strong>
+
+          <div class="progress">
+            <i id="healthProgress"></i>
+          </div>
+
+        </div>
+
+
+        <div class="score-card">
+
+          <span>
+            التحرير
+          </span>
+
+          <strong id="editorialScore">
+            —
+          </strong>
+
+          <div class="progress">
+            <i id="editorialProgress"></i>
+          </div>
+
+        </div>
+
+
+        <div class="score-card">
+
+          <span>
+            الجمهور
+          </span>
+
+          <strong id="audienceScore">
+            —
+          </strong>
+
+          <div class="progress">
+            <i id="audienceProgress"></i>
+          </div>
+
+        </div>
+
+
+        <div class="score-card">
+
+          <span>
+            الإيرادات
+          </span>
+
+          <strong id="revenueScore">
+            —
+          </strong>
+
+          <div class="progress">
+            <i id="revenueProgress"></i>
+          </div>
+
+        </div>
+
+
+        <div class="score-card">
+
+          <span>
+            الأعمال
+          </span>
+
+          <strong id="businessScore">
+            —
+          </strong>
+
+          <div class="progress">
+            <i id="businessProgress"></i>
+          </div>
+
+        </div>
+
+
+        <div class="score-card risk">
+
+          <span>
+            المخاطر
+          </span>
+
+          <strong id="riskScore">
+            —
+          </strong>
+
+          <div class="progress">
+            <i id="riskProgress"></i>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         PRIORITIES
+    ==================================================== -->
+
+    <section class="command-grid">
+
+      <article class="command-card">
+
+        <div class="card-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              PRIORITIES
+            </span>
+
+            <h2>
+              أهم 5 أولويات
+            </h2>
+
+          </div>
+
+        </div>
+
+        <div
+          id="priorities"
+          class="priority-list"
+        ></div>
+
+      </article>
+
+
+      <article class="command-card">
+
+        <div class="card-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              ACTION PLAN
+            </span>
+
+            <h2>
+              خطة التنفيذ
+            </h2>
+
+          </div>
+
+        </div>
+
+        <div
+          id="actionPlan"
+          class="priority-list"
+        ></div>
+
+      </article>
+
+    </section>
+
+
+    <!-- ===================================================
+         AI DECISIONS
+    ==================================================== -->
+
+    <section class="command-card">
+
+      <div class="card-heading">
+
+        <div>
+
+          <span class="eyebrow">
+            AI DECISIONS
+          </span>
+
+          <h2>
+            قرارات الذكاء الاصطناعي
+          </h2>
+
+        </div>
+
+        <span
+          id="decisionCounter"
+          class="counter"
+        >
+          0
+        </span>
+
+      </div>
+
+
+      <div
+        id="decisions"
+        class="decision-grid"
+      ></div>
+
+    </section>
+
+
+    <!-- ===================================================
+         APPROVAL CENTER
+    ==================================================== -->
+
+    <section class="command-card">
+
+      <div class="card-heading">
+
+        <div>
+
+          <span class="eyebrow">
+            HUMAN APPROVAL
+          </span>
+
+          <h2>
+            يحتاج موافقتي
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="approvalCenter"
+        class="approval-list"
+      ></div>
+
+    </section>
+
+
+    <!-- ===================================================
+         ALERT CENTER
+    ==================================================== -->
+
+    <section class="command-card">
+
+      <div class="card-heading">
+
+        <div>
+
+          <span class="eyebrow">
+            INTELLIGENT ALERTS
+          </span>
+
+          <h2>
+            مركز التنبيهات
+          </h2>
+
+        </div>
+
+        <span
+          id="alertCounter"
+          class="counter"
+        >
+          0
+        </span>
+
+      </div>
+
+
+      <div
+        id="alerts"
+        class="alert-list"
+      ></div>
+
+    </section>
+
+
+    <!-- ===================================================
+         LIVE + NEWS
+    ==================================================== -->
+
+    <section class="command-grid">
+
+      <article class="command-card">
+
+        <div class="card-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              LIVE
+            </span>
+
+            <h2>
+              البث المباشر
+            </h2>
+
+          </div>
+
+        </div>
+
+        <div
+          id="livePanel"
+          class="status-panel"
+        ></div>
+
+      </article>
+
+
+      <article class="command-card">
+
+        <div class="card-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              NEWSROOM
+            </span>
+
+            <h2>
+              غرفة الأخبار
+            </h2>
+
+          </div>
+
+        </div>
+
+        <div
+          id="newsroomPanel"
+          class="status-panel"
+        ></div>
+
+      </article>
+
+    </section>
+
+
+    <!-- ===================================================
+         BUSINESS
+    ==================================================== -->
+
+    <section>
+
+      <div class="section-title">
+
+        <div>
+
+          <span class="eyebrow">
+            BUSINESS INTELLIGENCE
+          </span>
+
+          <h2>
+            الأعمال والإيرادات
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div class="business-grid">
+
+        <div class="business-card">
+
+          <span>
+            الجمهور
+          </span>
+
+          <strong id="audienceMetric">
+            —
+          </strong>
+
+        </div>
+
+        <div class="business-card">
+
+          <span>
+            الإعلانات
+          </span>
+
+          <strong id="advertisingMetric">
+            —
+          </strong>
+
+        </div>
+
+        <div class="business-card">
+
+          <span>
+            الإيرادات
+          </span>
+
+          <strong id="revenueMetric">
+            —
+          </strong>
+
+        </div>
+
+        <div class="business-card">
+
+          <span>
+            CRM
+          </span>
+
+          <strong id="crmMetric">
+            —
+          </strong>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         SYSTEM MATRIX
+    ==================================================== -->
+
+    <section class="command-card">
+
+      <div class="card-heading">
+
+        <div>
+
+          <span class="eyebrow">
+            SYSTEM MATRIX
+          </span>
+
+          <h2>
+            جميع أنظمة EZ MEDIA
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="systemMatrix"
+        class="system-grid"
+      ></div>
+
+    </section>
+
+
+    <!-- ===================================================
+         COMMAND ACTIONS
+    ==================================================== -->
+
+    <section class="command-card">
+
+      <div class="card-heading">
+
+        <div>
+
+          <span class="eyebrow">
+            SYSTEM CONTROL
+          </span>
+
+          <h2>
+            التحكم التشغيلي
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div class="control-grid">
+
+        <button
+          data-command="START_AUTOMATION"
+          class="control-button"
+        >
+          تشغيل الأتمتة
+        </button>
+
+        <button
+          data-command="STOP_AUTOMATION"
+          class="control-button warning"
+        >
+          إيقاف الأتمتة
+        </button>
+
+        <button
+          data-command="START_LIVE"
+          class="control-button"
+        >
+          تشغيل البث
+        </button>
+
+        <button
+          data-command="STOP_LIVE"
+          class="control-button warning"
+        >
+          إيقاف البث
+        </button>
+
+        <button
+          data-command="START_SCHEDULER"
+          class="control-button"
+        >
+          تشغيل الجدولة
+        </button>
+
+        <button
+          data-command="STOP_SCHEDULER"
+          class="control-button warning"
+        >
+          إيقاف الجدولة
+        </button>
+
+        <button
+          data-command="START_WORKFLOW"
+          class="control-button"
+        >
+          تشغيل Workflow
+        </button>
+
+        <button
+          data-command="STOP_WORKFLOW"
+          class="control-button warning"
+        >
+          إيقاف Workflow
+        </button>
+
+      </div>
+
+    </section>
+
+
+  </main>
+
+
+  <!-- =====================================================
+       FOOTER
+  ====================================================== -->
+
+  <footer>
+
+    <strong>
+      EZ MEDIA 11.0
+    </strong>
+
+    <span>
+      Intelligent Executive Command Center 2.0
+    </span>
+
+    <span id="clock">
+      —
+    </span>
+
+  </footer>
+
+
+  <!-- =====================================================
+       MODAL
+  ====================================================== -->
+
+  <div
+    id="modal"
+    class="modal hidden"
+  >
+
+    <div class="modal-box">
+
+      <button
+        id="modalClose"
+        class="modal-close"
+      >
+        ×
+      </button>
+
+      <h2 id="modalTitle">
+        تأكيد العملية
+      </h2>
+
+      <p id="modalMessage">
+        —
+      </p>
+
+      <div class="modal-actions">
+
+        <button
+          id="modalCancel"
+          class="btn btn-light"
+        >
+          إلغاء
+        </button>
+
+        <button
+          id="modalConfirm"
+          class="btn btn-primary"
+        >
+          تأكيد
+        </button>
 
       </div>
 
@@ -1050,7 +855,11 @@
   </div>
 
 
-  <script src="/ai-command-center/app.js"></script>
+  <script
+    src="/executive-command-center/app.js"
+  ></script>
+
+</div>
 
 </body>
 </html>
