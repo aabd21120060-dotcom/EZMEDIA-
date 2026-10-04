@@ -1,1749 +1,672 @@
 "use strict";
 
-(function () {
-  const VERSION = "11.0.0";
+/**
+ * EZ MEDIA 11.0
+ * القسم 53
+ * مركز ذكاء الإشعارات
+ */
 
-  const API = {
-    content: "/api/content",
-    ai: "/api/ai"
-  };
+(() => {
+  const API =
+    "/api/notification-integration";
 
   const state = {
-    sources: [],
-    signals: [],
-    topics: [],
-    selected: null,
-    search: "",
-    category: "all",
-    priority: "all",
+    health: null,
+    state: null,
+    types: null,
     loading: false,
-    lastUpdate: null
-  };
-
-  const SOURCE_TYPES = {
-    official: "مصدر رسمي",
-    agency: "وكالة أنباء",
-    newsroom: "غرفة أخبار",
-    social: "منصة اجتماعية",
-    rss: "RSS",
-    api: "API",
-    internal: "مصدر داخلي"
-  };
-
-  const PRIORITIES = {
-    low: "منخفضة",
-    medium: "متوسطة",
-    high: "عالية",
-    critical: "حرجة"
+    timer: null,
+    autoRefresh: true,
+    interval: 15000
   };
 
   function escapeHtml(value) {
-    if (
-      value === null ||
-      value === undefined
-    ) {
-      return "";
-    }
-
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function formatDate(value) {
-    if (!value) {
-      return "—";
-    }
-
-    try {
-      return new Intl.DateTimeFormat(
-        "ar-SA",
-        {
-          dateStyle: "medium",
-          timeStyle: "short"
-        }
-      ).format(
-        new Date(value)
+    return String(
+      value ?? ""
+    )
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll(
+        "'",
+        "&#039;"
       );
-    } catch {
-      return String(value);
-    }
   }
 
-  function getToken() {
-    return (
-      window.EZMediaAdminCore
-        ?.getToken?.() ||
-      null
+  function number(value) {
+    return Number(
+      value || 0
+    ).toLocaleString(
+      "ar-SA"
     );
   }
 
-  async function request(
+  async function api(
     url,
     options = {}
   ) {
-    const token =
-      getToken();
-
-    const headers = {
-      "Content-Type":
-        "application/json"
-    };
-
-    if (token) {
-      headers.Authorization =
-        `Bearer ${token}`;
-    }
-
     const response =
       await fetch(
         url,
         {
           credentials:
             "same-origin",
-          ...options,
+
           headers: {
-            ...headers,
-            ...(options.headers || {})
-          }
+            Accept:
+              "application/json",
+
+            ...(options.body
+              ? {
+                  "Content-Type":
+                    "application/json"
+                }
+              : {})
+          },
+
+          ...options
         }
       );
 
-    let data = null;
-
-    try {
-      data =
-        await response.json();
-    } catch {
-      data = null;
-    }
+    const result =
+      await response.json();
 
     if (!response.ok) {
       throw new Error(
-        data?.message ||
-        data?.error ||
-        `فشل الطلب (${response.status})`
+        result.error ||
+        "فشل الاتصال"
       );
     }
 
-    return data;
+    return result;
   }
 
-  function arrayFrom(data) {
-    if (
-      Array.isArray(data)
-    ) {
-      return data;
-    }
+  function root() {
+    let element =
+      document.querySelector(
+        "#notification-intelligence-section"
+      );
 
-    for (
-      const key of [
-        "items",
-        "data",
-        "results",
-        "content"
-      ]
-    ) {
-      if (
-        Array.isArray(
-          data?.[key]
-        )
-      ) {
-        return data[key];
-      }
-    }
-
-    return [];
-  }
-
-  function normalizeContent(
-    item
-  ) {
-    return {
-      id:
-        item?.id ||
-        item?._id ||
-        null,
-
-      title:
-        item?.title ||
-        item?.headline ||
-        "بدون عنوان",
-
-      summary:
-        item?.summary ||
-        item?.description ||
-        "",
-
-      category:
-        item?.category ||
-        "عام",
-
-      type:
-        item?.content_type ||
-        item?.contentType ||
-        item?.type ||
-        "news",
-
-      status:
-        item?.status ||
-        "draft",
-
-      createdAt:
-        item?.created_at ||
-        item?.createdAt ||
-        null,
-
-      updatedAt:
-        item?.updated_at ||
-        item?.updatedAt ||
-        null,
-
-      sourceUrl:
-        item?.source_url ||
-        item?.sourceUrl ||
-        "",
-
-      metadata:
-        item?.metadata ||
-        {}
-    };
-  }
-
-  async function loadIntelligence() {
-    state.loading = true;
-    render();
-
-    try {
-      const response =
-        await request(
-          `${API.content}?limit=500`
+    if (!element) {
+      element =
+        document.createElement(
+          "section"
         );
 
-      const content =
-        arrayFrom(response)
-          .map(
-            normalizeContent
-          );
+      element.id =
+        "notification-intelligence-section";
 
-      state.signals =
-        buildSignals(
-          content
-        );
+      const parent =
+        document.querySelector(
+          "#system-section"
+        ) ||
+        document.querySelector(
+          "main"
+        ) ||
+        document.body;
 
-      state.topics =
-        buildTopics(
-          content
-        );
-
-      state.sources =
-        buildSources(
-          content
-        );
-
-      state.lastUpdate =
-        new Date();
-
-    } catch (error) {
-      console.error(
-        "EZ MEDIA Intelligence:",
-        error
+      parent.appendChild(
+        element
       );
-
-      showToast(
-        error.message ||
-        "تعذر تحميل مركز الذكاء الإعلامي."
-      );
-
-    } finally {
-      state.loading = false;
-      render();
-    }
-  }
-
-  function buildSignals(
-    content
-  ) {
-    const now =
-      Date.now();
-
-    return content
-      .map(
-        item => {
-
-          const text =
-            `${item.title} ${item.summary}`
-              .toLowerCase();
-
-          let priority =
-            "low";
-
-          if (
-            item.status ===
-            "published"
-          ) {
-            priority =
-              "medium";
-          }
-
-          if (
-            text.includes(
-              "عاجل"
-            ) ||
-            text.includes(
-              "urgent"
-            )
-          ) {
-            priority =
-              "high";
-          }
-
-          if (
-            text.includes(
-              "كارثة"
-            ) ||
-            text.includes(
-              "وفاة"
-            ) ||
-            text.includes(
-              "هجوم"
-            ) ||
-            text.includes(
-              "زلزال"
-            ) ||
-            text.includes(
-              "حرب"
-            )
-          ) {
-            priority =
-              "critical";
-          }
-
-          const date =
-            new Date(
-              item.updatedAt ||
-              item.createdAt ||
-              now
-            );
-
-          const age =
-            Math.max(
-              0,
-              now -
-                date.getTime()
-            );
-
-          return {
-            ...item,
-            priority,
-            freshness:
-              age <
-              3600000
-                ? "جديدة جدًا"
-                : age <
-                    86400000
-                  ? "جديدة"
-                  : "قديمة نسبيًا",
-            score:
-              calculateSignalScore(
-                item,
-                priority
-              )
-          };
-        }
-      )
-      .sort(
-        (a, b) =>
-          b.score -
-          a.score
-      );
-  }
-
-  function calculateSignalScore(
-    item,
-    priority
-  ) {
-    const priorityScore = {
-      low: 20,
-      medium: 45,
-      high: 75,
-      critical: 100
-    }[priority] || 20;
-
-    const statusScore = {
-      published: 20,
-      approved: 15,
-      review: 10,
-      draft: 5
-    }[
-      item.status
-    ] || 0;
-
-    return Math.min(
-      100,
-      priorityScore +
-        statusScore
-    );
-  }
-
-  function buildTopics(
-    content
-  ) {
-    const map =
-      new Map();
-
-    content.forEach(
-      item => {
-
-        const category =
-          item.category ||
-          "عام";
-
-        if (
-          !map.has(
-            category
-          )
-        ) {
-          map.set(
-            category,
-            {
-              name:
-                category,
-              count: 0,
-              latest:
-                null,
-              critical: 0
-            }
-          );
-        }
-
-        const topic =
-          map.get(
-            category
-          );
-
-        topic.count += 1;
-
-        if (
-          item.status ===
-          "published"
-        ) {
-          topic.latest =
-            item.updatedAt ||
-            item.createdAt;
-        }
-
-        const signal =
-          buildSignals([
-            item
-          ])[0];
-
-        if (
-          signal?.priority ===
-          "critical"
-        ) {
-          topic.critical +=
-            1;
-        }
-      }
-    );
-
-    return Array.from(
-      map.values()
-    )
-      .sort(
-        (a, b) =>
-          b.count -
-          a.count
-      );
-  }
-
-  function buildSources(
-    content
-  ) {
-    const map =
-      new Map();
-
-    content.forEach(
-      item => {
-
-        const source =
-          item.metadata
-            ?.source ||
-          item.metadata
-            ?.source_name ||
-          item.sourceUrl ||
-          "مصدر غير محدد";
-
-        if (
-          !map.has(
-            source
-          )
-        ) {
-          map.set(
-            source,
-            {
-              name:
-                source,
-              type:
-                detectSourceType(
-                  source
-                ),
-              count: 0,
-              latest:
-                null
-            }
-          );
-        }
-
-        const entry =
-          map.get(
-            source
-          );
-
-        entry.count +=
-          1;
-
-        entry.latest =
-          item.updatedAt ||
-          item.createdAt ||
-          entry.latest;
-      }
-    );
-
-    return Array.from(
-      map.values()
-    )
-      .sort(
-        (a, b) =>
-          b.count -
-          a.count
-      );
-  }
-
-  function detectSourceType(
-    source
-  ) {
-    const text =
-      String(
-        source
-      ).toLowerCase();
-
-    if (
-      text.includes(
-        ".gov"
-      ) ||
-      text.includes(
-        "gov.sa"
-      )
-    ) {
-      return "official";
     }
 
-    if (
-      text.includes(
-        "rss"
-      )
-    ) {
-      return "rss";
-    }
-
-    if (
-      text.includes(
-        "api"
-      )
-    ) {
-      return "api";
-    }
-
-    return "internal";
+    return element;
   }
 
-  function filteredSignals() {
-    return state.signals.filter(
-      signal => {
-
-        if (
-          state.priority !==
-          "all" &&
-          signal.priority !==
-            state.priority
-        ) {
-          return false;
-        }
-
-        if (
-          state.category !==
-          "all" &&
-          signal.category !==
-            state.category
-        ) {
-          return false;
-        }
-
-        if (
-          state.search
-        ) {
-          const text =
-            [
-              signal.title,
-              signal.summary,
-              signal.category,
-              signal.type
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase();
-
-          if (
-            !text.includes(
-              state.search
-                .toLowerCase()
-            )
-          ) {
-            return false;
-          }
-        }
-
-        return true;
-      }
-    );
-  }
-
-  function getCategories() {
-    return Array.from(
-      new Set(
-        state.signals
-          .map(
-            item =>
-              item.category
-          )
-          .filter(Boolean)
-      )
-    ).sort();
-  }
-
-  function render() {
-    injectStyles();
-
-    const mount =
-      getMount();
-
-    if (!mount) {
+  async function refresh() {
+    if (state.loading) {
       return;
     }
 
-    const signals =
-      filteredSignals();
+    state.loading = true;
 
-    const critical =
-      state.signals.filter(
-        item =>
-          item.priority ===
-          "critical"
-      ).length;
+    try {
+      const [
+        health,
+        currentState,
+        types
+      ] =
+        await Promise.all([
+          api(
+            `${API}/health`
+          ),
 
-    const high =
-      state.signals.filter(
-        item =>
-          item.priority ===
-          "high"
-      ).length;
+          api(
+            `${API}/state`
+          ),
 
-    const published =
-      state.signals.filter(
-        item =>
-          item.status ===
-          "published"
-      ).length;
+          api(
+            `${API}/types`
+          )
+        ]);
 
-    mount.innerHTML = `
+      state.health =
+        health;
+
+      state.state =
+        currentState.state;
+
+      state.types =
+        types;
+
+      render();
+    } catch (error) {
+      renderError(
+        error
+      );
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  function render() {
+    const element =
+      root();
+
+    const serviceState =
+      state.state || {};
+
+    const health =
+      state.health || {};
+
+    const healthy =
+      health.healthy !== false;
+
+    element.innerHTML = `
       <div
-        class="ez-intelligence"
+        style="
+          direction:rtl;
+          display:grid;
+          gap:16px;
+          padding:20px;
+          border:1px solid #dceef7;
+          border-radius:22px;
+          background:#fff;
+          font-family:inherit;
+        "
       >
 
-        <header
-          class="ez-intel-header"
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:15px;
+            flex-wrap:wrap;
+          "
         >
 
           <div>
-            <span
-              class="ez-intel-kicker"
+            <div
+              style="
+                color:#2ba8e6;
+                font-size:12px;
+                font-weight:800;
+              "
             >
-              EZ MEDIA AI INTELLIGENCE
-            </span>
+              EZ MEDIA 11.0
+            </div>
 
-            <h2>
-              مركز الذكاء الإعلامي
+            <h2
+              style="
+                margin:5px 0;
+                color:#17324d;
+              "
+            >
+              مركز ذكاء الإشعارات
             </h2>
 
-            <p>
-              محرك ذكي لترتيب الإشارات والموضوعات ومساعدة غرفة الأخبار على اكتشاف الأولويات.
+            <p
+              style="
+                margin:0;
+                color:#71889b;
+              "
+            >
+              العقل المركزي للأحداث والتنبيهات
+              داخل المنصة.
             </p>
           </div>
 
           <button
-            class="ez-intel-btn primary"
-            data-intel-refresh
+            id="ez-notification-refresh"
+            style="
+              border:0;
+              border-radius:12px;
+              padding:11px 17px;
+              background:#e8f7ff;
+              color:#0877ae;
+              font-weight:800;
+              cursor:pointer;
+            "
           >
-            تحديث الذكاء
+            تحديث
           </button>
 
-        </header>
+        </div>
 
         <div
-          class="ez-intel-metrics"
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(
+                auto-fit,
+                minmax(160px,1fr)
+              );
+            gap:12px;
+          "
         >
 
-          ${metric(
-            "الإشارات",
-            state.signals.length,
-            "جميع المواد المرصودة"
+          ${card(
+            "حالة المنظومة",
+            healthy
+              ? "تعمل"
+              : "تحتاج مراجعة"
           )}
 
-          ${metric(
-            "حرجة",
-            critical,
-            "تحتاج انتباهًا فوريًا"
+          ${card(
+            "الأحداث المستلمة",
+            number(
+              serviceState.received
+            )
           )}
 
-          ${metric(
-            "عالية",
-            high,
-            "أولوية تحريرية"
+          ${card(
+            "الأحداث المعالجة",
+            number(
+              serviceState.processed
+            )
           )}
 
-          ${metric(
-            "منشورة",
-            published,
-            "مواد خرجت للجمهور"
+          ${card(
+            "الفشل",
+            number(
+              serviceState.failed
+            )
+          )}
+
+          ${card(
+            "الإشعارات المنشأة",
+            number(
+              serviceState.notificationsCreated
+            )
+          )}
+
+          ${card(
+            "التكرار",
+            number(
+              serviceState.duplicates
+            )
           )}
 
         </div>
 
         <div
-          class="ez-intel-main"
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(
+                auto-fit,
+                minmax(230px,1fr)
+              );
+            gap:12px;
+          "
         >
 
-          <section
-            class="ez-intel-panel"
-          >
+          ${healthCard(
+            "Event Bridge",
+            health.eventBridge
+          )}
 
-            <div
-              class="ez-intel-toolbar"
-            >
-
-              <div>
-                <h3>
-                  موجز الإشارات
-                </h3>
-
-                <small>
-                  ترتيب آلي حسب الأولوية والحداثة
-                </small>
-              </div>
-
-              <div
-                class="ez-intel-filters"
-              >
-
-                <input
-                  id="ez-intel-search"
-                  type="search"
-                  placeholder="ابحث..."
-                  value="${escapeHtml(
-                    state.search
-                  )}"
-                />
-
-                <select
-                  id="ez-intel-priority"
-                >
-
-                  <option
-                    value="all"
-                  >
-                    كل الأولويات
-                  </option>
-
-                  ${Object.entries(
-                    PRIORITIES
-                  )
-                    .map(
-                      ([key, label]) =>
-                        `
-                          <option
-                            value="${key}"
-                            ${
-                              state.priority ===
-                              key
-                                ? "selected"
-                                : ""
-                            }
-                          >
-                            ${label}
-                          </option>
-                        `
-                    )
-                    .join("")}
-
-                </select>
-
-                <select
-                  id="ez-intel-category"
-                >
-
-                  <option
-                    value="all"
-                  >
-                    كل التصنيفات
-                  </option>
-
-                  ${getCategories()
-                    .map(
-                      category =>
-                        `
-                          <option
-                            value="${escapeHtml(
-                              category
-                            )}"
-                            ${
-                              state.category ===
-                              category
-                                ? "selected"
-                                : ""
-                            }
-                          >
-                            ${escapeHtml(
-                              category
-                            )}
-                          </option>
-                        `
-                    )
-                    .join("")}
-
-                </select>
-
-              </div>
-
-            </div>
-
-            <div
-              class="ez-intel-feed"
-            >
-
-              ${
-                state.loading
-                  ? `
-                    <div
-                      class="ez-intel-empty"
-                    >
-                      جارٍ تحليل البيانات...
-                    </div>
-                  `
-                  : signals.length
-                  ? signals
-                      .map(
-                        renderSignal
-                      )
-                      .join("")
-                  : `
-                    <div
-                      class="ez-intel-empty"
-                    >
-                      لا توجد إشارات مطابقة.
-                    </div>
-                  `
-              }
-
-            </div>
-
-          </section>
-
-          <aside
-            class="ez-intel-side"
-          >
-
-            ${renderTopics()}
-
-            ${renderSources()}
-
-          </aside>
+          ${healthCard(
+            "Rules Engine",
+            health.rulesEngine
+          )}
 
         </div>
 
-        ${
-          state.selected
-            ? renderSelected()
-            : ""
-        }
+        <div
+          style="
+            padding:16px;
+            border-radius:16px;
+            background:#f5fbfe;
+          "
+        >
+          <strong>
+            آخر حدث
+          </strong>
+
+          <div
+            style="
+              margin-top:7px;
+              color:#60798c;
+            "
+          >
+            ${
+              escapeHtml(
+                serviceState.lastEventType ||
+                "لا يوجد"
+              )
+            }
+          </div>
+
+          <div
+            style="
+              margin-top:5px;
+              color:#8195a5;
+              font-size:12px;
+            "
+          >
+            ${
+              escapeHtml(
+                serviceState.lastEventAt ||
+                "—"
+              )
+            }
+          </div>
+        </div>
+
+        <div>
+          <strong>
+            أنواع الأحداث المدعومة
+          </strong>
+
+          <div
+            style="
+              display:flex;
+              flex-wrap:wrap;
+              gap:7px;
+              margin-top:10px;
+            "
+          >
+            ${renderTypes()}
+          </div>
+        </div>
 
         <div
-          class="ez-intel-footer"
+          style="
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+          "
         >
-          إصدار الذكاء:
-          ${VERSION}
-          •
-          آخر تحديث:
-          ${
-            state.lastUpdate
-              ? formatDate(
-                  state.lastUpdate
-                )
-              : "لم يبدأ"
-          }
+
+          <button
+            data-ni-action="breaking"
+          >
+            تجربة عاجل
+          </button>
+
+          <button
+            data-ni-action="live"
+          >
+            تجربة بث مباشر
+          </button>
+
+          <button
+            data-ni-action="ai"
+          >
+            تجربة AI
+          </button>
+
+          <button
+            data-ni-action="system"
+          >
+            تجربة النظام
+          </button>
+
         </div>
 
       </div>
     `;
 
-    bindEvents();
+    injectStyles();
+
+    document
+      .querySelector(
+        "#ez-notification-refresh"
+      )
+      ?.addEventListener(
+        "click",
+        refresh
+      );
+
+    document
+      .querySelectorAll(
+        "[data-ni-action]"
+      )
+      .forEach(
+        button => {
+          button.addEventListener(
+            "click",
+            () =>
+              simulate(
+                button.dataset
+                  .niAction
+              )
+          );
+        }
+      );
   }
 
-  function metric(
+  function card(
     title,
-    value,
-    description
+    value
   ) {
     return `
       <div
-        class="ez-intel-metric"
+        style="
+          padding:16px;
+          border:1px solid #e1eff6;
+          border-radius:16px;
+          background:#fff;
+        "
       >
-
-        <span>
+        <div
+          style="
+            color:#71889b;
+            font-size:12px;
+          "
+        >
           ${escapeHtml(
             title
           )}
-        </span>
+        </div>
 
-        <strong>
+        <strong
+          style="
+            display:block;
+            margin-top:7px;
+            color:#17324d;
+            font-size:22px;
+          "
+        >
           ${escapeHtml(
             value
           )}
         </strong>
-
-        <small>
-          ${escapeHtml(
-            description
-          )}
-        </small>
-
       </div>
     `;
   }
 
-  function renderSignal(
-    signal
+  function healthCard(
+    title,
+    data
   ) {
-    const selected =
-      state.selected &&
-      String(
-        state.selected.id
-      ) ===
-        String(signal.id);
+    const healthy =
+      data?.healthy !== false;
 
     return `
-      <button
-        class="
-          ez-intel-signal
-          ${
-            selected
-              ? "selected"
-              : ""
-          }
+      <div
+        style="
+          padding:15px;
+          border:1px solid #e1eff6;
+          border-radius:16px;
         "
-        data-intel-signal="${escapeHtml(
-          signal.id
-        )}"
       >
+        <strong>
+          ${escapeHtml(
+            title
+          )}
+        </strong>
 
         <div
-          class="ez-intel-signal-score"
+          style="
+            margin-top:7px;
+            color:${
+              healthy
+                ? "#16845c"
+                : "#b53b3b"
+            };
+            font-weight:800;
+          "
         >
-          ${signal.score}
-        </div>
-
-        <div
-          class="ez-intel-signal-content"
-        >
-
-          <div
-            class="ez-intel-signal-meta"
-          >
-
-            <span
-              class="${priorityClass(
-                signal.priority
-              )}"
-            >
-              ${PRIORITIES[
-                signal.priority
-              ]}
-            </span>
-
-            <span>
-              ${escapeHtml(
-                signal.category
-              )}
-            </span>
-
-            <span>
-              ${escapeHtml(
-                signal.freshness
-              )}
-            </span>
-
-          </div>
-
-          <strong>
-            ${escapeHtml(
-              signal.title
-            )}
-          </strong>
-
           ${
-            signal.summary
-              ? `
-                <p>
-                  ${escapeHtml(
-                    signal.summary
-                  )}
-                </p>
-              `
-              : ""
+            healthy
+              ? "يعمل"
+              : "يحتاج مراجعة"
           }
-
-          <small>
-            ${formatDate(
-              signal.updatedAt ||
-              signal.createdAt
-            )}
-          </small>
-
         </div>
-
-      </button>
+      </div>
     `;
   }
 
-  function priorityClass(
-    priority
-  ) {
-    return (
-      `ez-intel-priority-${priority}`
-    );
-  }
+  function renderTypes() {
+    const types =
+      state.types?.eventTypes ||
+      {};
 
-  function renderTopics() {
-    return `
-      <section
-        class="ez-intel-panel"
-      >
-
-        <div
-          class="ez-intel-panel-title"
-        >
-          <h3>
-            خريطة الموضوعات
-          </h3>
-
-          <span>
-            ${state.topics.length}
-          </span>
-        </div>
-
-        <div
-          class="ez-intel-topics"
-        >
-
-          ${
-            state.topics.length
-              ? state.topics
-                  .slice(
-                    0,
-                    12
-                  )
-                  .map(
-                    topic =>
-                      `
-                        <div
-                          class="ez-intel-topic"
-                        >
-
-                          <div>
-                            <strong>
-                              ${escapeHtml(
-                                topic.name
-                              )}
-                            </strong>
-
-                            <small>
-                              ${topic.count}
-                              مادة
-                            </small>
-                          </div>
-
-                          ${
-                            topic.critical
-                              ? `
-                                <span
-                                  class="ez-intel-topic-alert"
-                                >
-                                  ${topic.critical}
-                                </span>
-                              `
-                              : ""
-                          }
-
-                        </div>
-                      `
-                  )
-                  .join("")
-              : `
-                <div
-                  class="ez-intel-muted"
-                >
-                  لا توجد موضوعات بعد.
-                </div>
-              `
-          }
-
-        </div>
-
-      </section>
-    `;
-  }
-
-  function renderSources() {
-    return `
-      <section
-        class="ez-intel-panel"
-      >
-
-        <div
-          class="ez-intel-panel-title"
-        >
-          <h3>
-            خريطة المصادر
-          </h3>
-
-          <span>
-            ${state.sources.length}
-          </span>
-        </div>
-
-        <div
-          class="ez-intel-sources"
-        >
-
-          ${
-            state.sources.length
-              ? state.sources
-                  .slice(
-                    0,
-                    10
-                  )
-                  .map(
-                    source =>
-                      `
-                        <div
-                          class="ez-intel-source"
-                        >
-
-                          <div>
-                            <strong>
-                              ${escapeHtml(
-                                source.name
-                              )}
-                            </strong>
-
-                            <small>
-                              ${
-                                SOURCE_TYPES[
-                                  source.type
-                                ] ||
-                                source.type
-                              }
-                            </small>
-                          </div>
-
-                          <b>
-                            ${source.count}
-                          </b>
-
-                        </div>
-                      `
-                  )
-                  .join("")
-              : `
-                <div
-                  class="ez-intel-muted"
-                >
-                  لا توجد مصادر مسجلة.
-                </div>
-              `
-          }
-
-        </div>
-
-      </section>
-    `;
-  }
-
-  function renderSelected() {
-    const item =
-      state.selected;
-
-    if (!item) {
-      return "";
-    }
-
-    const duplicateCount =
-      findSimilarContent(
-        item
-      ).length;
-
-    return `
-      <section
-        class="ez-intel-selected"
-      >
-
-        <div
-          class="ez-intel-selected-header"
-        >
-
-          <div>
-            <span>
-              التحليل العميق
-            </span>
-
-            <h3>
-              ${escapeHtml(
-                item.title
-              )}
-            </h3>
-          </div>
-
-          <button
-            class="ez-intel-close"
-            data-intel-close
-          >
-            إغلاق
-          </button>
-
-        </div>
-
-        <div
-          class="ez-intel-analysis-grid"
-        >
-
-          <div>
-            <span>
-              درجة الإشارة
-            </span>
-
-            <strong>
-              ${item.score}/100
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              الأولوية
-            </span>
-
-            <strong>
-              ${
-                PRIORITIES[
-                  item.priority
-                ]
-              }
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              الحداثة
-            </span>
-
-            <strong>
-              ${escapeHtml(
-                item.freshness
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              التشابه المحتمل
-            </span>
-
-            <strong>
-              ${duplicateCount}
-            </strong>
-          </div>
-
-        </div>
-
-        <div
-          class="ez-intel-selected-actions"
-        >
-
-          <button
-            class="ez-intel-btn primary"
-            data-intel-ai="${escapeHtml(
-              item.id
-            )}"
-          >
-            تحليل بالذكاء الاصطناعي
-          </button>
-
-          ${
-            item.sourceUrl
-              ? `
-                <a
-                  class="ez-intel-btn"
-                  href="${escapeHtml(
-                    item.sourceUrl
-                  )}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  فتح المصدر
-                </a>
-              `
-              : ""
-          }
-
-        </div>
-
-        <div
-          class="ez-intel-duplicates"
-        >
-
-          <h4>
-            مواد مشابهة داخل المنصة
-          </h4>
-
-          ${
-            duplicateCount
-              ? findSimilarContent(
-                  item
-                )
-                  .map(
-                    duplicate =>
-                      `
-                        <div>
-                          ${escapeHtml(
-                            duplicate.title
-                          )}
-                        </div>
-                      `
-                  )
-                  .join("")
-              : `
-                <p>
-                  لم يتم العثور على مواد مشابهة بشكل واضح.
-                </p>
-              `
-          }
-
-        </div>
-
-      </section>
-    `;
-  }
-
-  function findSimilarContent(
-    item
-  ) {
-    const base =
-      normalizeText(
-        `${item.title} ${item.summary}`
-      );
-
-    const words =
-      new Set(
-        base
-          .split(/\s+/)
-          .filter(
-            word =>
-              word.length >= 4
-          )
-      );
-
-    return state.signals
-      .filter(
-        candidate =>
-          String(
-            candidate.id
-          ) !==
-          String(item.id)
-      )
-      .map(
-        candidate => {
-
-          const candidateText =
-            normalizeText(
-              `${candidate.title} ${candidate.summary}`
-            );
-
-          const candidateWords =
-            new Set(
-              candidateText
-                .split(/\s+/)
-                .filter(
-                  word =>
-                    word.length >= 4
-                )
-            );
-
-          let common = 0;
-
-          words.forEach(
-            word => {
-              if (
-                candidateWords.has(
-                  word
-                )
-              ) {
-                common += 1;
-              }
-            }
-          );
-
-          return {
-            ...candidate,
-            similarity:
-              common /
-              Math.max(
-                1,
-                words.size
-              )
-          };
-        }
-      )
-      .filter(
-        candidate =>
-          candidate.similarity >=
-          0.25
-      )
-      .sort(
-        (a, b) =>
-          b.similarity -
-          a.similarity
-      )
-      .slice(
-        0,
-        5
-      );
-  }
-
-  function normalizeText(
-    text
-  ) {
-    return String(
-      text || ""
+    return Object.entries(
+      types
     )
-      .toLowerCase()
-      .replace(
-        /[^\p{L}\p{N}\s]/gu,
-        " "
+      .map(
+        ([key, value]) =>
+          `
+          <span
+            style="
+              padding:6px 10px;
+              border-radius:999px;
+              background:#eaf8ff;
+              color:#0877ae;
+              font-size:11px;
+              font-weight:700;
+            "
+          >
+            ${escapeHtml(
+              value
+            )}
+          </span>
+          `
       )
-      .replace(
-        /\s+/g,
-        " "
-      )
-      .trim();
+      .join("");
   }
 
-  async function runAI(
-    item
+  async function simulate(
+    type
   ) {
-    if (!item?.id) {
+    const routes = {
+      breaking:
+        "breaking-news",
+
+      live:
+        "live-started",
+
+      ai:
+        "ai-alert",
+
+      system:
+        "system-alert"
+    };
+
+    const route =
+      routes[type];
+
+    if (!route) {
       return;
     }
 
-    try {
-      showToast(
-        "جارٍ تشغيل التحليل الذكي..."
-      );
+    const payload = {
+      title:
+        "اختبار EZ MEDIA",
+      message:
+        "حدث اختباري من مركز ذكاء الإشعارات",
+      source:
+        "admin-notification-intelligence",
+      timestamp:
+        new Date().toISOString()
+    };
 
-      await request(
-        `${API.ai}/content/${item.id}/analyze`,
+    try {
+      await api(
+        `${API}/${route}`,
         {
           method:
-            "POST"
+            "POST",
+
+          body:
+            JSON.stringify({
+              data:
+                payload
+            })
         }
       );
 
-      showToast(
-        "اكتمل تحليل المادة."
-      );
-
+      await refresh();
     } catch (error) {
-      showToast(
-        error.message ||
-        "تعذر تشغيل الذكاء الاصطناعي."
+      alert(
+        error.message
       );
     }
   }
 
-  function bindEvents() {
-    const refresh =
-      document.querySelector(
-        "[data-intel-refresh]"
-      );
-
-    if (refresh) {
-      refresh.addEventListener(
-        "click",
-        loadIntelligence
-      );
-    }
-
-    const search =
-      document.querySelector(
-        "#ez-intel-search"
-      );
-
-    if (search) {
-      search.addEventListener(
-        "input",
-        event => {
-          state.search =
-            event.target.value;
-
-          render();
-        }
-      );
-    }
-
-    const priority =
-      document.querySelector(
-        "#ez-intel-priority"
-      );
-
-    if (priority) {
-      priority.addEventListener(
-        "change",
-        event => {
-          state.priority =
-            event.target.value;
-
-          render();
-        }
-      );
-    }
-
-    const category =
-      document.querySelector(
-        "#ez-intel-category"
-      );
-
-    if (category) {
-      category.addEventListener(
-        "change",
-        event => {
-          state.category =
-            event.target.value;
-
-          render();
-        }
-      );
-    }
-
-    document
-      .querySelectorAll(
-        "[data-intel-signal]"
-      )
-      .forEach(
-        button => {
-
-          button.addEventListener(
-            "click",
-            () => {
-
-              const item =
-                state.signals.find(
-                  signal =>
-                    String(
-                      signal.id
-                    ) ===
-                    String(
-                      button.dataset
-                        .intelSignal
-                    )
-                );
-
-              if (item) {
-                state.selected =
-                  item;
-
-                render();
-              }
-            }
-          );
-
-        }
-      );
-
-    const close =
-      document.querySelector(
-        "[data-intel-close]"
-      );
-
-    if (close) {
-      close.addEventListener(
-        "click",
-        () => {
-          state.selected =
-            null;
-
-          render();
-        }
-      );
-    }
-
-    document
-      .querySelectorAll(
-        "[data-intel-ai]"
-      )
-      .forEach(
-        button => {
-
-          button.addEventListener(
-            "click",
-            () => {
-
-              const item =
-                state.signals.find(
-                  signal =>
-                    String(
-                      signal.id
-                    ) ===
-                    String(
-                      button.dataset
-                        .intelAi
-                    )
-                );
-
-              if (item) {
-                runAI(
-                  item
-                );
-              }
-            }
-          );
-
-        }
-      );
-  }
-
-  function showToast(
-    message
+  function renderError(
+    error
   ) {
-    let toast =
-      document.querySelector(
-        "#ez-intel-toast"
-      );
+    const element =
+      root();
 
-    if (!toast) {
-      toast =
-        document.createElement(
-          "div"
-        );
+    element.innerHTML = `
+      <div
+        style="
+          direction:rtl;
+          padding:20px;
+          border:1px solid #ffdede;
+          border-radius:18px;
+          background:#fff7f7;
+        "
+      >
+        <strong>
+          تعذر تحميل منظومة الإشعارات
+        </strong>
 
-      toast.id =
-        "ez-intel-toast";
+        <p>
+          ${escapeHtml(
+            error.message
+          )}
+        </p>
 
-      toast.style.cssText = `
-        position:fixed;
-        right:20px;
-        bottom:20px;
-        z-index:100000;
-        max-width:380px;
-        border:1px solid #bae6fd;
-        border-radius:15px;
-        background:#ffffff;
-        color:#075985;
-        padding:12px 15px;
-        box-shadow:0 15px 45px rgba(7,89,133,.16);
-        font-size:11px;
-        font-weight:900;
-        direction:rtl;
-      `;
+        <button
+          id="ez-ni-retry"
+        >
+          إعادة المحاولة
+        </button>
+      </div>
+    `;
 
-      document.body.appendChild(
-        toast
-      );
-    }
-
-    toast.textContent =
-      message;
-
-    clearTimeout(
-      toast._timer
-    );
-
-    toast._timer =
-      setTimeout(
-        () => {
-          toast.remove();
-        },
-        4500
-      );
-  }
-
-  function getMount() {
-    return (
-      document.querySelector(
-        "#intelligence-section"
-      ) ||
-      document.querySelector(
-        "#admin-intelligence-section"
-      ) ||
-      document.querySelector(
-        '[data-admin-section="intelligence"]'
+    document
+      .querySelector(
+        "#ez-ni-retry"
       )
-    );
-  }
-
-  function createMount() {
-    let mount =
-      getMount();
-
-    if (mount) {
-      return mount;
-    }
-
-    mount =
-      document.createElement(
-        "section"
+      ?.addEventListener(
+        "click",
+        refresh
       );
-
-    mount.id =
-      "admin-intelligence-section";
-
-    (
-      document.querySelector(
-        "main"
-      ) ||
-      document.body
-    ).appendChild(
-      mount
-    );
-
-    return mount;
   }
 
   function injectStyles() {
     if (
       document.getElementById(
-        "ez-admin-intelligence-style"
+        "ez-notification-intelligence-style"
       )
     ) {
       return;
@@ -1755,491 +678,21 @@
       );
 
     style.id =
-      "ez-admin-intelligence-style";
+      "ez-notification-intelligence-style";
 
     style.textContent = `
-      #admin-intelligence-section,
-      #intelligence-section {
-        direction:rtl;
-      }
-
-      .ez-intelligence {
-        color:#0f172a;
-      }
-
-      .ez-intel-header {
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:15px;
-        flex-wrap:wrap;
-        margin-bottom:15px;
-      }
-
-      .ez-intel-kicker {
-        display:inline-block;
-        color:#0284c7;
-        font-size:8px;
-        font-weight:950;
-        letter-spacing:.08em;
-      }
-
-      .ez-intel-header h2 {
-        margin:5px 0 4px;
-        color:#075985;
-        font-size:27px;
-        font-weight:950;
-      }
-
-      .ez-intel-header p {
-        margin:0;
-        color:#64748b;
-        font-size:11px;
-        line-height:1.8;
-      }
-
-      .ez-intel-btn {
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        border:1px solid #bae6fd;
+      [data-ni-action] {
+        border:0;
         border-radius:11px;
-        background:#fff;
-        color:#0369a1;
         padding:9px 13px;
+        background:#eaf8ff;
+        color:#0877ae;
         cursor:pointer;
-        text-decoration:none;
-        font-size:9px;
-        font-weight:900;
+        font-weight:700;
       }
 
-      .ez-intel-btn.primary {
-        border-color:transparent;
-        background:
-          linear-gradient(
-            135deg,
-            #0284c7,
-            #38bdf8
-          );
-        color:#fff;
-      }
-
-      .ez-intel-metrics {
-        display:grid;
-        grid-template-columns:
-          repeat(
-            4,
-            minmax(0,1fr)
-          );
-        gap:9px;
-        margin-bottom:10px;
-      }
-
-      .ez-intel-metric {
-        border:1px solid #e0f2fe;
-        border-radius:15px;
-        background:#fff;
-        padding:13px;
-      }
-
-      .ez-intel-metric span {
-        display:block;
-        color:#64748b;
-        font-size:8px;
-        font-weight:850;
-      }
-
-      .ez-intel-metric strong {
-        display:block;
-        margin:4px 0;
-        color:#075985;
-        font-size:23px;
-        font-weight:950;
-      }
-
-      .ez-intel-metric small {
-        color:#94a3b8;
-        font-size:8px;
-      }
-
-      .ez-intel-main {
-        display:grid;
-        grid-template-columns:
-          minmax(0,1fr)
-          330px;
-        gap:10px;
-      }
-
-      .ez-intel-panel {
-        border:1px solid #e0f2fe;
-        border-radius:16px;
-        background:#fff;
-        padding:13px;
-      }
-
-      .ez-intel-toolbar {
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-end;
-        gap:10px;
-        flex-wrap:wrap;
-        margin-bottom:11px;
-      }
-
-      .ez-intel-toolbar h3,
-      .ez-intel-panel-title h3 {
-        margin:0;
-        color:#075985;
-        font-size:13px;
-      }
-
-      .ez-intel-toolbar small {
-        display:block;
-        margin-top:3px;
-        color:#94a3b8;
-        font-size:8px;
-      }
-
-      .ez-intel-filters {
-        display:flex;
-        gap:6px;
-        flex-wrap:wrap;
-      }
-
-      .ez-intel-filters input,
-      .ez-intel-filters select {
-        min-width:130px;
-        border:1px solid #bae6fd;
-        border-radius:9px;
-        outline:none;
-        background:#fff;
-        color:#334155;
-        padding:8px;
-        font-size:8px;
-      }
-
-      .ez-intel-feed {
-        display:grid;
-        gap:7px;
-      }
-
-      .ez-intel-signal {
-        width:100%;
-        display:grid;
-        grid-template-columns:45px minmax(0,1fr);
-        gap:10px;
-        border:1px solid #e0f2fe;
-        border-radius:13px;
-        background:#fff;
-        padding:10px;
-        text-align:right;
-        cursor:pointer;
-      }
-
-      .ez-intel-signal:hover,
-      .ez-intel-signal.selected {
-        border-color:#38bdf8;
-        background:#fafdff;
-      }
-
-      .ez-intel-signal-score {
-        width:39px;
-        height:39px;
-        display:grid;
-        place-items:center;
-        border-radius:12px;
-        background:#eff6ff;
-        color:#0284c7;
-        font-size:11px;
-        font-weight:950;
-      }
-
-      .ez-intel-signal-meta {
-        display:flex;
-        align-items:center;
-        gap:5px;
-        flex-wrap:wrap;
-        margin-bottom:4px;
-      }
-
-      .ez-intel-signal-meta > span:not([class*="priority"]) {
-        color:#94a3b8;
-        font-size:7px;
-      }
-
-      .ez-intel-priority-low,
-      .ez-intel-priority-medium,
-      .ez-intel-priority-high,
-      .ez-intel-priority-critical {
-        border-radius:999px;
-        padding:4px 7px;
-        font-size:7px;
-        font-weight:950;
-      }
-
-      .ez-intel-priority-low {
-        background:#ecfdf5;
-        color:#047857;
-      }
-
-      .ez-intel-priority-medium {
-        background:#fffbeb;
-        color:#a16207;
-      }
-
-      .ez-intel-priority-high {
-        background:#fff7ed;
-        color:#c2410c;
-      }
-
-      .ez-intel-priority-critical {
-        background:#fff1f2;
-        color:#be123c;
-      }
-
-      .ez-intel-signal strong {
-        display:block;
-        color:#334155;
-        font-size:10px;
-        line-height:1.7;
-      }
-
-      .ez-intel-signal p {
-        margin:4px 0;
-        color:#64748b;
-        font-size:8px;
-        line-height:1.7;
-      }
-
-      .ez-intel-signal small {
-        color:#94a3b8;
-        font-size:7px;
-      }
-
-      .ez-intel-side {
-        display:grid;
-        gap:10px;
-        align-content:start;
-      }
-
-      .ez-intel-panel-title {
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        margin-bottom:9px;
-      }
-
-      .ez-intel-panel-title span {
-        min-width:23px;
-        height:23px;
-        display:grid;
-        place-items:center;
-        border-radius:8px;
-        background:#eff6ff;
-        color:#0284c7;
-        font-size:8px;
-        font-weight:950;
-      }
-
-      .ez-intel-topics,
-      .ez-intel-sources {
-        display:grid;
-        gap:6px;
-      }
-
-      .ez-intel-topic,
-      .ez-intel-source {
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        gap:8px;
-        border-radius:10px;
-        background:#f8fafc;
-        padding:8px;
-      }
-
-      .ez-intel-topic strong,
-      .ez-intel-source strong {
-        display:block;
-        color:#334155;
-        font-size:9px;
-      }
-
-      .ez-intel-topic small,
-      .ez-intel-source small {
-        display:block;
-        margin-top:2px;
-        color:#94a3b8;
-        font-size:7px;
-      }
-
-      .ez-intel-topic-alert {
-        min-width:22px;
-        height:22px;
-        display:grid;
-        place-items:center;
-        border-radius:7px;
-        background:#fff1f2;
-        color:#be123c;
-        font-size:8px;
-        font-weight:950;
-      }
-
-      .ez-intel-source b {
-        color:#0284c7;
-        font-size:10px;
-      }
-
-      .ez-intel-muted {
-        color:#94a3b8;
-        text-align:center;
-        padding:15px;
-        font-size:8px;
-      }
-
-      .ez-intel-selected {
-        margin-top:10px;
-        border:1px solid #bae6fd;
-        border-radius:17px;
-        background:#fff;
-        padding:14px;
-      }
-
-      .ez-intel-selected-header {
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:10px;
-      }
-
-      .ez-intel-selected-header > div > span {
-        color:#0284c7;
-        font-size:8px;
-        font-weight:950;
-      }
-
-      .ez-intel-selected-header h3 {
-        margin:5px 0 0;
-        color:#075985;
-        font-size:16px;
-        line-height:1.6;
-      }
-
-      .ez-intel-close {
-        border:1px solid #e0f2fe;
-        border-radius:9px;
-        background:#fff;
-        color:#64748b;
-        padding:7px 10px;
-        cursor:pointer;
-        font-size:8px;
-        font-weight:850;
-      }
-
-      .ez-intel-analysis-grid {
-        display:grid;
-        grid-template-columns:
-          repeat(
-            4,
-            minmax(0,1fr)
-          );
-        gap:7px;
-        margin:12px 0;
-      }
-
-      .ez-intel-analysis-grid > div {
-        border-radius:11px;
-        background:#f8fafc;
-        padding:10px;
-      }
-
-      .ez-intel-analysis-grid span {
-        display:block;
-        color:#94a3b8;
-        font-size:7px;
-      }
-
-      .ez-intel-analysis-grid strong {
-        display:block;
-        margin-top:3px;
-        color:#075985;
-        font-size:12px;
-      }
-
-      .ez-intel-selected-actions {
-        display:flex;
-        gap:7px;
-        flex-wrap:wrap;
-        margin-bottom:12px;
-      }
-
-      .ez-intel-duplicates {
-        border-top:1px solid #e0f2fe;
-        padding-top:11px;
-      }
-
-      .ez-intel-duplicates h4 {
-        margin:0 0 7px;
-        color:#075985;
-        font-size:10px;
-      }
-
-      .ez-intel-duplicates div {
-        border-radius:8px;
-        background:#f8fafc;
-        color:#475569;
-        padding:7px;
-        margin-top:5px;
-        font-size:8px;
-      }
-
-      .ez-intel-duplicates p {
-        margin:0;
-        color:#94a3b8;
-        font-size:8px;
-      }
-
-      .ez-intel-empty {
-        border:1px dashed #bae6fd;
-        border-radius:13px;
-        padding:35px;
-        background:#fafdff;
-        color:#94a3b8;
-        text-align:center;
-        font-size:9px;
-      }
-
-      .ez-intel-footer {
-        margin-top:9px;
-        color:#94a3b8;
-        text-align:center;
-        font-size:7px;
-      }
-
-      @media (max-width:1000px) {
-        .ez-intel-main {
-          grid-template-columns:1fr;
-        }
-
-        .ez-intel-metrics {
-          grid-template-columns:
-            repeat(2,1fr);
-        }
-      }
-
-      @media (max-width:650px) {
-        .ez-intel-metrics {
-          grid-template-columns:1fr;
-        }
-
-        .ez-intel-analysis-grid {
-          grid-template-columns:
-            repeat(2,1fr);
-        }
-
-        .ez-intel-signal {
-          grid-template-columns:38px minmax(0,1fr);
-        }
+      [data-ni-action]:hover {
+        background:#d9f3ff;
       }
     `;
 
@@ -2248,74 +701,41 @@
     );
   }
 
-  function getMount() {
-    return (
-      document.querySelector(
-        "#intelligence-section"
-      ) ||
-      document.querySelector(
-        "#admin-intelligence-section"
-      ) ||
-      document.querySelector(
-        '[data-admin-section="intelligence"]'
-      )
-    );
-  }
+  function start() {
+    refresh();
 
-  function createMount() {
-    let mount =
-      getMount();
-
-    if (mount) {
-      return mount;
-    }
-
-    mount =
-      document.createElement(
-        "section"
+    state.timer =
+      setInterval(
+        refresh,
+        state.interval
       );
 
-    mount.id =
-      "admin-intelligence-section";
+    window.EZMediaAdminNotificationIntelligence =
+      {
+        state,
 
-    (
-      document.querySelector(
-        "main"
-      ) ||
-      document.body
-    ).appendChild(
-      mount
-    );
+        refresh,
 
-    return mount;
+        stop() {
+          if (
+            state.timer
+          ) {
+            clearInterval(
+              state.timer
+            );
+
+            state.timer =
+              null;
+          }
+        },
+
+        getState() {
+          return {
+            ...state
+          };
+        }
+      };
   }
-
-  function initialize() {
-    createMount();
-    render();
-    loadIntelligence();
-  }
-
-  window.EZMediaAdminIntelligence =
-    {
-      initialize,
-      refresh:
-        loadIntelligence,
-      getState() {
-        return {
-          ...state,
-          signals: [
-            ...state.signals
-          ],
-          topics: [
-            ...state.topics
-          ],
-          sources: [
-            ...state.sources
-          ]
-        };
-      }
-    };
 
   if (
     document.readyState ===
@@ -2323,13 +743,12 @@
   ) {
     document.addEventListener(
       "DOMContentLoaded",
-      initialize,
+      start,
       {
         once: true
       }
     );
   } else {
-    initialize();
+    start();
   }
-
 })();
