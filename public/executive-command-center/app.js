@@ -1,12 +1,16 @@
 "use strict";
 
 /* ============================================================
-   EZ MEDIA
-   CODE 101
-   EXECUTIVE COMMAND CENTER
+   EZ MEDIA 11.0
+   CODE 103
+   EXECUTIVE COMMAND CENTER 2.0
 ============================================================ */
 
 const API = {
+
+  executive:
+    "/api/executive",
+
   command:
     "/api/command",
 
@@ -16,20 +20,46 @@ const API = {
   live:
     "/api/live",
 
-  automation:
-    "/api/automation"
+  newsroom:
+    "/api/editorial/newsroom",
+
+  audience:
+    "/api/audience",
+
+  advertising:
+    "/api/advertising",
+
+  monetization:
+    "/api/monetization",
+
+  crm:
+    "/api/crm"
 };
 
-const state = {
-  snapshot: null,
-  decisions: [],
-  alerts: [],
-  plans: [],
-  analytics: null,
-  live: null,
-  automation: null,
 
-  refreshing: false
+const state = {
+
+  snapshot:
+    null,
+
+  dashboard:
+    null,
+
+  decisions:
+    [],
+
+  alerts:
+    [],
+
+  plans:
+    [],
+
+  loading:
+    false,
+
+  pendingCommand:
+    null
+
 };
 
 
@@ -38,92 +68,115 @@ const state = {
 ============================================================ */
 
 function $(selector) {
+
   return document.querySelector(
     selector
   );
+
 }
 
-function safeNumber(value) {
-  const number =
+
+function $all(selector) {
+
+  return [
+    ...document.querySelectorAll(
+      selector
+    )
+  ];
+
+}
+
+
+function number(value) {
+
+  const n =
     Number(value);
 
-  return Number.isFinite(
-    number
-  )
-    ? number
+  return Number.isFinite(n)
+    ? n
     : 0;
+
 }
 
+
+function formatNumber(value) {
+
+  return new Intl.NumberFormat(
+    "ar-SA"
+  ).format(
+    number(value)
+  );
+
+}
+
+
 function escapeHtml(value) {
+
   return String(
     value ?? ""
   )
+
     .replace(
       /&/g,
       "&amp;"
     )
+
     .replace(
       /</g,
       "&lt;"
     )
+
     .replace(
       />/g,
       "&gt;"
     )
+
     .replace(
       /"/g,
       "&quot;"
     )
+
     .replace(
       /'/g,
       "&#039;"
     );
+
 }
 
-function formatNumber(value) {
-  return new Intl.NumberFormat(
-    "ar-SA"
-  ).format(
-    safeNumber(value)
-  );
-}
 
-function formatDate(value) {
+function date(value) {
+
   if (!value) {
     return "—";
   }
 
   try {
+
     return new Date(
       value
     ).toLocaleString(
       "ar-SA"
     );
+
   } catch {
+
     return "—";
+
   }
+
 }
 
-async function fetchJSON(
-  url,
-  options = {}
+
+async function get(
+  url
 ) {
+
   const response =
     await fetch(
       url,
       {
         credentials:
-          "same-origin",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-
-          ...(options.headers ||
-            {})
-        },
-
-        ...options
+          "same-origin"
       }
     );
 
@@ -134,169 +187,239 @@ async function fetchJSON(
         () => ({})
       );
 
-  if (
-    !response.ok
-  ) {
+  if (!response.ok) {
+
     throw new Error(
       data.error ||
       `HTTP ${response.status}`
     );
+
   }
 
   return data;
+
+}
+
+
+/*
+ * العمليات الحساسة تحتاج مفتاح
+ * PLATFORM_ADMIN_KEY.
+ *
+ * لا يتم تخزينه في المتصفح.
+ *
+ * عند تفعيل CODE 82 بالكامل،
+ * يتم استبدال هذه الآلية
+ * بجلسة RBAC آمنة.
+ */
+async function post(
+  url,
+  body = {}
+) {
+
+  const response =
+    await fetch(
+      url,
+      {
+        method:
+          "POST",
+
+        credentials:
+          "same-origin",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify(
+            body
+          )
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if (!response.ok) {
+
+    throw new Error(
+      data.error ||
+      `HTTP ${response.status}`
+    );
+
+  }
+
+  return data;
+
 }
 
 
 /* ============================================================
-   STATUS
+   SYSTEM STATUS
 ============================================================ */
 
-function updateSystemStatus(
-  snapshot
+function renderSystemState(
+  status
 ) {
-  const status =
-    snapshot?.status ||
-    "unknown";
 
   const dot =
-    $("#systemStatusDot");
+    $("#systemDot");
 
   const text =
-    $("#systemStatusText");
+    $("#systemState");
 
   dot.className =
-    "status-dot";
+    "system-dot";
+
+  const current =
+    String(
+      status ||
+      ""
+    ).toLowerCase();
 
   if (
-    status ===
-    "excellent"
-  ) {
-    dot.classList.add(
+    current ===
+      "excellent" ||
+    current ===
+      "healthy" ||
+    current ===
       "online"
+  ) {
+
+    dot.classList.add(
+      "ok"
     );
 
     text.textContent =
-      "ممتاز";
+      "النظام مستقر";
+
   } else if (
-    status ===
-      "healthy" ||
-    status ===
+    current ===
       "degraded"
   ) {
+
     dot.classList.add(
-      "online"
+      "ok"
     );
 
     text.textContent =
-      status ===
-      "healthy"
-        ? "مستقر"
-        : "يحتاج متابعة";
+      "النظام يحتاج متابعة";
+
   } else {
+
     dot.classList.add(
       "error"
     );
 
     text.textContent =
-      "يتطلب مراجعة";
+      "النظام يحتاج مراجعة";
+
   }
 
-  $("#lastUpdate")
-    .textContent =
-    formatDate(
-      snapshot?.createdAt
-    );
 }
 
 
 /* ============================================================
-   SCORE RENDER
+   SCORE
 ============================================================ */
 
-function setScore(
-  elementId,
-  barId,
+function renderScore(
+  element,
+  progress,
   value
 ) {
+
   const score =
     Math.max(
       0,
       Math.min(
         100,
-        safeNumber(value)
+        number(value)
       )
     );
 
-  $(`#${elementId}`)
+  $(`#${element}`)
     .textContent =
-    `${score}%`;
+    `${Math.round(score)}%`;
 
-  $(`#${barId}`)
+  $(`#${progress}`)
     .style.width =
     `${score}%`;
+
 }
+
 
 function renderScores(
   snapshot
 ) {
+
   const scores =
     snapshot?.scores ||
     {};
 
-  setScore(
+  renderScore(
     "healthScore",
-    "healthBar",
+    "healthProgress",
     scores.healthScore
   );
 
-  setScore(
-    "businessScore",
-    "businessBar",
-    scores.businessScore
-  );
-
-  setScore(
-    "audienceScore",
-    "audienceBar",
-    scores.audienceScore
-  );
-
-  setScore(
-    "revenueScore",
-    "revenueBar",
-    scores.revenueScore
-  );
-
-  setScore(
+  renderScore(
     "editorialScore",
-    "editorialBar",
+    "editorialProgress",
     scores.editorialScore
   );
 
-  setScore(
+  renderScore(
+    "audienceScore",
+    "audienceProgress",
+    scores.audienceScore
+  );
+
+  renderScore(
+    "revenueScore",
+    "revenueProgress",
+    scores.revenueScore
+  );
+
+  renderScore(
+    "businessScore",
+    "businessProgress",
+    scores.businessScore
+  );
+
+  renderScore(
     "riskScore",
-    "riskBar",
+    "riskProgress",
     scores.riskScore
   );
+
 
   const overall =
     Math.round(
       (
-        safeNumber(
+        number(
           scores.healthScore
         ) +
-        safeNumber(
-          scores.businessScore
-        ) +
-        safeNumber(
+
+        number(
           scores.editorialScore
         ) +
-        safeNumber(
+
+        number(
           scores.audienceScore
+        ) +
+
+        number(
+          scores.businessScore
         )
-      ) /
-      4
+      ) / 4
     );
+
 
   $("#overallScore")
     .textContent =
@@ -307,77 +430,33 @@ function renderScores(
     snapshot?.status ||
     "—";
 
-  $("#executiveSummary")
+}
+
+
+/* ============================================================
+   EXECUTIVE ANALYSIS
+============================================================ */
+
+function renderAnalysis(
+  snapshot
+) {
+
+  $("#liveAnalysis")
     .textContent =
     snapshot?.summary ||
-    "لا توجد خلاصة حالية.";
+    snapshot?.executiveSummary ||
+    "لا توجد خلاصة تنفيذية حالية.";
+
 }
 
 
 /* ============================================================
-   PRIORITIES
+   NEXT MOVE
 ============================================================ */
 
-function renderPriorities() {
-  const container =
-    $("#priorityList");
-
-  const decisions =
-    [...state.decisions]
-      .sort(
-        (a, b) =>
-          safeNumber(
-            b.score
-          ) -
-          safeNumber(
-            a.score
-          )
-      )
-      .slice(0, 5);
-
-  if (
-    !decisions.length
-  ) {
-    container.innerHTML =
-      `<div class="empty">
-        لا توجد أولويات حالية.
-      </div>`;
-
-    return;
-  }
-
-  container.innerHTML =
-    decisions
-      .map(
-        decision => `
-          <div class="list-item">
-            <strong>
-              ${escapeHtml(
-                decision.title
-              )}
-            </strong>
-
-            <p>
-              ${escapeHtml(
-                decision.action
-              )}
-            </p>
-          </div>
-        `
-      )
-      .join("");
-}
-
-
-/* ============================================================
-   NEXT ACTIONS
-============================================================ */
-
-function renderNextActions(
+function renderNextMove(
   result
 ) {
-  const container =
-    $("#nextActions");
 
   const actions =
     result?.nextActions ||
@@ -386,91 +465,186 @@ function renderNextActions(
   if (
     !actions.length
   ) {
-    container.innerHTML =
-      `<div class="empty">
-        لا توجد إجراءات عاجلة.
-      </div>`;
+
+    $("#nextMove")
+      .textContent =
+      "لا توجد أولوية عاجلة حاليًا.";
 
     return;
+
   }
 
-  container.innerHTML =
-    actions
-      .slice(0, 8)
-      .map(
-        item => `
-          <div class="list-item">
-            <strong>
-              ${escapeHtml(
-                item.priority
-              )}
-            </strong>
+  const first =
+    actions[0];
 
-            <p>
-              ${escapeHtml(
-                item.action
-              )}
-            </p>
-          </div>
-        `
-      )
-      .join("");
+  $("#nextMove")
+    .textContent =
+    first.action ||
+    first.title ||
+    "مراجعة لوحة القيادة.";
+
 }
 
 
 /* ============================================================
-   ALERTS
+   PRIORITIES
 ============================================================ */
 
-function renderAlerts() {
-  const container =
-    $("#alerts");
+function renderPriorities() {
 
-  $("#alertCount")
-    .textContent =
-    state.alerts.length;
+  const container =
+    $("#priorities");
+
+  const items =
+    state.decisions
+      .slice()
+      .sort(
+        (a, b) =>
+          number(
+            b.confidence ||
+            b.score
+          ) -
+          number(
+            a.confidence ||
+            a.score
+          )
+      )
+      .slice(
+        0,
+        5
+      );
+
 
   if (
-    !state.alerts.length
+    !items.length
   ) {
+
     container.innerHTML =
       `<div class="empty">
-        لا توجد تنبيهات مفتوحة.
+        لا توجد أولويات حاليًا.
       </div>`;
 
     return;
+
   }
 
+
   container.innerHTML =
-    state.alerts
-      .slice(0, 20)
+    items
       .map(
-        alert => `
-          <div
-            class="alert alert-${escapeHtml(
-              alert.severity ||
-              "medium"
-            )}"
-          >
+        (
+          item,
+          index
+        ) => `
+
+          <div class="priority-item">
+
+            <div class="priority-number">
+              ${index + 1}
+            </div>
+
             <div>
 
               <strong>
                 ${escapeHtml(
-                  alert.title
+                  item.title ||
+                  item.name ||
+                  "أولوية تنفيذية"
                 )}
               </strong>
 
               <p>
                 ${escapeHtml(
-                  alert.message
+                  item.action ||
+                  item.description ||
+                  "مراجعة هذا البند."
                 )}
               </p>
 
             </div>
+
           </div>
+
         `
       )
       .join("");
+
+}
+
+
+/* ============================================================
+   ACTION PLAN
+============================================================ */
+
+function renderActionPlan() {
+
+  const container =
+    $("#actionPlan");
+
+  const plan =
+    state.plans[0];
+
+  const actions =
+    plan?.actions ||
+    [];
+
+  if (
+    !actions.length
+  ) {
+
+    container.innerHTML =
+      `<div class="empty">
+        لا توجد خطة تنفيذية حاليًا.
+      </div>`;
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    actions
+      .slice(
+        0,
+        8
+      )
+      .map(
+        (
+          action,
+          index
+        ) => `
+
+          <div class="priority-item">
+
+            <div class="priority-number">
+              ${index + 1}
+            </div>
+
+            <div>
+
+              <strong>
+                ${escapeHtml(
+                  action.priority ||
+                  `المرحلة ${index + 1}`
+                )}
+              </strong>
+
+              <p>
+                ${escapeHtml(
+                  action.action ||
+                  action.title ||
+                  "تنفيذ الإجراء."
+                )}
+              </p>
+
+            </div>
+
+          </div>
+
+        `
+      )
+      .join("");
+
 }
 
 
@@ -479,48 +653,54 @@ function renderAlerts() {
 ============================================================ */
 
 function renderDecisions() {
+
   const container =
     $("#decisions");
 
-  $("#decisionCount")
+  $("#decisionCounter")
     .textContent =
-    state.decisions.length;
+    formatNumber(
+      state.decisions.length
+    );
+
 
   if (
     !state.decisions.length
   ) {
+
     container.innerHTML =
       `<div class="empty">
-        لا توجد قرارات حالية.
+        لا توجد قرارات جديدة.
       </div>`;
 
     return;
+
   }
+
 
   container.innerHTML =
     state.decisions
-      .slice(0, 12)
+      .slice(
+        0,
+        12
+      )
       .map(
-        decision => `
+        item => `
+
           <article class="decision">
 
-            <div class="decision-top">
+            <div class="decision-meta">
 
-              <span
-                class="priority-${escapeHtml(
-                  decision.priority ||
-                  "medium"
-                )}"
-              >
+              <span>
                 ${escapeHtml(
-                  decision.priority ||
+                  item.priority ||
                   "medium"
                 )}
               </span>
 
-              <span class="badge">
-                ${safeNumber(
-                  decision.confidence
+              <span>
+                ${number(
+                  item.confidence
                 )}%
               </span>
 
@@ -528,83 +708,207 @@ function renderDecisions() {
 
             <h3>
               ${escapeHtml(
-                decision.title
+                item.title ||
+                "قرار تنفيذي"
               )}
             </h3>
 
             <p>
               ${escapeHtml(
-                decision.action
+                item.action ||
+                item.description ||
+                "لا يوجد وصف."
               )}
             </p>
 
           </article>
+
         `
       )
       .join("");
+
 }
 
 
 /* ============================================================
-   ANALYTICS
+   APPROVAL CENTER
 ============================================================ */
 
-async function loadAnalytics() {
-  try {
-    const data =
-      await fetchJSON(
-        `${API.analytics}/statistics`
+function renderApprovals() {
+
+  const container =
+    $("#approvalCenter");
+
+  const approvals =
+    state.decisions
+      .filter(
+        item =>
+          item.requiresApproval ===
+            true ||
+          item.humanReview ===
+            true ||
+          item.status ===
+            "human_review"
+      )
+      .slice(
+        0,
+        10
       );
 
-    state.analytics =
-      data.statistics ||
-      {};
 
-    const stats =
-      state.analytics;
+  if (
+    !approvals.length
+  ) {
 
-    $("#analyticsEvents")
-      .textContent =
-      formatNumber(
-        stats.totalEvents
-      );
+    container.innerHTML =
+      `<div class="empty">
+        لا توجد قرارات تحتاج موافقتك.
+      </div>`;
 
-    $("#analyticsInsights")
-      .textContent =
-      formatNumber(
-        stats.totalInsights
-      );
+    return;
 
-    $("#analyticsRecommendations")
-      .textContent =
-      formatNumber(
-        stats.totalRecommendations
-      );
-
-    $("#analyticsTrends")
-      .textContent =
-      formatNumber(
-        stats.totalTrends
-      );
-
-    $("#analyticsAnomalies")
-      .textContent =
-      formatNumber(
-        stats.totalAnomalies
-      );
-
-    $("#analyticsReports")
-      .textContent =
-      formatNumber(
-        stats.totalReports
-      );
-
-  } catch (error) {
-    console.warn(
-      "Analytics:",
-      error.message
-    );
   }
+
+
+  container.innerHTML =
+    approvals
+      .map(
+        item => `
+
+          <div class="approval">
+
+            <div class="approval-text">
+
+              <strong>
+                ${escapeHtml(
+                  item.title ||
+                  "قرار يحتاج مراجعة"
+                )}
+              </strong>
+
+              <p>
+                ${escapeHtml(
+                  item.action ||
+                  item.description ||
+                  "يتطلب مراجعة بشرية."
+                )}
+              </p>
+
+            </div>
+
+            <div class="approval-actions">
+
+              <button
+                class="small-btn approve"
+                data-approval="approve"
+                data-id="${escapeHtml(
+                  item.id ||
+                  ""
+                )}"
+              >
+                موافقة
+              </button>
+
+              <button
+                class="small-btn reject"
+                data-approval="reject"
+                data-id="${escapeHtml(
+                  item.id ||
+                  ""
+                )}"
+              >
+                رفض
+              </button>
+
+              <button
+                class="small-btn review"
+                data-approval="review"
+                data-id="${escapeHtml(
+                  item.id ||
+                  ""
+                )}"
+              >
+                مراجعة
+              </button>
+
+            </div>
+
+          </div>
+
+        `
+      )
+      .join("");
+
+}
+
+
+/* ============================================================
+   ALERTS
+============================================================ */
+
+function renderAlerts() {
+
+  const container =
+    $("#alerts");
+
+  $("#alertCounter")
+    .textContent =
+    formatNumber(
+      state.alerts.length
+    );
+
+
+  if (
+    !state.alerts.length
+  ) {
+
+    container.innerHTML =
+      `<div class="empty">
+        لا توجد تنبيهات.
+      </div>`;
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    state.alerts
+      .slice(
+        0,
+        15
+      )
+      .map(
+        item => `
+
+          <div
+            class="alert ${escapeHtml(
+              item.severity ||
+              "medium"
+            )}"
+          >
+
+            <strong>
+              ${escapeHtml(
+                item.title ||
+                "تنبيه"
+              )}
+            </strong>
+
+            <p>
+              ${escapeHtml(
+                item.message ||
+                item.description ||
+                ""
+              )}
+            </p>
+
+          </div>
+
+        `
+      )
+      .join("");
+
 }
 
 
@@ -613,452 +917,735 @@ async function loadAnalytics() {
 ============================================================ */
 
 function renderSystemMatrix(
-  snapshot
+  dashboard
 ) {
+
   const container =
     $("#systemMatrix");
 
-  const data =
-    snapshot?.data ||
+  const systems =
+    dashboard?.systems ||
     {};
 
-  const systems = [
-    ["AI", data.platform],
-    ["الأتمتة", data.automation],
-    ["التحليلات", data.analytics],
-    ["الجمهور", data.audience],
-    ["الإعلانات", data.advertising],
-    ["الإيرادات", data.monetization],
-    ["CRM", data.crm],
-    ["مصنع المحتوى", data.contentFactory],
-    ["التوزيع", data.distribution],
-    ["البث المباشر", data.liveBroadcast],
-    ["الجدولة", data.broadcastScheduler],
-    ["غرفة الأخبار", data.newsroom],
-    ["المهام", data.assignment],
-    ["الفريق", data.workforce],
-    ["التدريب", data.training],
-    ["الجودة", data.quality],
-    ["الحقوق", data.legal],
-    ["الأخلاقيات", data.ethics],
-    ["الهوية", data.brand],
-    ["Workflow", data.workflows],
-    ["الأمن", data.security],
-    ["التواصل", data.communication],
-    ["الدعم", data.support]
-  ];
+
+  const names = {
+
+    commandEngine:
+      "العقل التنفيذي",
+
+    platformControl:
+      "تحكم المنصة",
+
+    analyticsEngine:
+      "التحليلات",
+
+    automationEngine:
+      "الأتمتة",
+
+    liveBroadcastEngine:
+      "البث المباشر",
+
+    broadcastScheduler:
+      "جدولة البث",
+
+    editorialNewsroom:
+      "غرفة الأخبار",
+
+    contentAssignment:
+      "توزيع المهام",
+
+    workforceEngine:
+      "الفريق",
+
+    trainingEngine:
+      "التدريب",
+
+    advertisingEngine:
+      "الإعلانات والرعاية",
+
+    monetizationEngine:
+      "الإيرادات",
+
+    crmEngine:
+      "CRM",
+
+    contentFactory:
+      "مصنع المحتوى",
+
+    distributionEngine:
+      "التوزيع",
+
+    workflowEngine:
+      "Workflow",
+
+    securityEngine:
+      "الأمن",
+
+    communicationEngine:
+      "التواصل",
+
+    customerSupportEngine:
+      "خدمة العملاء",
+
+    aiOrchestrator:
+      "AI Orchestrator"
+
+  };
+
+
+  const entries =
+    Object.entries(
+      names
+    );
+
 
   container.innerHTML =
-    systems
+    entries
       .map(
-        ([name, system]) => {
+        ([
+          key,
+          name
+        ]) => {
 
-          const status =
-            system?.status ||
-            {};
+          const system =
+            systems[key];
 
-          const healthy =
-            status.initialized ===
-              true &&
-            !status.error;
+          const available =
+            system?.available ===
+              true;
 
-          const indicator =
-            healthy
-              ? "ok"
-              : status.error
-                ? "error"
-                : "";
+          const error =
+            !!system?.status?.error;
+
 
           return `
+
             <div class="system-item">
 
-              <span class="system-name">
+              <span>
                 ${escapeHtml(
                   name
                 )}
               </span>
 
               <span
-                class="system-indicator ${indicator}"
+                class="system-state ${
+                  available &&
+                  !error
+                    ? "ok"
+                    : error
+                      ? "error"
+                      : ""
+                }"
               ></span>
 
             </div>
+
           `;
+
         }
       )
       .join("");
+
 }
 
 
 /* ============================================================
-   LIVE
+   LIVE PANEL
 ============================================================ */
 
 async function loadLive() {
+
   try {
+
     const data =
-      await fetchJSON(
+      await get(
         `${API.live}/status`
       );
-
-    state.live =
-      data;
 
     const status =
       data.status ||
       {};
 
-    $("#liveOperations")
+    $("#livePanel")
       .innerHTML = `
-        <div class="operation">
 
-          <strong>
-            حالة البث
-          </strong>
+        <div class="status-row">
 
           <span>
-            ${escapeHtml(
-              status.running
-                ? "يعمل"
-                : "متوقف / جاهز"
-            )}
+            الخدمة
           </span>
-
-        </div>
-
-        <div class="operation">
 
           <strong>
-            البث المباشر
+            ${escapeHtml(
+              status.service ||
+              "EZ MEDIA LIVE"
+            )}
           </strong>
 
+        </div>
+
+        <div class="status-row">
+
           <span>
-            ${escapeHtml(
-              String(
-                status.service ||
-                "EZ MEDIA LIVE"
-              )
-            )}
+            الحالة
           </span>
 
+          <strong>
+            ${status.running
+              ? "يعمل"
+              : "جاهز"}
+          </strong>
+
         </div>
+
       `;
 
-  } catch (error) {
+  } catch {
 
-    $("#liveOperations")
-      .innerHTML = `
-        <div class="empty">
-          خدمة البث غير متاحة حاليًا.
-        </div>
-      `;
+    $("#livePanel")
+      .innerHTML =
+      `<div class="empty">
+        تعذر قراءة خدمة البث.
+      </div>`;
+
   }
+
 }
 
 
 /* ============================================================
-   AUTOMATION
+   NEWSROOM
 ============================================================ */
 
-async function loadAutomation() {
+async function loadNewsroom() {
+
   try {
+
     const data =
-      await fetchJSON(
-        `${API.automation}/statistics`
+      await get(
+        `${API.newsroom}/statistics`
       );
 
     const stats =
       data.statistics ||
       {};
 
-    $("#automationStatus")
+    $("#newsroomPanel")
       .innerHTML = `
-        <div class="operation">
 
-          <strong>
-            المهام
-          </strong>
+        <div class="status-row">
 
           <span>
+            القصص
+          </span>
+
+          <strong>
             ${formatNumber(
-              stats.totalTasks ||
-              stats.tasks ||
+              stats.totalStories ||
+              stats.stories ||
               0
             )}
-          </span>
+          </strong>
 
         </div>
 
-        <div class="operation">
-
-          <strong>
-            قيد التنفيذ
-          </strong>
+        <div class="status-row">
 
           <span>
+            قيد المراجعة
+          </span>
+
+          <strong>
             ${formatNumber(
-              stats.running ||
-              stats.activeTasks ||
+              stats.pendingReview ||
               0
             )}
-          </span>
+          </strong>
 
         </div>
 
-        <div class="operation">
-
-          <strong>
-            المكتملة
-          </strong>
-
-          <span>
-            ${formatNumber(
-              stats.completed ||
-              0
-            )}
-          </span>
-
-        </div>
       `;
 
-  } catch (error) {
+  } catch {
 
-    $("#automationStatus")
-      .innerHTML = `
-        <div class="empty">
-          خدمة الأتمتة غير متاحة.
-        </div>
-      `;
-  }
-}
-
-
-/* ============================================================
-   ACTION PLAN
-============================================================ */
-
-function renderActionPlan(
-  result
-) {
-  const container =
-    $("#actionPlan");
-
-  const plan =
-    result?.actionPlan;
-
-  if (
-    !plan ||
-    !Array.isArray(
-      plan.actions
-    ) ||
-    !plan.actions.length
-  ) {
-    container.innerHTML =
+    $("#newsroomPanel")
+      .innerHTML =
       `<div class="empty">
-        لا توجد خطة تنفيذية حالية.
+        تعذر قراءة غرفة الأخبار.
       </div>`;
 
-    return;
   }
 
-  container.innerHTML =
-    plan.actions
-      .map(
-        (action, index) => `
-          <div class="plan-action">
-
-            <div class="plan-number">
-              ${index + 1}
-            </div>
-
-            <div>
-              <strong>
-                ${escapeHtml(
-                  action.priority
-                )}
-              </strong>
-
-              <div>
-                ${escapeHtml(
-                  action.action
-                )}
-              </div>
-            </div>
-
-          </div>
-        `
-      )
-      .join("");
 }
 
 
 /* ============================================================
-   FULL LOAD
+   BUSINESS METRICS
 ============================================================ */
 
-async function loadCommandCenter(
-  runCycle = false
-) {
+async function loadBusinessMetrics() {
+
+  const requests = [
+
+    [
+      "audienceMetric",
+      `${API.audience}/statistics`,
+      [
+        "totalEvents",
+        "totalVisitors",
+        "events"
+      ]
+    ],
+
+    [
+      "advertisingMetric",
+      `${API.advertising}/statistics`,
+      [
+        "totalCampaigns",
+        "campaigns"
+      ]
+    ],
+
+    [
+      "revenueMetric",
+      `${API.monetization}/statistics`,
+      [
+        "totalRevenue",
+        "revenue"
+      ]
+    ],
+
+    [
+      "crmMetric",
+      `${API.crm}/statistics`,
+      [
+        "totalLeads",
+        "leads"
+      ]
+    ]
+
+  ];
+
+
+  await Promise.all(
+    requests.map(
+      async ([
+        element,
+        url,
+        keys
+      ]) => {
+
+        try {
+
+          const data =
+            await get(url);
+
+          const stats =
+            data.statistics ||
+            {};
+
+          let value = 0;
+
+          for (
+            const key of keys
+          ) {
+
+            if (
+              stats[key] !==
+              undefined
+            ) {
+
+              value =
+                stats[key];
+
+              break;
+
+            }
+
+          }
+
+          $(`#${element}`)
+            .textContent =
+            formatNumber(
+              value
+            );
+
+        } catch {
+
+          $(`#${element}`)
+            .textContent =
+            "—";
+
+        }
+
+      }
+    )
+  );
+
+}
+
+
+/* ============================================================
+   COMMAND CENTER LOAD
+============================================================ */
+
+async function loadDashboard() {
+
   if (
-    state.refreshing
+    state.loading
   ) {
     return;
   }
 
-  state.refreshing =
+  state.loading =
     true;
+
 
   try {
 
-    if (
-      runCycle
-    ) {
-      const result =
-        await fetchJSON(
-          `${API.command}/run`,
-          {
-            method:
-              "POST",
-
-            body:
-              JSON.stringify({})
-          }
-        );
-
-      state.snapshot =
-        result.result?.snapshot;
-
-      state.decisions =
-        result.result?.decisions ||
-        [];
-
-      state.alerts =
-        result.result?.alerts ||
-        [];
-
-      state.plans =
-        result.result?.actionPlan
-          ? [
-              result.result
-                .actionPlan
-            ]
-          : [];
-
-      renderScores(
-        state.snapshot
+    const dashboard =
+      await get(
+        `${API.executive}/dashboard`
       );
 
-      updateSystemStatus(
-        state.snapshot
+    state.dashboard =
+      dashboard;
+
+
+    const snapshotResponse =
+      await get(
+        `${API.command}/snapshot`
       );
 
-      renderPriorities();
-      renderNextActions(
-        result.result
-      );
-      renderAlerts();
-      renderDecisions();
+    state.snapshot =
+      snapshotResponse.snapshot ||
+      {};
 
-      renderSystemMatrix(
-        state.snapshot
-      );
 
-      renderActionPlan(
-        result.result
+    const decisionsResponse =
+      await get(
+        `${API.command}/decisions`
       );
 
-    } else {
+    state.decisions =
+      decisionsResponse.decisions ||
+      [];
 
-      const snapshotResponse =
-        await fetchJSON(
-          `${API.command}/snapshot`
-        );
 
-      state.snapshot =
-        snapshotResponse.snapshot;
-
-      const [
-        decisionsResponse,
-        alertsResponse,
-        plansResponse
-      ] =
-        await Promise.all([
-          fetchJSON(
-            `${API.command}/decisions`
-          ),
-
-          fetchJSON(
-            `${API.command}/alerts`
-          ),
-
-          fetchJSON(
-            `${API.command}/plans`
-          )
-        ]);
-
-      state.decisions =
-        decisionsResponse
-          .decisions ||
-        [];
-
-      state.alerts =
-        alertsResponse
-          .alerts ||
-        [];
-
-      state.plans =
-        plansResponse
-          .plans ||
-        [];
-
-      renderScores(
-        state.snapshot
+    const alertsResponse =
+      await get(
+        `${API.command}/alerts`
       );
 
-      updateSystemStatus(
-        state.snapshot
+    state.alerts =
+      alertsResponse.alerts ||
+      [];
+
+
+    const plansResponse =
+      await get(
+        `${API.command}/plans`
       );
 
-      renderPriorities();
-      renderAlerts();
-      renderDecisions();
-      renderSystemMatrix(
-        state.snapshot
-      );
+    state.plans =
+      plansResponse.plans ||
+      [];
 
-      renderActionPlan({
-        actionPlan:
-          state.plans[0]
-      });
 
-    }
+    renderSystemState(
+      state.snapshot.status
+    );
+
+    renderScores(
+      state.snapshot
+    );
+
+    renderAnalysis(
+      state.snapshot
+    );
+
+    renderPriorities();
+
+    renderActionPlan();
+
+    renderDecisions();
+
+    renderApprovals();
+
+    renderAlerts();
+
+    renderSystemMatrix(
+      dashboard
+    );
+
 
     await Promise.all([
-      loadAnalytics(),
       loadLive(),
-      loadAutomation()
+      loadNewsroom(),
+      loadBusinessMetrics()
     ]);
+
 
   } catch (error) {
 
     console.error(
-      "Command Center:",
+      "[CODE 103]",
       error
     );
 
-    $("#systemStatusDot")
+    $("#systemDot")
       .className =
-      "status-dot error";
+      "system-dot error";
 
-    $("#systemStatusText")
+    $("#systemState")
       .textContent =
-      "تعذر الاتصال";
+      "تعذر الاتصال بمركز القيادة";
 
   } finally {
 
-    state.refreshing =
+    state.loading =
       false;
+
   }
+
+}
+
+
+/* ============================================================
+   RUN EXECUTIVE CYCLE
+============================================================ */
+
+async function runExecutiveCycle() {
+
+  try {
+
+    $("#runBtn")
+      .disabled =
+      true;
+
+    $("#runBtn")
+      .textContent =
+      "جاري التحليل...";
+
+
+    /*
+     * العملية الحساسة تمر من
+     * CODE 102.
+     *
+     * المصادقة النهائية ستكون
+     * عبر CODE 82.
+     */
+
+    await post(
+      `${API.executive}/run`,
+      {}
+    );
+
+
+    await loadDashboard();
+
+
+  } catch (error) {
+
+    showModal(
+      "تعذر التشغيل",
+      error.message
+    );
+
+  } finally {
+
+    $("#runBtn")
+      .disabled =
+      false;
+
+    $("#runBtn")
+      .textContent =
+      "تشغيل التحليل";
+
+  }
+
+}
+
+
+/* ============================================================
+   GENERIC CONTROL
+============================================================ */
+
+const commandMap = {
+
+  START_AUTOMATION:
+    "/automation/start",
+
+  STOP_AUTOMATION:
+    "/automation/stop",
+
+  START_LIVE:
+    "/live/start",
+
+  STOP_LIVE:
+    "/live/stop",
+
+  START_SCHEDULER:
+    "/scheduler/start",
+
+  STOP_SCHEDULER:
+    "/scheduler/stop",
+
+  START_WORKFLOW:
+    "/workflow/start",
+
+  STOP_WORKFLOW:
+    "/workflow/stop"
+
+};
+
+
+async function executeControl(
+  command
+) {
+
+  const path =
+    commandMap[
+      command
+    ];
+
+  if (!path) {
+    return;
+  }
+
+
+  try {
+
+    await post(
+      `${API.executive}${path}`,
+      {}
+    );
+
+
+    await loadDashboard();
+
+
+  } catch (error) {
+
+    showModal(
+      "تعذر تنفيذ الأمر",
+      error.message
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   MODAL
+============================================================ */
+
+let modalAction =
+  null;
+
+
+function showModal(
+  title,
+  message,
+  action = null
+) {
+
+  $("#modalTitle")
+    .textContent =
+    title;
+
+  $("#modalMessage")
+    .textContent =
+    message;
+
+  modalAction =
+    action;
+
+  $("#modal")
+    .classList
+    .remove(
+      "hidden"
+    );
+
+}
+
+
+function closeModal() {
+
+  $("#modal")
+    .classList
+    .add(
+      "hidden"
+    );
+
+  modalAction =
+    null;
+
+}
+
+
+$("#modalClose")
+  .addEventListener(
+    "click",
+    closeModal
+  );
+
+
+$("#modalCancel")
+  .addEventListener(
+    "click",
+    closeModal
+  );
+
+
+$("#modalConfirm")
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (
+        typeof modalAction ===
+        "function"
+      ) {
+
+        await modalAction();
+
+      }
+
+      closeModal();
+
+    }
+  );
+
+
+/* ============================================================
+   EMERGENCY STOP
+============================================================ */
+
+async function emergencyStop() {
+
+  try {
+
+    await post(
+      `${API.executive}/emergency-stop`,
+      {}
+    );
+
+
+    await loadDashboard();
+
+
+  } catch (error) {
+
+    showModal(
+      "فشل الإيقاف الطارئ",
+      error.message
+    );
+
+  }
+
 }
 
 
@@ -1066,94 +1653,140 @@ async function loadCommandCenter(
    EVENTS
 ============================================================ */
 
-$("#refreshButton")
+$("#refreshBtn")
   .addEventListener(
     "click",
-    () =>
-      loadCommandCenter(
-        false
-      )
+    loadDashboard
   );
 
-$("#runCycleButton")
+
+$("#runBtn")
   .addEventListener(
     "click",
-    async () => {
+    runExecutiveCycle
+  );
 
-      const button =
-        $("#runCycleButton");
 
-      const oldText =
-        button.textContent;
+$("#heroRun")
+  .addEventListener(
+    "click",
+    runExecutiveCycle
+  );
 
-      button.disabled =
-        true;
 
-      button.textContent =
-        "جاري التحليل...";
+$("#heroEmergency")
+  .addEventListener(
+    "click",
+    () => {
 
-      await loadCommandCenter(
-        true
+      showModal(
+
+        "إيقاف طارئ",
+
+        "سيتم إيقاف الخدمات الداخلية القابلة للإيقاف من مركز القيادة. هل تريد المتابعة؟",
+
+        emergencyStop
+
       );
 
-      button.disabled =
-        false;
-
-      button.textContent =
-        oldText;
     }
   );
+
+
+$all(
+  "[data-command]"
+)
+.forEach(
+  button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const command =
+          button.dataset.command;
+
+        const dangerous =
+          command.includes(
+            "STOP"
+          );
+
+        if (
+          dangerous
+        ) {
+
+          showModal(
+
+            "تأكيد العملية",
+
+            "هذا الأمر سيؤثر على خدمة تشغيلية في المنصة. هل تريد المتابعة؟",
+
+            () =>
+              executeControl(
+                command
+              )
+
+          );
+
+        } else {
+
+          executeControl(
+            command
+          );
+
+        }
+
+      }
+    );
+
+  }
+);
 
 
 /* ============================================================
-   MODAL
+   APPROVAL ACTIONS
 ============================================================ */
 
-function openModal(
-  title,
-  content
-) {
-  $("#modalTitle")
-    .textContent =
-    title;
+document.addEventListener(
+  "click",
+  async event => {
 
-  $("#modalContent")
-    .innerHTML =
-    content;
+    const button =
+      event.target.closest(
+        "[data-approval]"
+      );
 
-  $("#modal")
-    .classList
-    .remove(
-      "hidden"
-    );
-}
-
-function closeModal() {
-  $("#modal")
-    .classList
-    .add(
-      "hidden"
-    );
-}
-
-$("#closeModal")
-  .addEventListener(
-    "click",
-    closeModal
-  );
-
-$("#modal")
-  .addEventListener(
-    "click",
-    event => {
-      if (
-        event.target ===
-        $("#modal")
-      ) {
-        closeModal();
-      }
+    if (!button) {
+      return;
     }
-  );
+
+
+    const action =
+      button.dataset.approval;
+
+    const id =
+      button.dataset.id;
+
+
+    /*
+     * CODE 100/102 يمكنه لاحقًا
+     * ربط هذه العملية بواجهات
+     * الموافقة الفعلية لكل محرك.
+     *
+     * لا ننفذ قرارًا تحريريًا
+     * حساسًا هنا بشكل أعمى.
+     */
+
+    showModal(
+
+      "قرار يحتاج ربطًا بالمحرك",
+
+      `تم تحديد القرار ${id || "غير معروف"} بإجراء: ${action}. سيتم ربط الموافقة النهائية بمحرك القرار المختص في طبقة CODE 82/100.`
+
+    );
+
+  }
+);
 
 
 /* ============================================================
@@ -1161,13 +1794,16 @@ $("#modal")
 ============================================================ */
 
 function updateClock() {
-  $("#footerTime")
+
+  $("#clock")
     .textContent =
     new Date()
       .toLocaleString(
         "ar-SA"
       );
+
 }
+
 
 setInterval(
   updateClock,
@@ -1182,10 +1818,7 @@ updateClock();
 ============================================================ */
 
 setInterval(
-  () =>
-    loadCommandCenter(
-      false
-    ),
+  loadDashboard,
   30000
 );
 
@@ -1194,6 +1827,4 @@ setInterval(
    START
 ============================================================ */
 
-loadCommandCenter(
-  false
-);
+loadDashboard();
