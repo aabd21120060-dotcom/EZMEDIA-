@@ -1,3 +1,14 @@
+const path = require("path");
+
+app.use(
+  "/autonomous-media-operations",
+  express.static(
+    path.join(
+      __dirname,
+      "public/autonomous-media-operations"
+    )
+  )
+);
 const { initializeDatabase } = require("./src/database/init");
 const { initializeMediaDatabase } = require("./src/database/media-init");
 app.use("/api/commercial", commercialRoutes);
