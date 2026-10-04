@@ -1193,7 +1193,9 @@ const executiveCommand = {
             "counts.active",
             "statistics.active",
             "statistics.running",
-            "metrics.active"
+            "metrics.active",
+            "operations.active",
+            "operations.running"
           ]
         );
 
@@ -1208,7 +1210,9 @@ const executiveCommand = {
             "queuedOperations",
             "counts.pending",
             "statistics.pending",
-            "metrics.pending"
+            "metrics.pending",
+            "operations.pending",
+            "operations.queued"
           ]
         );
 
@@ -1221,7 +1225,8 @@ const executiveCommand = {
             "completedCount",
             "counts.completed",
             "statistics.completed",
-            "metrics.completed"
+            "metrics.completed",
+            "operations.completed"
           ]
         );
 
@@ -1234,7 +1239,8 @@ const executiveCommand = {
             "failedCount",
             "counts.failed",
             "statistics.failed",
-            "metrics.failed"
+            "metrics.failed",
+            "operations.failed"
           ]
         );
 
@@ -1253,7 +1259,8 @@ const executiveCommand = {
             "counts.agents",
             "statistics.agents",
             "statistics.totalAgents",
-            "metrics.agents"
+            "metrics.agents",
+            "data.agents"
           ]
         );
 
@@ -1267,7 +1274,8 @@ const executiveCommand = {
             "totalMissions",
             "counts.missions",
             "statistics.missions",
-            "metrics.missions"
+            "metrics.missions",
+            "data.missions"
           ]
         );
 
@@ -1281,7 +1289,8 @@ const executiveCommand = {
             "totalTeams",
             "counts.teams",
             "statistics.teams",
-            "metrics.teams"
+            "metrics.teams",
+            "data.teams"
           ]
         );
 
@@ -1298,7 +1307,8 @@ const executiveCommand = {
             "approvalsPending",
             "approvals.pending",
             "counts.pendingApprovals",
-            "statistics.pendingApprovals"
+            "statistics.pendingApprovals",
+            "metrics.pendingApprovals"
           ]
         );
 
@@ -1319,7 +1329,8 @@ const executiveCommand = {
             "counts.memories",
             "statistics.memories",
             "statistics.total",
-            "metrics.memories"
+            "metrics.memories",
+            "data.memories"
           ]
         );
 
@@ -1340,8 +1351,38 @@ const executiveCommand = {
             "counts.events",
             "statistics.events",
             "statistics.total",
-            "metrics.events"
+            "metrics.events",
+            "data.events"
           ]
+        );
+
+      /* ---------------------------------------------------
+         REAL ENGINE STATUS
+      --------------------------------------------------- */
+
+      const operationEngineStatus =
+        extractStatus(
+          operations
+        );
+
+      const collaborationStatus =
+        extractStatus(
+          collaboration
+        );
+
+      const agentsStatus =
+        extractStatus(
+          agents
+        );
+
+      const memoryStatus =
+        extractStatus(
+          memory
+        );
+
+      const eventStatus =
+        extractStatus(
+          events
         );
 
       /* ---------------------------------------------------
@@ -1448,9 +1489,13 @@ const executiveCommand = {
               .started,
 
           status:
-            extractStatus(
-              operations
-            )
+            operationEngineStatus,
+
+          reader:
+            operationsSnapshot.method,
+
+          readerError:
+            operationsSnapshot.error
         },
 
         collaboration: {
@@ -1458,9 +1503,18 @@ const executiveCommand = {
           available:
             runtime.ai.collaboration,
 
+          status:
+            collaborationStatus,
+
           teams,
 
-          missions
+          missions,
+
+          reader:
+            collaborationSnapshot.method,
+
+          readerError:
+            collaborationSnapshot.error
         },
 
         autonomousAgents: {
@@ -1468,8 +1522,17 @@ const executiveCommand = {
           available:
             runtime.ai.autonomousAgents,
 
+          status:
+            agentsStatus,
+
           count:
-            agentsCount
+            agentsCount,
+
+          reader:
+            agentsSnapshot.method,
+
+          readerError:
+            agentsSnapshot.error
         },
 
         memory: {
@@ -1477,8 +1540,17 @@ const executiveCommand = {
           available:
             runtime.ai.memory,
 
+          status:
+            memoryStatus,
+
           records:
-            memoryCount
+            memoryCount,
+
+          reader:
+            memorySnapshot.method,
+
+          readerError:
+            memorySnapshot.error
         },
 
         eventIntelligence: {
@@ -1486,8 +1558,17 @@ const executiveCommand = {
           available:
             runtime.ai.eventIntelligence,
 
+          status:
+            eventStatus,
+
           events:
-            eventCount
+            eventCount,
+
+          reader:
+            eventSnapshot.method,
+
+          readerError:
+            eventSnapshot.error
         }
       };
 
@@ -1505,8 +1586,7 @@ const executiveCommand = {
           : "unavailable";
 
       /*
-       * لا نضع "ready" للجدولة أو Workflow
-       * إذا لم يوجد محرك فعلي لها.
+       * لا يتم إعطاء حالة جاهز لمحرك غير موجود.
        */
 
       const schedulingStatus =
@@ -1605,9 +1685,7 @@ const executiveCommand = {
           failed,
 
           engineStatus:
-            extractStatus(
-              operations
-            )
+            operationEngineStatus
         },
 
         approvals: {
@@ -2057,7 +2135,7 @@ app.get(
 
     /*
      * إذا كان الراوتر الحقيقي مركبًا،
-     * نمرر الطلب إليه بدل fallback.
+     * يتم تمرير الطلب إليه.
      */
 
     if (
@@ -2114,7 +2192,7 @@ app.get(
 
     /*
      * إذا كان الراوتر الحقيقي مركبًا،
-     * نمرر الطلب إليه بدل fallback.
+     * يتم تمرير الطلب إليه.
      */
 
     if (
@@ -2636,6 +2714,11 @@ app.get(
         .SATELLITE_BROADCAST_ENABLED ===
       "true";
 
+    const external =
+      process.env
+        .BROADCAST_EXTERNAL_INTEGRATION ===
+      "true";
+
     res.json({
 
       system:
@@ -2656,10 +2739,7 @@ app.get(
 
         satellite,
 
-        external:
-          process.env
-            .BROADCAST_EXTERNAL_INTEGRATION ===
-          "true"
+        external
       },
 
       message:
