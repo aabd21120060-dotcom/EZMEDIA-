@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <meta
+    name="theme-color"
+    content="#eaf8ff"
+  />
+
+  <title>
+    EZ MEDIA — مركز العمليات الإعلامية الذكي
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/autonomous-media-operations/styles.css"
+  />
+</head>
+
+<body>
+
+  <div class="app-shell">
+
+    <!-- ================================================= -->
+    <!-- HEADER -->
+    <!-- ================================================= -->
+
+    <header class="topbar">
+
+      <div class="brand">
+
+        <div class="brand-mark">
+          EZ
+        </div>
+
+        <div>
+          <h1>EZ MEDIA</h1>
+          <span>
+            مركز العمليات الإعلامية الذكي
+          </span>
+        </div>
+
+      </div>
+
+      <div class="system-status">
+
+        <span
+          id="systemDot"
+          class="status-dot"
+        ></span>
+
+        <span id="systemStatus">
+          جارٍ الاتصال...
+        </span>
+
+      </div>
+
+      <div class="top-actions">
+
+        <button
+          id="refreshBtn"
+          class="icon-btn"
+          title="تحديث"
+        >
+          ↻
+        </button>
+
+        <button
+          id="emergencyBtn"
+          class="danger-btn"
+        >
+          إيقاف الطوارئ
+        </button>
+
+      </div>
+
+    </header>
+
+
+    <!-- ================================================= -->
+    <!-- HERO -->
+    <!-- ================================================= -->
+
+    <section class="hero">
+
+      <div>
+
+        <div class="eyebrow">
+          AUTONOMOUS MEDIA OPERATIONS
+        </div>
+
+        <h2>
+          مركز القيادة الإعلامية
+        </h2>
+
+        <p>
+          إدارة الأخبار والذكاء الاصطناعي والمحتوى
+          والبث والجمهور والإيرادات من مركز واحد.
+        </p>
+
+      </div>
+
+      <div class="hero-time">
+
+        <span>
+          آخر تحديث
+        </span>
+
+        <strong id="lastUpdate">
+          —
+        </strong>
+
+      </div>
+
+    </section>
+
+
+    <!-- ================================================= -->
+    <!-- KPI -->
+    <!-- ================================================= -->
+
+    <section class="metrics">
+
+      <article class="metric-card">
+
+        <span>
+          العمليات
+        </span>
+
+        <strong id="totalOperations">
+          0
+        </strong>
+
+        <small>
+          إجمالي العمليات
+        </small>
+
+      </article>
+
+      <article class="metric-card">
+
+        <span>
+          قيد التنفيذ
+        </span>
+
+        <strong id="activeOperations">
+          0
+        </strong>
+
+        <small>
+          عمليات نشطة
+        </small>
+
+      </article>
+
+      <article class="metric-card">
+
+        <span>
+          موافقات
+        </span>
+
+        <strong id="pendingApprovals">
+          0
+        </strong>
+
+        <small>
+          بانتظار القرار
+        </small>
+
+      </article>
+
+      <article class="metric-card">
+
+        <span>
+          أحداث
+        </span>
+
+        <strong id="totalEvents">
+          0
+        </strong>
+
+        <small>
+          أحداث مستلمة
+        </small>
+
+      </article>
+
+      <article class="metric-card">
+
+        <span>
+          مكتملة
+        </span>
+
+        <strong id="completedOperations">
+          0
+        </strong>
+
+        <small>
+          عمليات ناجحة
+        </small>
+
+      </article>
+
+      <article class="metric-card">
+
+        <span>
+          أخطاء
+        </span>
+
+        <strong id="failedOperations">
+          0
+        </strong>
+
+        <small>
+          عمليات فاشلة
+        </small>
+
+      </article>
+
+    </section>
+
+
+    <!-- ================================================= -->
+    <!-- MAIN GRID -->
+    <!-- ================================================= -->
+
+    <main class="dashboard-grid">
+
+
+      <!-- ================================================= -->
+      <!-- LIVE OPERATIONS -->
+      <!-- ================================================= -->
+
+      <section class="panel panel-large">
+
+        <div class="panel-header">
+
+          <div>
+            <span class="panel-label">
+              LIVE
+            </span>
+
+            <h3>
+              العمليات الحالية
+            </h3>
+          </div>
+
+          <button
+            id="loadOperations"
+            class="secondary-btn"
+          >
+            تحديث
+          </button>
+
+        </div>
+
+        <div
+          id="operationsList"
+          class="operations-list"
+        >
+
+          <div class="empty-state">
+            لا توجد عمليات حالية
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================================================= -->
+      <!-- AI AGENTS -->
+      <!-- ================================================= -->
+
+      <section class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <span class="panel-label">
+              AI
+            </span>
+
+            <h3>
+              وكلاء الذكاء الاصطناعي
+            </h3>
+          </div>
+
+        </div>
+
+        <div class="agents-grid">
+
+          <div class="agent">
+            <span class="agent-icon">📰</span>
+            <div>
+              <strong>الأخبار</strong>
+              <small>News Agent</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+          <div class="agent">
+            <span class="agent-icon">🔎</span>
+            <div>
+              <strong>التحقق</strong>
+              <small>Verification</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+          <div class="agent">
+            <span class="agent-icon">✍️</span>
+            <div>
+              <strong>التحرير</strong>
+              <small>Editorial</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+          <div class="agent">
+            <span class="agent-icon">🎬</span>
+            <div>
+              <strong>المحتوى</strong>
+              <small>Content</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+          <div class="agent">
+            <span class="agent-icon">📡</span>
+            <div>
+              <strong>البث</strong>
+              <small>Broadcast</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+          <div class="agent">
+            <span class="agent-icon">📊</span>
+            <div>
+              <strong>التحليلات</strong>
+              <small>Analytics</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+          <div class="agent">
+            <span class="agent-icon">⚖️</span>
+            <div>
+              <strong>القانون</strong>
+              <small>Legal</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+          <div class="agent">
+            <span class="agent-icon">🛡️</span>
+            <div>
+              <strong>الأخلاقيات</strong>
+              <small>Ethics</small>
+            </div>
+            <i class="online"></i>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================================================= -->
+      <!-- APPROVALS -->
+      <!-- ================================================= -->
+
+      <section class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <span class="panel-label">
+              HUMAN LOOP
+            </span>
+
+            <h3>
+              الموافقات
+            </h3>
+          </div>
+
+          <span
+            id="approvalBadge"
+            class="badge"
+          >
+            0
+          </span>
+
+        </div>
+
+        <div
+          id="approvalList"
+          class="approval-list"
+        >
+
+          <div class="empty-state">
+            لا توجد موافقات معلقة
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================================================= -->
+      <!-- EVENTS -->
+      <!-- ================================================= -->
+
+      <section class="panel panel-large">
+
+        <div class="panel-header">
+
+          <div>
+            <span class="panel-label">
+              EVENT STREAM
+            </span>
+
+            <h3>
+              تدفق الأحداث
+            </h3>
+          </div>
+
+          <button
+            id="loadEvents"
+            class="secondary-btn"
+          >
+            تحديث
+          </button>
+
+        </div>
+
+        <div
+          id="eventsList"
+          class="events-list"
+        >
+
+          <div class="empty-state">
+            لا توجد أحداث
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================================================= -->
+      <!-- AUTOMATION -->
+      <!-- ================================================= -->
+
+      <section class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <span class="panel-label">
+              AUTOMATION
+            </span>
+
+            <h3>
+              التشغيل الآلي
+            </h3>
+          </div>
+
+        </div>
+
+        <div class="automation-list">
+
+          <div>
+            <span>
+              اكتشاف الأخبار
+            </span>
+
+            <b class="enabled">
+              مفعّل
+            </b>
+          </div>
+
+          <div>
+            <span>
+              إنتاج المحتوى
+            </span>
+
+            <b class="enabled">
+              مفعّل
+            </b>
+          </div>
+
+          <div>
+            <span>
+              النشر التلقائي
+            </span>
+
+            <b class="disabled">
+              يحتاج ربط
+            </b>
+          </div>
+
+          <div>
+            <span>
+              البث التلقائي
+            </span>
+
+            <b class="disabled">
+              يحتاج ربط
+            </b>
+          </div>
+
+          <div>
+            <span>
+              الموافقة البشرية
+            </span>
+
+            <b class="enabled">
+              مفعّلة
+            </b>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================================================= -->
+      <!-- SYSTEM -->
+      <!-- ================================================= -->
+
+      <section class="panel panel-wide">
+
+        <div class="panel-header">
+
+          <div>
+            <span class="panel-label">
+              SYSTEM
+            </span>
+
+            <h3>
+              حالة المنظومة
+            </h3>
+          </div>
+
+        </div>
+
+        <div class="system-grid">
+
+          <div>
+            <span>CODE 114</span>
+            <strong>AI Agents</strong>
+            <i class="online"></i>
+          </div>
+
+          <div>
+            <span>CODE 115</span>
+            <strong>Multi-Agent</strong>
+            <i class="online"></i>
+          </div>
+
+          <div>
+            <span>CODE 116</span>
+            <strong>Scheduler</strong>
+            <i class="online"></i>
+          </div>
+
+          <div>
+            <span>CODE 117</span>
+            <strong>Operations</strong>
+            <i class="online"></i>
+          </div>
+
+          <div>
+            <span>PostgreSQL</span>
+            <strong id="databaseStatus">
+              غير معروف
+            </strong>
+            <i id="databaseDot"></i>
+          </div>
+
+          <div>
+            <span>API</span>
+            <strong>
+              Active
+            </strong>
+            <i class="online"></i>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+
+    <!-- ================================================= -->
+    <!-- FOOTER -->
+    <!-- ================================================= -->
+
+    <footer>
+
+      <span>
+        EZ MEDIA
+      </span>
+
+      <span>
+        Autonomous Media Operations Center
+      </span>
+
+      <span>
+        AI + Human Intelligence
+      </span>
+
+    </footer>
+
+  </div>
+
+
+  <!-- ================================================= -->
+  <!-- EMERGENCY MODAL -->
+  <!-- ================================================= -->
+
+  <div
+    id="emergencyModal"
+    class="modal hidden"
+  >
+
+    <div class="modal-card">
+
+      <div class="modal-icon">
+        ⚠️
+      </div>
+
+      <h3>
+        وضع الطوارئ
+      </h3>
+
+      <p>
+        هذا الإجراء يوقف التشغيل الآلي
+        لمركز العمليات. لا يتم حذف البيانات
+        أو العمليات الحالية.
+      </p>
+
+      <div class="modal-actions">
+
+        <button
+          id="cancelEmergency"
+          class="secondary-btn"
+        >
+          إلغاء
+        </button>
+
+        <button
+          id="confirmEmergency"
+          class="danger-btn"
+        >
+          تأكيد الإيقاف
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <script
+    src="/autonomous-media-operations/app.js"
+  ></script>
+
+</body>
+</html>
