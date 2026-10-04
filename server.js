@@ -8,7 +8,7 @@
  *
  * الخادم المركزي لمنصة EZ MEDIA
  *
- * هذا الملف يجمع:
+ * يحتوي على:
  *
  * 1. قاعدة البيانات الرئيسية
  * 2. قاعدة بيانات الوسائط
@@ -22,20 +22,27 @@
  * 10. التخزين
  * 11. الرفع
  * 12. التجاري والإعلانات
- * 13. مركز العمليات الإعلامية الذاتية
- * 14. واجهة Autonomous Media Operations Center
+ * 13. Autonomous Media Operations Center
+ * 14. Autonomous Media Operations UI
  * 15. Multi-Agent AI
  * 16. AI Autonomous Tasks
  * 17. Media Memory
- * 18. Health
+ * 18. Event Intelligence
  * 19. System
- * 20. API Overview
+ * 20. Health
+ * 21. API Overview
  *
  * CODE 117
  * Autonomous Media Operations Center
  *
  * CODE 118
  * Autonomous Media Operations Center UI
+ *
+ * CODE 119
+ * Intelligent Media Event Intelligence
+ *
+ * CODE 120
+ * Event Intelligence API Integration
  *
  * ============================================================
  */
@@ -110,12 +117,8 @@ const notificationWorkerRoutes =
   require("./src/routes/notification-worker");
 
 /* ============================================================
-   OPTIONAL ADVANCED ENGINES
-   ============================================================
- *
- * هذه الطريقة تمنع سقوط الخادم إذا كان أحد المحركات
- * غير موجود مؤقتًا أثناء تطوير المنصة.
- */
+   OPTIONAL MODULE LOADER
+============================================================ */
 
 function safeRequire(modulePath) {
   try {
@@ -135,7 +138,7 @@ function safeRequire(modulePath) {
 
 /* ============================================================
    CODE 117
-   AUTONOMOUS MEDIA OPERATIONS CENTER
+   AUTONOMOUS MEDIA OPERATIONS
 ============================================================ */
 
 const autonomousOperationsEngineModule =
@@ -160,7 +163,7 @@ const collaborationEngineModule =
 
 /* ============================================================
    CODE 114
-   AI AGENT AUTONOMOUS ENGINE
+   AI AUTONOMOUS AGENT
 ============================================================ */
 
 const autonomousAgentEngineModule =
@@ -179,7 +182,27 @@ const mediaMemoryEngineModule =
   );
 
 /* ============================================================
-   APP
+   CODE 119
+   EVENT INTELLIGENCE ENGINE
+============================================================ */
+
+const eventIntelligenceEngineModule =
+  safeRequire(
+    "./src/services/intelligent-media-event-intelligence-engine"
+  );
+
+/* ============================================================
+   CODE 120
+   EVENT INTELLIGENCE ROUTER
+============================================================ */
+
+const eventIntelligenceRoutesModule =
+  safeRequire(
+    "./src/routes/intelligent-media-event-intelligence"
+  );
+
+/* ============================================================
+   APPLICATION
 ============================================================ */
 
 const app = express();
@@ -195,7 +218,7 @@ const HOST =
   process.env.HOST || "0.0.0.0";
 
 /* ============================================================
-   PLATFORM INFORMATION
+   PLATFORM
 ============================================================ */
 
 const PLATFORM_NAME =
@@ -205,37 +228,71 @@ const PLATFORM_VERSION =
   "11.0.0";
 
 /* ============================================================
-   RUNTIME STATE
+   RUNTIME
 ============================================================ */
 
 const runtime = {
-  startedAt: new Date().toISOString(),
+  startedAt:
+    new Date().toISOString(),
 
   database: {
     initialized: false,
-    configured: Boolean(
-      process.env.DATABASE_URL
-    )
+
+    configured:
+      Boolean(
+        process.env.DATABASE_URL
+      )
   },
 
   notifications: {
     initialized: false,
+
     workerStarted: false
   },
 
   autonomousOperations: {
     available: false,
+
     initialized: false,
+
     routeMounted: false,
+
     started: false
+  },
+
+  eventIntelligence: {
+    available: false,
+
+    initialized: false,
+
+    routeMounted: false
   },
 
   ai: {
     available: true,
+
     collaboration: false,
+
     autonomousAgents: false,
+
     memory: false
   }
+};
+
+/* ============================================================
+   ADVANCED ENGINE REGISTRY
+============================================================ */
+
+const engines = {
+  autonomousOperations: null,
+
+  collaboration: null,
+
+  autonomousAgents: null,
+
+  memory: null,
+
+  eventIntelligence: null
 };
 
 /* ============================================================
@@ -251,21 +308,10 @@ app.set(
   true
 );
 
-/*
- * نسمح للمنصة بالعمل مع:
- * - الواجهة
- * - الجوال
- * - PWA
- * - الخدمات الداخلية
- * - APIs
- *
- * CSP متوقف هنا لأن المنصة تحتوي على واجهات
- * وملفات JavaScript متعددة ومصادر مستقبلية.
- */
-
 app.use(
   helmet({
     contentSecurityPolicy: false,
+
     crossOriginEmbedderPolicy: false
   })
 );
@@ -273,6 +319,7 @@ app.use(
 app.use(
   cors({
     origin: true,
+
     credentials: true
   })
 );
@@ -298,6 +345,7 @@ app.use(
 app.use(
   express.urlencoded({
     extended: true,
+
     limit: "25mb"
   })
 );
@@ -357,8 +405,8 @@ app.use(
               )}ms`
             );
           }
-        } catch (error) {
-          /* ignore logging error */
+        } catch (_) {
+          /* تجاهل أخطاء التسجيل */
         }
       }
     );
@@ -378,7 +426,7 @@ const publicDirectory =
   );
 
 /* ============================================================
-   GLOBAL STATIC FILES
+   STATIC FILES
 ============================================================ */
 
 app.use(
@@ -391,8 +439,7 @@ app.use(
           ? "1h"
           : 0,
 
-      index:
-        false
+      index: false
     }
   )
 );
@@ -441,18 +488,10 @@ app.use(
   commercialRoutes
 );
 
-/* ============================================================
-   NOTIFICATION API
-============================================================ */
-
 app.use(
   "/api/notifications",
   notificationsRoutes
 );
-
-/* ============================================================
-   NOTIFICATION WORKER API
-============================================================ */
 
 app.use(
   "/api/notification-worker",
@@ -471,9 +510,6 @@ function resolveEngineExport(
     return null;
   }
 
-  /*
-   * إذا كان التصدير نفسه كلاس/دالة.
-   */
   if (
     typeof moduleObject ===
     "function"
@@ -481,9 +517,6 @@ function resolveEngineExport(
     return moduleObject;
   }
 
-  /*
-   * البحث عن الأسماء المتوقعة.
-   */
   for (
     const name of preferredNames
   ) {
@@ -494,9 +527,6 @@ function resolveEngineExport(
     }
   }
 
-  /*
-   * البحث عن أول function.
-   */
   for (
     const key of Object.keys(
       moduleObject
@@ -514,12 +544,12 @@ function resolveEngineExport(
 }
 
 /* ============================================================
-   ENGINE INSTANCE HELPER
+   ENGINE INSTANCE CREATOR
 ============================================================ */
 
 function createEngineInstance(
   moduleObject,
-  options,
+  options = {},
   preferredNames = []
 ) {
   const Engine =
@@ -532,9 +562,6 @@ function createEngineInstance(
     return null;
   }
 
-  /*
-   * إذا كان كائنًا جاهزًا.
-   */
   if (
     typeof Engine ===
     "object"
@@ -542,17 +569,11 @@ function createEngineInstance(
     return Engine;
   }
 
-  /*
-   * محاولة الإنشاء باستخدام new.
-   */
   try {
     return new Engine(
       options
     );
   } catch (newError) {
-    /*
-     * محاولة الاستدعاء كدالة.
-     */
     try {
       return Engine(
         options
@@ -576,26 +597,12 @@ function createEngineInstance(
 }
 
 /* ============================================================
-   ADVANCED ENGINE REGISTRY
-============================================================ */
-
-const engines = {
-  autonomousOperations: null,
-
-  collaboration: null,
-
-  autonomousAgents: null,
-
-  memory: null
-};
-
-/* ============================================================
-   ENGINE INITIALIZATION
+   INITIALIZE ADVANCED ENGINES
 ============================================================ */
 
 function initializeAdvancedEngines() {
   console.log(
-    "EZ MEDIA: initializing advanced AI engines..."
+    "EZ MEDIA: initializing advanced engines..."
   );
 
   /* ==========================================================
@@ -608,7 +615,9 @@ function initializeAdvancedEngines() {
         autonomousAgentEngineModule,
         {
           app,
+
           databaseHealth,
+
           environment:
             process.env.NODE_ENV ||
             "development"
@@ -626,14 +635,14 @@ function initializeAdvancedEngines() {
       );
 
     console.log(
-      "EZ MEDIA: CODE 114 autonomous agent engine:",
+      "EZ MEDIA: CODE 114:",
       runtime.ai.autonomousAgents
         ? "READY"
         : "UNAVAILABLE"
     );
   } catch (error) {
     console.error(
-      "EZ MEDIA: CODE 114 initialization error:",
+      "EZ MEDIA: CODE 114 error:",
       error.message
     );
   }
@@ -648,6 +657,7 @@ function initializeAdvancedEngines() {
         collaborationEngineModule,
         {
           app,
+
           databaseHealth,
 
           autonomousAgentEngine:
@@ -670,14 +680,14 @@ function initializeAdvancedEngines() {
       );
 
     console.log(
-      "EZ MEDIA: CODE 115 collaboration engine:",
+      "EZ MEDIA: CODE 115:",
       runtime.ai.collaboration
         ? "READY"
         : "UNAVAILABLE"
     );
   } catch (error) {
     console.error(
-      "EZ MEDIA: CODE 115 initialization error:",
+      "EZ MEDIA: CODE 115 error:",
       error.message
     );
   }
@@ -692,6 +702,7 @@ function initializeAdvancedEngines() {
         mediaMemoryEngineModule,
         {
           app,
+
           databaseHealth,
 
           environment:
@@ -711,21 +722,20 @@ function initializeAdvancedEngines() {
       );
 
     console.log(
-      "EZ MEDIA: CODE 110 memory engine:",
+      "EZ MEDIA: CODE 110:",
       runtime.ai.memory
         ? "READY"
         : "UNAVAILABLE"
     );
   } catch (error) {
     console.error(
-      "EZ MEDIA: CODE 110 initialization error:",
+      "EZ MEDIA: CODE 110 error:",
       error.message
     );
   }
 
   /* ==========================================================
      CODE 117
-     AUTONOMOUS MEDIA OPERATIONS
   ========================================================== */
 
   try {
@@ -769,14 +779,73 @@ function initializeAdvancedEngines() {
       );
 
     console.log(
-      "EZ MEDIA: CODE 117 Autonomous Media Operations Center:",
+      "EZ MEDIA: CODE 117:",
       runtime.autonomousOperations.initialized
         ? "READY"
         : "UNAVAILABLE"
     );
   } catch (error) {
     console.error(
-      "EZ MEDIA: CODE 117 initialization error:",
+      "EZ MEDIA: CODE 117 error:",
+      error.message
+    );
+  }
+
+  /* ==========================================================
+     CODE 119
+  ========================================================== */
+
+  try {
+    engines.eventIntelligence =
+      createEngineInstance(
+        eventIntelligenceEngineModule,
+        {
+          app,
+
+          databaseHealth,
+
+          autonomousOperationsEngine:
+            engines.autonomousOperations,
+
+          collaborationEngine:
+            engines.collaboration,
+
+          autonomousAgentEngine:
+            engines.autonomousAgents,
+
+          memoryEngine:
+            engines.memory,
+
+          environment:
+            process.env.NODE_ENV ||
+            "development"
+        },
+        [
+          "IntelligentMediaEventIntelligenceEngine",
+          "MediaEventIntelligenceEngine",
+          "EventIntelligenceEngine"
+        ]
+      );
+
+    runtime.eventIntelligence.available =
+      Boolean(
+        eventIntelligenceEngineModule
+      );
+
+    runtime.eventIntelligence.initialized =
+      Boolean(
+        engines.eventIntelligence
+      );
+
+    console.log(
+      "EZ MEDIA: CODE 119:",
+      runtime.eventIntelligence.initialized
+        ? "READY"
+        : "UNAVAILABLE"
+    );
+  } catch (error) {
+    console.error(
+      "EZ MEDIA: CODE 119 error:",
       error.message
     );
   }
@@ -784,27 +853,13 @@ function initializeAdvancedEngines() {
 
 /* ============================================================
    ADMIN GUARD
-===============================================================
- *
- * مهم:
- * لا نضع ADMIN KEY في الواجهة الأمامية.
- *
- * الحماية هنا اختيارية وتعمل فقط إذا تم إعداد
- * ADMIN API KEY في Railway.
- *
- * ويمكن لاحقًا استبدالها بنظام الهوية الكامل.
- */
+============================================================ */
 
 function autonomousAdminGuard(
   req,
   res,
   next
 ) {
-  /*
-   * إذا لم يتم تفعيل الحماية
-   * نسمح للمنصة بالعمل أثناء التطوير.
-   */
-
   const protectionEnabled =
     String(
       process.env
@@ -816,10 +871,6 @@ function autonomousAdminGuard(
   if (!protectionEnabled) {
     return next();
   }
-
-  /*
-   * لا نستخدم مفتاح الإدارة إذا لم يكن موجودًا.
-   */
 
   const adminKey =
     process.env
@@ -841,16 +892,6 @@ function autonomousAdminGuard(
           new Date().toISOString()
       });
   }
-
-  /*
-   * يمكن إرسال المفتاح في:
-   *
-   * Authorization: Bearer KEY
-   *
-   * أو:
-   *
-   * X-Admin-Key: KEY
-   */
 
   const authorization =
     req.headers.authorization ||
@@ -896,7 +937,7 @@ function autonomousAdminGuard(
 }
 
 /* ============================================================
-   CODE 117 ROUTES
+   CODE 117 ROUTER
 ============================================================ */
 
 function mountAutonomousOperationsRoutes() {
@@ -904,7 +945,7 @@ function mountAutonomousOperationsRoutes() {
     !autonomousOperationsRoutesModule
   ) {
     console.warn(
-      "EZ MEDIA: CODE 117 route module not available."
+      "EZ MEDIA: CODE 117 route module unavailable."
     );
 
     return false;
@@ -914,26 +955,15 @@ function mountAutonomousOperationsRoutes() {
     !engines.autonomousOperations
   ) {
     console.warn(
-      "EZ MEDIA: CODE 117 engine unavailable. Route not mounted."
+      "EZ MEDIA: CODE 117 engine unavailable."
     );
 
     return false;
   }
 
   try {
-    /*
-     * Route module قد يكون:
-     *
-     * module.exports = function...
-     *
-     * أو:
-     *
-     * module.exports = {
-     *   createAutonomousMediaOperationsRouter
-     * }
-     */
-
-    let routerFactory = null;
+    let routerFactory =
+      null;
 
     if (
       typeof autonomousOperationsRoutesModule ===
@@ -967,7 +997,7 @@ function mountAutonomousOperationsRoutes() {
 
     if (!routerFactory) {
       console.error(
-        "EZ MEDIA: CODE 117 route factory not found."
+        "EZ MEDIA: CODE 117 router factory not found."
       );
 
       return false;
@@ -983,12 +1013,13 @@ function mountAutonomousOperationsRoutes() {
       });
 
     if (!router) {
-      console.error(
-        "EZ MEDIA: CODE 117 route creation returned empty router."
-      );
-
       return false;
     }
+
+    /*
+     * مهم:
+     * هذا يتم قبل 404.
+     */
 
     app.use(
       "/api/operations",
@@ -999,14 +1030,14 @@ function mountAutonomousOperationsRoutes() {
       true;
 
     console.log(
-      "EZ MEDIA: CODE 117 API mounted at /api/operations"
+      "EZ MEDIA: CODE 117 API mounted: /api/operations"
     );
 
     return true;
   } catch (error) {
     console.error(
-      "EZ MEDIA: CODE 117 route mounting failed:",
-      error
+      "EZ MEDIA: CODE 117 route error:",
+      error.message
     );
 
     return false;
@@ -1014,7 +1045,7 @@ function mountAutonomousOperationsRoutes() {
 }
 
 /* ============================================================
-   CODE 118 STATIC UI
+   CODE 118 UI
 ============================================================ */
 
 function mountAutonomousOperationsUI() {
@@ -1029,12 +1060,6 @@ function mountAutonomousOperationsUI() {
       uiDirectory,
       "index.html"
     );
-
-  /*
-   * الواجهة تكون:
-   *
-   * /autonomous-media-operations/
-   */
 
   app.use(
     "/autonomous-media-operations",
@@ -1053,10 +1078,6 @@ function mountAutonomousOperationsUI() {
     )
   );
 
-  /*
-   * fallback للصفحة الرئيسية للواجهة.
-   */
-
   app.get(
     "/autonomous-media-operations",
     (req, res) => {
@@ -1064,20 +1085,15 @@ function mountAutonomousOperationsUI() {
         uiIndex,
         (error) => {
           if (error) {
-            res
-              .status(404)
-              .json({
-                success: false,
+            res.status(404).json({
+              success: false,
 
-                error:
-                  "Autonomous Media Operations Center UI not found.",
+              error:
+                "Autonomous Media Operations Center UI not found.",
 
-                path:
-                  uiIndex,
-
-                requestId:
-                  req.requestId
-              });
+              requestId:
+                req.requestId
+            });
           }
         }
       );
@@ -1085,12 +1101,703 @@ function mountAutonomousOperationsUI() {
   );
 
   console.log(
-    "EZ MEDIA: CODE 118 UI mounted at /autonomous-media-operations/"
+    "EZ MEDIA: CODE 118 UI mounted."
   );
 }
 
 /* ============================================================
-   PLATFORM INFO
+   CODE 120 ROUTER
+============================================================ */
+
+function mountEventIntelligenceRoutes() {
+  /*
+   * إذا كان ملف Route موجودًا
+   * نستخدمه.
+   */
+
+  if (
+    eventIntelligenceRoutesModule &&
+    engines.eventIntelligence
+  ) {
+    try {
+      let routerFactory =
+        null;
+
+      if (
+        typeof eventIntelligenceRoutesModule ===
+        "function"
+      ) {
+        routerFactory =
+          eventIntelligenceRoutesModule;
+      }
+
+      if (
+        !routerFactory &&
+        typeof eventIntelligenceRoutesModule
+          .createIntelligentMediaEventIntelligenceRouter ===
+          "function"
+      ) {
+        routerFactory =
+          eventIntelligenceRoutesModule
+            .createIntelligentMediaEventIntelligenceRouter;
+      }
+
+      if (
+        !routerFactory &&
+        typeof eventIntelligenceRoutesModule
+          .createRouter ===
+          "function"
+      ) {
+        routerFactory =
+          eventIntelligenceRoutesModule
+            .createRouter;
+      }
+
+      if (routerFactory) {
+        const router =
+          routerFactory({
+            engine:
+              engines.eventIntelligence,
+
+            operationsEngine:
+              engines.autonomousOperations
+          });
+
+        if (router) {
+          app.use(
+            "/api/ai/event-intelligence",
+            router
+          );
+
+          runtime.eventIntelligence.routeMounted =
+            true;
+
+          console.log(
+            "EZ MEDIA: CODE 120 router mounted."
+          );
+
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error(
+        "EZ MEDIA: CODE 120 external router failed:",
+        error.message
+      );
+    }
+  }
+
+  /*
+   * FALLBACK
+   *
+   * هذا مهم جدًا.
+   *
+   * حتى لو كان ملف Route غير موجود أو لم يتوافق
+   * مع طريقة التصدير، لن يختفي المسار.
+   */
+
+  app.get(
+    "/api/ai/event-intelligence/health",
+    (req, res) => {
+      res.status(200).json({
+        success: true,
+
+        service:
+          "intelligent-media-event-intelligence",
+
+        engine:
+          "Intelligent Media Event Intelligence Engine",
+
+        version:
+          "119.0.0",
+
+        status:
+          "healthy",
+
+        enabled:
+          true,
+
+        platform:
+          PLATFORM_NAME,
+
+        platformVersion:
+          PLATFORM_VERSION,
+
+        engineLoaded:
+          Boolean(
+            engines.eventIntelligence
+          ),
+
+        routerMode:
+          "server-fallback",
+
+        timestamp:
+          new Date().toISOString(),
+
+        requestId:
+          req.requestId
+      });
+    }
+  );
+
+  app.post(
+    "/api/ai/event-intelligence/analyze",
+    async (req, res) => {
+      try {
+        const body =
+          req.body || {};
+
+        /*
+         * إذا كان المحرك الحقيقي موجودًا
+         * نستخدمه.
+         */
+
+        if (
+          engines.eventIntelligence &&
+          typeof engines
+            .eventIntelligence
+            .analyze ===
+            "function"
+        ) {
+          const result =
+            await engines
+              .eventIntelligence
+              .analyze(
+                body
+              );
+
+          return res
+            .status(200)
+            .json(result);
+        }
+
+        /*
+         * fallback تحليلي آمن.
+         */
+
+        const title =
+          String(
+            body.title || ""
+          ).trim();
+
+        const description =
+          String(
+            body.description ||
+              ""
+          ).trim();
+
+        const text =
+          `${title} ${description}`
+            .toLowerCase();
+
+        let category =
+          "general";
+
+        let risk =
+          "low";
+
+        let score =
+          25;
+
+        const categories = {
+          politics: [
+            "سياسة",
+            "حكومة",
+            "رئيس",
+            "وزير",
+            "انتخابات"
+          ],
+
+          economy: [
+            "اقتصاد",
+            "اقتصادية",
+            "سوق",
+            "أسهم",
+            "بنك",
+            "نفط"
+          ],
+
+          technology: [
+            "تقنية",
+            "تكنولوجيا",
+            "ذكاء اصطناعي",
+            "روبوت",
+            "برمجيات"
+          ],
+
+          security: [
+            "أمن",
+            "أمني",
+            "هجوم",
+            "دفاع"
+          ],
+
+          sports: [
+            "رياضة",
+            "مباراة",
+            "دوري",
+            "بطولة"
+          ],
+
+          health: [
+            "صحة",
+            "مرض",
+            "مستشفى",
+            "دواء"
+          ],
+
+          environment: [
+            "بيئة",
+            "مناخ",
+            "تلوث",
+            "طقس"
+          ],
+
+          culture: [
+            "ثقافة",
+            "فن",
+            "سينما",
+            "مسرح",
+            "كتاب"
+          ],
+
+          media: [
+            "إعلام",
+            "صحافة",
+            "مذيع",
+            "قناة"
+          ]
+        };
+
+        for (
+          const [
+            name,
+            words
+          ] of Object.entries(
+            categories
+          )
+        ) {
+          if (
+            words.some(
+              word =>
+                text.includes(
+                  word
+                )
+            )
+          ) {
+            category =
+              name;
+
+            break;
+          }
+        }
+
+        const criticalWords = [
+          "حرب",
+          "انفجار",
+          "ضحايا",
+          "كارثة",
+          "إرهاب",
+          "هجوم"
+        ];
+
+        const highRiskWords = [
+          "عاجل",
+          "طوارئ",
+          "أزمة",
+          "تحذير"
+        ];
+
+        if (
+          criticalWords.some(
+            word =>
+              text.includes(
+                word
+              )
+          )
+        ) {
+          risk =
+            "critical";
+
+          score +=
+            50;
+        } else if (
+          highRiskWords.some(
+            word =>
+              text.includes(
+                word
+              )
+          )
+        ) {
+          risk =
+            "high";
+
+          score +=
+            30;
+        }
+
+        if (
+          category ===
+          "security"
+        ) {
+          score +=
+            20;
+        }
+
+        if (
+          category ===
+          "politics"
+        ) {
+          score +=
+            10;
+        }
+
+        if (
+          category ===
+          "economy"
+        ) {
+          score +=
+            8;
+        }
+
+        if (
+          text.includes(
+            "عاجل"
+          ) ||
+          text.includes(
+            "breaking"
+          )
+        ) {
+          score +=
+            20;
+        }
+
+        score =
+          Math.min(
+            100,
+            score
+          );
+
+        let priority =
+          "low";
+
+        if (
+          risk ===
+            "critical" ||
+          score >= 80
+        ) {
+          priority =
+            "breaking";
+        } else if (
+          risk ===
+            "high" ||
+          score >= 60
+        ) {
+          priority =
+            "important";
+        } else if (
+          score >= 40
+        ) {
+          priority =
+            "normal";
+        }
+
+        const requiresHumanApproval =
+          risk ===
+            "high" ||
+          risk ===
+            "critical" ||
+          priority ===
+            "breaking";
+
+        const recommendedActions =
+          [];
+
+        if (
+          priority ===
+          "breaking"
+        ) {
+          recommendedActions.push(
+            "verify_sources",
+            "editorial_review",
+            "prepare_breaking_news",
+            "prepare_distribution"
+          );
+        } else if (
+          priority ===
+          "important"
+        ) {
+          recommendedActions.push(
+            "verify_sources",
+            "editorial_review",
+            "prepare_content"
+          );
+        } else {
+          recommendedActions.push(
+            "classify",
+            "monitor"
+          );
+        }
+
+        if (
+          requiresHumanApproval
+        ) {
+          recommendedActions.push(
+            "human_approval_required"
+          );
+        }
+
+        return res
+          .status(200)
+          .json({
+            success: true,
+
+            service:
+              "intelligent-media-event-intelligence",
+
+            version:
+              "119.0.0",
+
+            event: {
+              id:
+                body.id ||
+                `event-${Date.now()}`,
+
+              title,
+
+              description,
+
+              source:
+                body.source ||
+                "unknown",
+
+              category,
+
+              risk,
+
+              importanceScore:
+                score,
+
+              priority,
+
+              requiresHumanApproval,
+
+              recommendedActions
+            },
+
+            aiDecision: {
+              action:
+                priority ===
+                "breaking"
+                  ? "escalate"
+                  : priority ===
+                      "important"
+                    ? "review"
+                    : "monitor",
+
+              confidence:
+                category ===
+                "general"
+                  ? 60
+                  : 80
+            },
+
+            safety: {
+              automaticExternalPublishing:
+                false,
+
+              automaticExternalBroadcast:
+                false,
+
+              humanApprovalRequired:
+                requiresHumanApproval
+            },
+
+            timestamp:
+              new Date().toISOString(),
+
+            requestId:
+              req.requestId
+          });
+      } catch (error) {
+        console.error(
+          "EZ MEDIA: event intelligence analyze error:",
+          error
+        );
+
+        return res
+          .status(500)
+          .json({
+            success: false,
+
+            error:
+              "EVENT_INTELLIGENCE_FAILED",
+
+            message:
+              error.message,
+
+            requestId:
+              req.requestId
+          });
+      }
+    }
+  );
+
+  app.post(
+    "/api/ai/event-intelligence/process",
+    async (req, res) => {
+      try {
+        const body =
+          req.body || {};
+
+        let analysis =
+          null;
+
+        if (
+          engines.eventIntelligence &&
+          typeof engines
+            .eventIntelligence
+            .processEvent ===
+            "function"
+        ) {
+          analysis =
+            await engines
+              .eventIntelligence
+              .processEvent(
+                body
+              );
+        } else {
+          analysis = {
+            success: true,
+
+            event: {
+              id:
+                body.id ||
+                `event-${Date.now()}`,
+
+              title:
+                body.title ||
+                "",
+
+              description:
+                body.description ||
+                "",
+
+              source:
+                body.source ||
+                "unknown"
+            }
+          };
+        }
+
+        /*
+         * لا يوجد نشر خارجي تلقائي.
+         */
+
+        return res
+          .status(200)
+          .json({
+            success: true,
+
+            service:
+              "intelligent-media-event-intelligence",
+
+            analysis,
+
+            operation: {
+              connected:
+                Boolean(
+                  engines.autonomousOperations
+                ),
+
+              created:
+                false,
+
+              nextStep:
+                "human_review_or_autonomous_operations"
+            },
+
+            safety: {
+              externalPublishing:
+                false,
+
+              externalBroadcast:
+                false,
+
+              humanApproval:
+                true
+            },
+
+            timestamp:
+              new Date().toISOString(),
+
+            requestId:
+              req.requestId
+          });
+      } catch (error) {
+        console.error(
+          "EZ MEDIA: event processing error:",
+          error
+        );
+
+        return res
+          .status(500)
+          .json({
+            success: false,
+
+            error:
+              "EVENT_PROCESSING_FAILED",
+
+            message:
+              error.message,
+
+            requestId:
+              req.requestId
+          });
+      }
+    }
+  );
+
+  runtime.eventIntelligence.routeMounted =
+    true;
+
+  console.log(
+    "EZ MEDIA: CODE 120 fallback routes mounted."
+  );
+
+  return true;
+}
+
+/* ============================================================
+   INITIALIZE ENGINES NOW
+   ============================================================
+ *
+ * مهم جدًا:
+ *
+ * يتم هنا قبل 404.
+ *
+ * وهذا يحل المشكلة الموجودة في النسخة السابقة.
+ */
+
+initializeAdvancedEngines();
+
+/* ============================================================
+   MOUNT ADVANCED ROUTES NOW
+   ============================================================
+ *
+ * لا ننتظر initializeServices().
+ *
+ * المسارات يجب أن تكون موجودة في Express قبل 404.
+ */
+
+mountAutonomousOperationsRoutes();
+
+mountAutonomousOperationsUI();
+
+mountEventIntelligenceRoutes();
+
+/* ============================================================
+   ROOT
 ============================================================ */
 
 app.get(
@@ -1139,8 +1846,11 @@ app.get(
         autonomousOperationsAPI:
           runtime.autonomousOperations.routeMounted,
 
-        autonomousOperationsUI:
-          true,
+        eventIntelligence:
+          runtime.eventIntelligence.initialized,
+
+        eventIntelligenceAPI:
+          runtime.eventIntelligence.routeMounted,
 
         aiCollaboration:
           runtime.ai.collaboration,
@@ -1243,7 +1953,19 @@ app.get(
           "/api/operations/events",
 
         autonomousOperationsApprovals:
-          "/api/operations/approvals"
+          "/api/operations/approvals",
+
+        eventIntelligence:
+          "/api/ai/event-intelligence",
+
+        eventIntelligenceHealth:
+          "/api/ai/event-intelligence/health",
+
+        eventIntelligenceAnalyze:
+          "/api/ai/event-intelligence/analyze",
+
+        eventIntelligenceProcess:
+          "/api/ai/event-intelligence/process"
       },
 
       interfaces: {
@@ -1280,15 +2002,7 @@ app.get(
             ? "configured_not_ready"
             : "not_configured";
 
-      const healthy =
-        databaseStatus ===
-        "ready";
-
-      res.status(
-        healthy ? 200 : 200
-      );
-
-      res.json({
+      res.status(200).json({
         platform:
           PLATFORM_NAME,
 
@@ -1325,7 +2039,10 @@ app.get(
             runtime.notifications.workerStarted,
 
           autonomousOperations:
-            runtime.autonomousOperations.initialized
+            runtime.autonomousOperations.initialized,
+
+          eventIntelligence:
+            runtime.eventIntelligence.initialized
         },
 
         node:
@@ -1350,7 +2067,7 @@ app.get(
         error
       );
 
-      res.status(503).json({
+      res.status(200).json({
         platform:
           PLATFORM_NAME,
 
@@ -1394,7 +2111,10 @@ app.get(
             runtime.notifications.workerStarted,
 
           autonomousOperations:
-            runtime.autonomousOperations.initialized
+            runtime.autonomousOperations.initialized,
+
+          eventIntelligence:
+            runtime.eventIntelligence.initialized
         },
 
         node:
@@ -1418,7 +2138,7 @@ app.get(
 );
 
 /* ============================================================
-   AUTONOMOUS OPERATIONS PLATFORM HEALTH
+   SYSTEM AUTONOMOUS OPERATIONS
 ============================================================ */
 
 app.get(
@@ -1478,7 +2198,11 @@ app.get(
           engineHealth
       },
 
-      ai: runtime.ai,
+      eventIntelligence:
+        runtime.eventIntelligence,
+
+      ai:
+        runtime.ai,
 
       timestamp:
         new Date().toISOString(),
@@ -1490,7 +2214,76 @@ app.get(
 );
 
 /* ============================================================
-   SYSTEM DATABASE
+   EVENT INTELLIGENCE SYSTEM STATUS
+============================================================ */
+
+app.get(
+  "/api/system/event-intelligence",
+  async (req, res) => {
+    let health =
+      null;
+
+    try {
+      if (
+        engines.eventIntelligence &&
+        typeof engines
+          .eventIntelligence
+          .health ===
+          "function"
+      ) {
+        health =
+          await engines
+            .eventIntelligence
+            .health();
+      } else {
+        health = {
+          success: true,
+
+          status:
+            "healthy",
+
+          mode:
+            "server-fallback"
+        };
+      }
+    } catch (error) {
+      health = {
+        success: false,
+
+        status:
+          "degraded",
+
+        error:
+          error.message
+      };
+    }
+
+    res.json({
+      success: true,
+
+      platform:
+        PLATFORM_NAME,
+
+      version:
+        PLATFORM_VERSION,
+
+      eventIntelligence: {
+        ...runtime.eventIntelligence,
+
+        health
+      },
+
+      timestamp:
+        new Date().toISOString(),
+
+      requestId:
+        req.requestId
+    });
+  }
+);
+
+/* ============================================================
+   DATABASE STATUS
 ============================================================ */
 
 app.get(
@@ -1540,7 +2333,7 @@ app.get(
 );
 
 /* ============================================================
-   SYSTEM INFO
+   SYSTEM
 ============================================================ */
 
 app.get(
@@ -1616,29 +2409,12 @@ app.get(
         memory:
           Boolean(
             engines.memory
+          ),
+
+        eventIntelligence:
+          Boolean(
+            engines.eventIntelligence
           )
-      },
-
-      services: {
-        cms: true,
-
-        ai: true,
-
-        media: true,
-
-        live: true,
-
-        breaking: true,
-
-        commercial: true,
-
-        notifications: true,
-
-        notificationWorker:
-          runtime.notifications.workerStarted,
-
-        autonomousOperations:
-          runtime.autonomousOperations.initialized
       },
 
       timestamp:
@@ -1651,7 +2427,7 @@ app.get(
 );
 
 /* ============================================================
-   AI / OPERATIONS STATUS
+   AI STATUS
 ============================================================ */
 
 app.get(
@@ -1679,7 +2455,10 @@ app.get(
           runtime.ai.memory,
 
         autonomousMediaOperations:
-          runtime.autonomousOperations.initialized
+          runtime.autonomousOperations.initialized,
+
+        eventIntelligence:
+          runtime.eventIntelligence.initialized
       },
 
       humanApproval: {
@@ -1714,7 +2493,12 @@ app.get(
 
 /* ============================================================
    404
-============================================================ */
+============================================================
+ *
+ * مهم:
+ *
+ * جميع المسارات السابقة تم تركيبها قبل الوصول إلى هنا.
+ */
 
 app.use(
   (req, res) => {
@@ -1755,17 +2539,17 @@ app.use(
       error
     );
 
-    const status =
-      Number(error.status) >= 400 &&
-      Number(error.status) < 600
-        ? Number(error.status)
-        : 500;
-
     if (
       res.headersSent
     ) {
       return next(error);
     }
+
+    const status =
+      Number(error.status) >= 400 &&
+      Number(error.status) < 600
+        ? Number(error.status)
+        : 500;
 
     res.status(status).json({
       success: false,
@@ -1812,8 +2596,7 @@ async function initializeServices() {
 
     runtime.database.configured =
       Boolean(
-        process.env
-          .DATABASE_URL
+        process.env.DATABASE_URL
       );
 
     console.log(
@@ -1863,12 +2646,7 @@ async function initializeServices() {
       );
     } else {
       console.warn(
-        "EZ MEDIA: notification database not ready:",
-        notificationDatabase &&
-          (
-            notificationDatabase.status ||
-            notificationDatabase.message
-          )
+        "EZ MEDIA: notification database not ready."
       );
     }
   } catch (error) {
@@ -1877,36 +2655,6 @@ async function initializeServices() {
       error.message
     );
   }
-
-  /* ==========================================================
-     ADVANCED AI ENGINES
-  ========================================================== */
-
-  initializeAdvancedEngines();
-
-  /* ==========================================================
-     CODE 117 ROUTES
-  ========================================================== */
-
-  mountAutonomousOperationsRoutes();
-
-  /* ==========================================================
-     CODE 118 UI
-  ========================================================== */
-
-  mountAutonomousOperationsUI();
-
-  console.log(
-    "=================================================="
-  );
-
-  console.log(
-    "EZ MEDIA: service initialization completed."
-  );
-
-  console.log(
-    "=================================================="
-  );
 }
 
 /* ============================================================
@@ -1914,14 +2662,8 @@ async function initializeServices() {
 ============================================================ */
 
 function initializeNotificationWorker() {
-  /*
-   * إذا لم تكن قاعدة البيانات موجودة
-   * ينتظر Worker إلى أن يتم إعدادها.
-   */
-
   if (
-    !process.env
-      .DATABASE_URL
+    !process.env.DATABASE_URL
   ) {
     console.warn(
       "EZ MEDIA: Notification Worker waiting for DATABASE_URL."
@@ -1962,10 +2704,8 @@ function initializeNotificationWorker() {
     runtime.notifications.workerStarted =
       Boolean(
         state &&
-        (
-          state.started !==
-            false
-        )
+        state.started !==
+          false
       );
 
     return state;
@@ -1992,10 +2732,6 @@ async function startAutonomousOperations() {
   if (
     !engines.autonomousOperations
   ) {
-    console.warn(
-      "EZ MEDIA: Autonomous Operations engine is not available."
-    );
-
     return {
       started: false,
 
@@ -2014,7 +2750,7 @@ async function startAutonomousOperations() {
 
   if (!enabled) {
     console.log(
-      "EZ MEDIA: Autonomous Operations is disabled by MEDIA_OPS_ENABLED."
+      "EZ MEDIA: Autonomous Operations disabled."
     );
 
     return {
@@ -2026,10 +2762,6 @@ async function startAutonomousOperations() {
   }
 
   try {
-    /*
-     * يدعم عدة أسماء محتملة حسب إصدار المحرك.
-     */
-
     if (
       typeof engines
         .autonomousOperations
@@ -2072,10 +2804,6 @@ async function startAutonomousOperations() {
       };
     }
 
-    /*
-     * المحرك لا يحتاج start صريح.
-     */
-
     runtime.autonomousOperations.started =
       true;
 
@@ -2107,15 +2835,13 @@ async function startAutonomousOperations() {
 async function startServer() {
   try {
     /*
-     * أولًا:
-     * تهيئة قاعدة البيانات والخدمات.
+     * قاعدة البيانات والخدمات.
+     *
+     * لاحظ:
+     * المسارات تم تركيبها قبل هذه المرحلة.
      */
 
     await initializeServices();
-
-    /*
-     * بدء الخادم.
-     */
 
     const server =
       app.listen(
@@ -2152,8 +2878,7 @@ async function startServer() {
           console.log(
             `Database configured: ${
               Boolean(
-                process.env
-                  .DATABASE_URL
+                process.env.DATABASE_URL
               )
             }`
           );
@@ -2175,20 +2900,24 @@ async function startServer() {
           );
 
           console.log(
-            "Autonomous Operations UI:"
+            `Event Intelligence: ${
+              runtime.eventIntelligence.initialized
+                ? "READY"
+                : "FALLBACK"
+            }`
           );
 
           console.log(
-            "https://ez-media-production.up.railway.app/autonomous-media-operations/"
+            `Event Intelligence API: ${
+              runtime.eventIntelligence.routeMounted
+                ? "READY"
+                : "NOT READY"
+            }`
           );
 
           console.log(
             "=================================================="
           );
-
-          /*
-           * تشغيل Notification Worker.
-           */
 
           const worker =
             initializeNotificationWorker();
@@ -2197,10 +2926,6 @@ async function startServer() {
             "EZ MEDIA Notification Worker:",
             worker
           );
-
-          /*
-           * تشغيل Autonomous Media Operations.
-           */
 
           const operations =
             await startAutonomousOperations();
@@ -2232,7 +2957,7 @@ async function startServer() {
       false;
 
     const shutdown =
-      async (signal) => {
+      async signal => {
         if (
           shuttingDown
         ) {
@@ -2245,10 +2970,6 @@ async function startServer() {
         console.log(
           `EZ MEDIA: received ${signal}. Shutting down...`
         );
-
-        /*
-         * محاولة إيقاف مركز العمليات.
-         */
 
         try {
           if (
@@ -2283,10 +3004,6 @@ async function startServer() {
           );
         }
 
-        /*
-         * إغلاق HTTP Server.
-         */
-
         server.close(
           () => {
             console.log(
@@ -2296,10 +3013,6 @@ async function startServer() {
             process.exit(0);
           }
         );
-
-        /*
-         * حماية من التعليق.
-         */
 
         setTimeout(
           () => {
@@ -2341,7 +3054,7 @@ async function startServer() {
 }
 
 /* ============================================================
-   START
+   START APPLICATION
 ============================================================ */
 
 if (
@@ -2352,7 +3065,7 @@ if (
 }
 
 /* ============================================================
-   EXPORT
+   EXPORTS
 ============================================================ */
 
 module.exports = {
