@@ -467,6 +467,49 @@ function firstDefined(...values) {
   return null;
 }
 
+/* =========================================================
+   NESTED VALUE READER
+========================================================= */
+
+function getByPath(
+  source,
+  pathExpression
+) {
+  if (
+    source === undefined ||
+    source === null
+  ) {
+    return undefined;
+  }
+
+  const parts =
+    String(pathExpression)
+      .split(".");
+
+  let current =
+    source;
+
+  for (
+    const part of parts
+  ) {
+    if (
+      current === undefined ||
+      current === null
+    ) {
+      return undefined;
+    }
+
+    current =
+      current[part];
+  }
+
+  return current;
+}
+
+/* =========================================================
+   COUNT READER
+========================================================= */
+
 function extractCount(
   source,
   keys
@@ -474,9 +517,15 @@ function extractCount(
   const data =
     objectOrEmpty(source);
 
-  for (const key of keys) {
+  for (
+    const key of keys
+  ) {
+
     const value =
-      data[key];
+      getByPath(
+        data,
+        key
+      );
 
     if (
       Array.isArray(value)
@@ -487,7 +536,9 @@ function extractCount(
     const number =
       numberOrNull(value);
 
-    if (number !== null) {
+    if (
+      number !== null
+    ) {
       return number;
     }
   }
@@ -495,16 +546,67 @@ function extractCount(
   return null;
 }
 
-function extractStatus(source) {
+/* =========================================================
+   STATUS READER
+========================================================= */
+
+function extractStatus(
+  source
+) {
   const data =
     objectOrEmpty(source);
 
   return firstDefined(
-    data.status,
-    data.state,
-    data.mode,
-    data.health
+    getByPath(data, "status"),
+    getByPath(data, "state"),
+    getByPath(data, "mode"),
+    getByPath(data, "health"),
+    getByPath(data, "system.status"),
+    getByPath(data, "system.state")
   );
+}
+
+/* =========================================================
+   BOOLEAN READER
+========================================================= */
+
+function extractBoolean(
+  source,
+  keys
+) {
+  const data =
+    objectOrEmpty(source);
+
+  for (
+    const key of keys
+  ) {
+    const value =
+      getByPath(
+        data,
+        key
+      );
+
+    if (
+      typeof value ===
+      "boolean"
+    ) {
+      return value;
+    }
+
+    if (
+      value === "true"
+    ) {
+      return true;
+    }
+
+    if (
+      value === "false"
+    ) {
+      return false;
+    }
+  }
+
+  return null;
 }
 
 /* =========================================================
@@ -524,6 +626,7 @@ async function safeEngineRead(
     "getStatistics"
   ]
 ) {
+
   if (!engine) {
     return {
       available: false,
@@ -533,30 +636,40 @@ async function safeEngineRead(
     };
   }
 
-  let lastError = null;
+  let lastError =
+    null;
 
   for (
     const method of methods
   ) {
+
     try {
+
       if (
         typeof engine[method] ===
         "function"
       ) {
+
         const result =
           await engine[method]();
 
         return {
           available: true,
+
           data:
             result === undefined
               ? {}
               : result,
+
           method,
-          error: null
+
+          error:
+            null
         };
       }
+
     } catch (error) {
+
       lastError =
         error;
     }
@@ -564,8 +677,11 @@ async function safeEngineRead(
 
   return {
     available: true,
+
     data: {},
+
     method: null,
+
     error:
       lastError
         ? lastError.message
@@ -584,9 +700,11 @@ async function initializeAdvancedEngines() {
   ------------------------------------------------------- */
 
   try {
+
     if (
       autonomousOperationsEngineModule
     ) {
+
       const Engine =
         autonomousOperationsEngineModule
           .AutonomousMediaOperationsCenterEngine ||
@@ -598,6 +716,7 @@ async function initializeAdvancedEngines() {
         typeof Engine ===
         "function"
       ) {
+
         engines.autonomousOperations =
           new Engine();
 
@@ -612,7 +731,9 @@ async function initializeAdvancedEngines() {
         );
       }
     }
+
   } catch (error) {
+
     runtime.autonomousOperations
       .lastError =
       error.message;
@@ -628,9 +749,11 @@ async function initializeAdvancedEngines() {
   ------------------------------------------------------- */
 
   try {
+
     if (
       collaborationEngineModule
     ) {
+
       const Engine =
         collaborationEngineModule
           .IntelligentAIAgentCollaborationEngine ||
@@ -642,6 +765,7 @@ async function initializeAdvancedEngines() {
         typeof Engine ===
         "function"
       ) {
+
         engines.collaboration =
           new Engine();
 
@@ -653,7 +777,9 @@ async function initializeAdvancedEngines() {
         );
       }
     }
+
   } catch (error) {
+
     console.error(
       "[EZ MEDIA] AI Collaboration:",
       error.message
@@ -665,9 +791,11 @@ async function initializeAdvancedEngines() {
   ------------------------------------------------------- */
 
   try {
+
     if (
       autonomousAgentEngineModule
     ) {
+
       const Engine =
         autonomousAgentEngineModule
           .IntelligentAIAgentAutonomousEngine ||
@@ -679,6 +807,7 @@ async function initializeAdvancedEngines() {
         typeof Engine ===
         "function"
       ) {
+
         engines.autonomousAgents =
           new Engine();
 
@@ -690,7 +819,9 @@ async function initializeAdvancedEngines() {
         );
       }
     }
+
   } catch (error) {
+
     console.error(
       "[EZ MEDIA] Autonomous Agents:",
       error.message
@@ -702,9 +833,11 @@ async function initializeAdvancedEngines() {
   ------------------------------------------------------- */
 
   try {
+
     if (
       mediaMemoryEngineModule
     ) {
+
       const Engine =
         mediaMemoryEngineModule
           .IntelligentMediaMemoryEngine ||
@@ -716,6 +849,7 @@ async function initializeAdvancedEngines() {
         typeof Engine ===
         "function"
       ) {
+
         engines.memory =
           new Engine();
 
@@ -727,7 +861,9 @@ async function initializeAdvancedEngines() {
         );
       }
     }
+
   } catch (error) {
+
     console.error(
       "[EZ MEDIA] Media Memory:",
       error.message
@@ -739,9 +875,11 @@ async function initializeAdvancedEngines() {
   ------------------------------------------------------- */
 
   try {
+
     if (
       eventIntelligenceEngineModule
     ) {
+
       const Engine =
         eventIntelligenceEngineModule
           .IntelligentMediaEventIntelligenceEngine ||
@@ -753,6 +891,7 @@ async function initializeAdvancedEngines() {
         typeof Engine ===
         "function"
       ) {
+
         engines.eventIntelligence =
           new Engine();
 
@@ -770,7 +909,9 @@ async function initializeAdvancedEngines() {
         );
       }
     }
+
   } catch (error) {
+
     runtime.eventIntelligence
       .lastError =
       error.message;
@@ -791,6 +932,7 @@ function mountAutonomousOperationsRoutes() {
   if (
     !autonomousOperationsRoutesModule
   ) {
+
     console.warn(
       "[EZ MEDIA] Autonomous Operations Router unavailable"
     );
@@ -799,6 +941,7 @@ function mountAutonomousOperationsRoutes() {
   }
 
   try {
+
     const factory =
       autonomousOperationsRoutesModule
         .createAutonomousMediaOperationsRouter ||
@@ -810,6 +953,7 @@ function mountAutonomousOperationsRoutes() {
         "function" ||
       !engines.autonomousOperations
     ) {
+
       console.warn(
         "[EZ MEDIA] Autonomous Operations Router cannot mount"
       );
@@ -824,6 +968,7 @@ function mountAutonomousOperationsRoutes() {
       });
 
     if (router) {
+
       app.use(
         "/api/operations",
         router
@@ -836,7 +981,9 @@ function mountAutonomousOperationsRoutes() {
         "[EZ MEDIA] /api/operations mounted"
       );
     }
+
   } catch (error) {
+
     runtime.autonomousOperations
       .lastError =
       error.message;
@@ -861,6 +1008,7 @@ function mountEventIntelligenceRoutes() {
   }
 
   try {
+
     const factory =
       eventIntelligenceRoutesModule
         .createIntelligentMediaEventIntelligenceRouter ||
@@ -883,6 +1031,7 @@ function mountEventIntelligenceRoutes() {
       });
 
     if (router) {
+
       app.use(
         "/api/ai/event-intelligence",
         router
@@ -895,7 +1044,9 @@ function mountEventIntelligenceRoutes() {
         "[EZ MEDIA] Event Intelligence Router mounted"
       );
     }
+
   } catch (error) {
+
     runtime.eventIntelligence
       .lastError =
       error.message;
@@ -952,6 +1103,7 @@ const executiveCommand = {
         safeEngineRead(
           engines.eventIntelligence
         )
+
       ]);
 
       /* ---------------------------------------------------
@@ -962,10 +1114,12 @@ const executiveCommand = {
         runtime.database.health;
 
       try {
+
         if (
           typeof databaseHealth ===
           "function"
         ) {
+
           database =
             await databaseHealth();
 
@@ -984,6 +1138,7 @@ const executiveCommand = {
             data.status ===
               "healthy";
         }
+
       } catch (error) {
 
         runtime.database.ready =
@@ -994,7 +1149,7 @@ const executiveCommand = {
       }
 
       /* ---------------------------------------------------
-         DATA
+         NORMALIZED ENGINE DATA
       --------------------------------------------------- */
 
       const operations =
@@ -1023,7 +1178,7 @@ const executiveCommand = {
         );
 
       /* ---------------------------------------------------
-         COUNTERS
+         OPERATION COUNTERS
       --------------------------------------------------- */
 
       const active =
@@ -1034,7 +1189,11 @@ const executiveCommand = {
             "running",
             "activeOperations",
             "runningOperations",
-            "activeCount"
+            "activeCount",
+            "counts.active",
+            "statistics.active",
+            "statistics.running",
+            "metrics.active"
           ]
         );
 
@@ -1046,7 +1205,10 @@ const executiveCommand = {
             "pendingOperations",
             "pendingCount",
             "queued",
-            "queuedOperations"
+            "queuedOperations",
+            "counts.pending",
+            "statistics.pending",
+            "metrics.pending"
           ]
         );
 
@@ -1056,7 +1218,10 @@ const executiveCommand = {
           [
             "completed",
             "completedOperations",
-            "completedCount"
+            "completedCount",
+            "counts.completed",
+            "statistics.completed",
+            "metrics.completed"
           ]
         );
 
@@ -1066,9 +1231,16 @@ const executiveCommand = {
           [
             "failed",
             "failedOperations",
-            "failedCount"
+            "failedCount",
+            "counts.failed",
+            "statistics.failed",
+            "metrics.failed"
           ]
         );
+
+      /* ---------------------------------------------------
+         AI COUNTERS
+      --------------------------------------------------- */
 
       const agentsCount =
         extractCount(
@@ -1077,7 +1249,11 @@ const executiveCommand = {
             "agents",
             "agentCount",
             "totalAgents",
-            "activeAgents"
+            "activeAgents",
+            "counts.agents",
+            "statistics.agents",
+            "statistics.totalAgents",
+            "metrics.agents"
           ]
         );
 
@@ -1088,7 +1264,10 @@ const executiveCommand = {
             "missions",
             "missionCount",
             "activeMissions",
-            "totalMissions"
+            "totalMissions",
+            "counts.missions",
+            "statistics.missions",
+            "metrics.missions"
           ]
         );
 
@@ -1099,9 +1278,16 @@ const executiveCommand = {
             "teams",
             "teamCount",
             "activeTeams",
-            "totalTeams"
+            "totalTeams",
+            "counts.teams",
+            "statistics.teams",
+            "metrics.teams"
           ]
         );
+
+      /* ---------------------------------------------------
+         APPROVALS
+      --------------------------------------------------- */
 
       const approvals =
         extractCount(
@@ -1109,9 +1295,16 @@ const executiveCommand = {
           [
             "pendingApprovals",
             "approvalCount",
-            "approvalsPending"
+            "approvalsPending",
+            "approvals.pending",
+            "counts.pendingApprovals",
+            "statistics.pendingApprovals"
           ]
         );
+
+      /* ---------------------------------------------------
+         MEMORY
+      --------------------------------------------------- */
 
       const memoryCount =
         extractCount(
@@ -1120,9 +1313,19 @@ const executiveCommand = {
             "memories",
             "memoryCount",
             "totalMemories",
-            "records"
+            "records",
+            "count",
+            "total",
+            "counts.memories",
+            "statistics.memories",
+            "statistics.total",
+            "metrics.memories"
           ]
         );
+
+      /* ---------------------------------------------------
+         EVENTS
+      --------------------------------------------------- */
 
       const eventCount =
         extractCount(
@@ -1131,7 +1334,13 @@ const executiveCommand = {
             "events",
             "eventCount",
             "totalEvents",
-            "activeEvents"
+            "activeEvents",
+            "count",
+            "total",
+            "counts.events",
+            "statistics.events",
+            "statistics.total",
+            "metrics.events"
           ]
         );
 
@@ -1148,46 +1357,66 @@ const executiveCommand = {
          BROADCAST
       --------------------------------------------------- */
 
+      const socialBroadcast =
+        process.env
+          .SOCIAL_BROADCAST_ENABLED ===
+        "true";
+
+      const satelliteBroadcast =
+        process.env
+          .SATELLITE_BROADCAST_ENABLED ===
+        "true";
+
+      const externalBroadcast =
+        process.env
+          .BROADCAST_EXTERNAL_INTEGRATION ===
+        "true";
+
       const broadcasting = {
-        website: true,
+
+        website:
+          true,
 
         social:
-          process.env
-            .SOCIAL_BROADCAST_ENABLED ===
-          "true",
+          socialBroadcast,
 
         satellite:
-          process.env
-            .SATELLITE_BROADCAST_ENABLED ===
-          "true",
+          satelliteBroadcast,
 
         externalIntegration:
-          process.env
-            .BROADCAST_EXTERNAL_INTEGRATION ===
-          "true",
+          externalBroadcast,
 
         status:
-          process.env
-            .BROADCAST_EXTERNAL_INTEGRATION ===
-          "true"
+          externalBroadcast
             ? "configured"
+            : socialBroadcast ||
+              satelliteBroadcast
+            ? "partially_configured"
             : "not_connected"
       };
 
       /* ---------------------------------------------------
-         SYSTEM MATRIX
+         REAL SYSTEM MATRIX
       --------------------------------------------------- */
 
       const systems = {
 
         server: {
-          available: true,
-          status: "online"
+
+          available:
+            true,
+
+          status:
+            "online"
         },
 
         database: {
+
           configured:
             runtime.database.configured,
+
+          initialized:
+            runtime.database.initialized,
 
           ready:
             runtime.database.ready,
@@ -1201,6 +1430,7 @@ const executiveCommand = {
         },
 
         autonomousOperations: {
+
           available:
             runtime.autonomousOperations
               .available,
@@ -1215,10 +1445,16 @@ const executiveCommand = {
 
           started:
             runtime.autonomousOperations
-              .started
+              .started,
+
+          status:
+            extractStatus(
+              operations
+            )
         },
 
         collaboration: {
+
           available:
             runtime.ai.collaboration,
 
@@ -1228,6 +1464,7 @@ const executiveCommand = {
         },
 
         autonomousAgents: {
+
           available:
             runtime.ai.autonomousAgents,
 
@@ -1236,6 +1473,7 @@ const executiveCommand = {
         },
 
         memory: {
+
           available:
             runtime.ai.memory,
 
@@ -1244,6 +1482,7 @@ const executiveCommand = {
         },
 
         eventIntelligence: {
+
           available:
             runtime.ai.eventIntelligence,
 
@@ -1251,6 +1490,33 @@ const executiveCommand = {
             eventCount
         }
       };
+
+      /* ---------------------------------------------------
+         EXECUTIVE STATUS
+      --------------------------------------------------- */
+
+      const automationStatus =
+        runtime.autonomousOperations
+          .started
+          ? "active"
+          : runtime.autonomousOperations
+              .initialized
+          ? "ready"
+          : "unavailable";
+
+      /*
+       * لا نضع "ready" للجدولة أو Workflow
+       * إذا لم يوجد محرك فعلي لها.
+       */
+
+      const schedulingStatus =
+        "not_connected";
+
+      const workflowStatus =
+        runtime.autonomousOperations
+          .available
+          ? "available"
+          : "not_connected";
 
       /* ---------------------------------------------------
          SNAPSHOT
@@ -1275,22 +1541,16 @@ const executiveCommand = {
         executive: {
 
           automation:
-            runtime.autonomousOperations
-              .started
-              ? "active"
-              : runtime.autonomousOperations
-                  .initialized
-              ? "ready"
-              : "unavailable",
+            automationStatus,
 
           broadcasting:
             broadcasting.status,
 
           scheduling:
-            "ready",
+            schedulingStatus,
 
           workflow:
-            "ready"
+            workflowStatus
         },
 
         ai: {
@@ -1537,6 +1797,7 @@ app.get(
       await executiveCommand.refresh();
 
     res.json({
+
       platform:
         "EZ MEDIA",
 
@@ -1653,7 +1914,9 @@ app.get(
       await executiveCommand.refresh();
 
     res.json({
+
       matrix: {
+
         systems:
           snapshot.systems,
 
@@ -1687,7 +1950,10 @@ app.post(
       await executiveCommand.refresh();
 
     res.json({
-      success: true,
+
+      success:
+        true,
+
       data:
         snapshot
     });
@@ -1701,11 +1967,13 @@ app.post(
     const snapshot =
       await executiveCommand.refresh();
 
-    const recommendations = [];
+    const recommendations =
+      [];
 
     if (
       !snapshot.database.ready
     ) {
+
       recommendations.push(
         "قاعدة البيانات غير جاهزة حاليًا."
       );
@@ -1714,6 +1982,7 @@ app.post(
     if (
       !snapshot.operations.available
     ) {
+
       recommendations.push(
         "محرك العمليات المستقلة غير متاح."
       );
@@ -1723,6 +1992,7 @@ app.post(
       snapshot.operations.available &&
       !snapshot.operations.started
     ) {
+
       recommendations.push(
         "محرك العمليات متاح لكنه غير مشغّل."
       );
@@ -1732,14 +2002,27 @@ app.post(
       snapshot.broadcasting.status ===
       "not_connected"
     ) {
+
       recommendations.push(
         "لا يوجد تكامل بث خارجي فعلي متصل حاليًا."
       );
     }
 
     if (
-      recommendations.length === 0
+      snapshot.executive.scheduling ===
+      "not_connected"
     ) {
+
+      recommendations.push(
+        "محرك الجدولة التنفيذي غير متصل حاليًا."
+      );
+    }
+
+    if (
+      recommendations.length ===
+      0
+    ) {
+
       recommendations.push(
         "لا توجد ملاحظات حرجة في الحالة الحالية."
       );
@@ -1747,7 +2030,8 @@ app.post(
 
     res.json({
 
-      success: true,
+      success:
+        true,
 
       mode:
         "local-runtime-analysis",
@@ -1764,7 +2048,7 @@ app.post(
 
 /* =========================================================
    OPERATIONS FALLBACK
-   IMPORTANT FIX
+   IMPORTANT ROUTE-ORDER FIX
 ========================================================= */
 
 app.get(
@@ -1773,21 +2057,19 @@ app.get(
 
     /*
      * إذا كان الراوتر الحقيقي مركبًا،
-     * لا نرجع fallback.
-     *
-     * next() يسمح للطلب بالوصول
-     * إلى الراوتر الحقيقي الذي تم تركيبه
-     * أثناء initializeAllSystems().
+     * نمرر الطلب إليه بدل fallback.
      */
 
     if (
       runtime.autonomousOperations
         .routeMounted
     ) {
+
       return next();
     }
 
     return res.json({
+
       platform:
         "EZ MEDIA",
 
@@ -1831,17 +2113,20 @@ app.get(
   (req, res, next) => {
 
     /*
-     * نفس الإصلاح لمسار status.
+     * إذا كان الراوتر الحقيقي مركبًا،
+     * نمرر الطلب إليه بدل fallback.
      */
 
     if (
       runtime.autonomousOperations
         .routeMounted
     ) {
+
       return next();
     }
 
     return res.json({
+
       platform:
         "EZ MEDIA",
 
@@ -1888,6 +2173,7 @@ app.get(
   (req, res) => {
 
     res.json({
+
       platform:
         "EZ MEDIA",
 
@@ -2045,6 +2331,7 @@ app.get(
       await executiveCommand.refresh();
 
     res.json({
+
       platform:
         "EZ MEDIA",
 
@@ -2058,6 +2345,7 @@ app.get(
         "online",
 
       server: {
+
         node:
           process.version,
 
@@ -2160,6 +2448,7 @@ app.get(
       await executiveCommand.refresh();
 
     res.json({
+
       platform:
         "EZ MEDIA",
 
@@ -2217,6 +2506,7 @@ app.get(
           await databaseHealth();
 
         if (health) {
+
           result = {
             ...result,
             ...health
@@ -2309,6 +2599,7 @@ app.get(
         snapshot.ai.collaboration,
 
       agents: [
+
         "EZ WORLD RADAR",
         "EZ DISCOVERY",
         "EZ RESEARCHER",
@@ -2321,6 +2612,7 @@ app.get(
         "EZ PUBLISHER",
         "EZ SOCIAL",
         "EZ ANALYTICS"
+
       ]
     });
   }
@@ -2333,6 +2625,16 @@ app.get(
 app.get(
   "/api/live/status",
   (req, res) => {
+
+    const social =
+      process.env
+        .SOCIAL_BROADCAST_ENABLED ===
+      "true";
+
+    const satellite =
+      process.env
+        .SATELLITE_BROADCAST_ENABLED ===
+      "true";
 
     res.json({
 
@@ -2350,14 +2652,13 @@ app.get(
         website:
           true,
 
-        social:
-          process.env
-            .SOCIAL_BROADCAST_ENABLED ===
-          "true",
+        social,
 
-        satellite:
+        satellite,
+
+        external:
           process.env
-            .SATELLITE_BROADCAST_ENABLED ===
+            .BROADCAST_EXTERNAL_INTEGRATION ===
           "true"
       },
 
@@ -2405,6 +2706,7 @@ app.get(
 app.get(
   "/favicon.ico",
   (req, res) => {
+
     res.status(204).end();
   }
 );
@@ -2459,6 +2761,7 @@ app.use(
     if (
       res.headersSent
     ) {
+
       return next(error);
     }
 
@@ -2618,7 +2921,6 @@ async function initializeAllSystems() {
         data.ok === true ||
         data.status ===
           "healthy";
-
     }
 
   } catch (error) {
@@ -2745,12 +3047,16 @@ async function startServer() {
   await startNotificationsWorkerSafe();
 
   /*
-   * أول refresh بعد اكتمال تشغيل جميع المحركات.
+   * تحديث Executive Command Center
+   * بعد اكتمال تهيئة وتشغيل المحركات.
    */
 
   try {
+
     await executiveCommand.refresh();
+
   } catch (error) {
+
     runtime.executiveCommand
       .lastError =
       error.message;
@@ -2849,15 +3155,15 @@ async function startServer() {
         );
 
         console.log(
-          `EXECUTIVE COMMAND: /api/executive-command/status`
+          "EXECUTIVE COMMAND: /api/executive-command/status"
         );
 
         console.log(
-          `OPERATIONS: /api/operations/status`
+          "OPERATIONS: /api/operations/status"
         );
 
         console.log(
-          `OPERATIONS UI: /autonomous-media-operations/`
+          "OPERATIONS UI: /autonomous-media-operations/"
         );
 
         console.log(
@@ -2987,10 +3293,15 @@ process.on(
 ========================================================= */
 
 module.exports = {
+
   app,
+
   startServer,
+
   runtime,
+
   engines,
+
   executiveCommand
 };
 
