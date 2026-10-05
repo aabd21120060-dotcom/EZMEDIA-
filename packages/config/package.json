@@ -1,24 +1,39 @@
 {
-  "name": "@ez-media/api",
+  "name": "ez-media",
   "version": "1.0.0",
   "private": true,
+  "description": "EZ MEDIA — Global Intelligent Media Platform",
+  "license": "UNLICENSED",
   "type": "module",
-  "main": "./dist/server.js",
-  "types": "./dist/server.d.ts",
-  "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc -b",
-    "typecheck": "tsc -b --pretty false",
-    "start": "node dist/server.js"
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=24.21.0 <25",
+    "pnpm": ">=12.9.1 <13"
   },
-  "dependencies": {
-    "@ez-media/config": "workspace:*",
-    "@ez-media/contracts": "workspace:*",
-    "@ez-media/database": "workspace:*",
-    "fastify": "5.12.5"
+  "scripts": {
+    "dev": "pnpm --filter @ez-media/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:smoke": "vitest run tests/smoke",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "pnpm typecheck && pnpm format:check && pnpm build && pnpm test",
+    "repair": "./scripts/maintenance/auto-repair.sh",
+    "db:migrate": "tsx scripts/maintenance/migrate.ts",
+    "ci": "pnpm verify",
+    "start": "pnpm --filter @ez-media/api start"
   },
   "devDependencies": {
     "@types/node": "26.6.4",
-    "tsx": "4.23.15"
+    "prettier": "3.6.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
   }
 }
