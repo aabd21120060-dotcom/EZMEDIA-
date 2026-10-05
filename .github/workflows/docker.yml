@@ -1,0 +1,56 @@
+name: EZ MEDIA Docker
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ez-media-docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  docker-build:
+    name: Build Production Docker Image
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 25
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: |
+            ez-media:${{ github.sha }}
+            ez-media:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker image inspection
+        run: |
+          docker image ls ez-media
+
+      - name: Dockerfile validation
+        run: |
+          test -f Dockerfile
+          test -f .dockerignore
