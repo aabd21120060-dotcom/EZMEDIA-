@@ -93,8 +93,7 @@ try {
       host: HOST,
       port: PORT,
       environment:
-        config.environment
-          .NODE_ENV,
+        config.environment.NODE_ENV,
     },
     'EZ MEDIA API started',
   );
