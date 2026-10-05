@@ -1,3 +1,9 @@
+"devEngines": {
+  "packageManager": {
+    "name": "pnpm",
+    "version": "12.9.1"
+  }
+},
 {
   "name": "@ez-media/config",
   "version": "1.0.0",
