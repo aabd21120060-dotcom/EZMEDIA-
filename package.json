@@ -11,11 +11,10 @@
     "pnpm": ">=12.9.1 <13"
   },
   "scripts": {
-    "preinstall": "node ./scripts/maintenance/ensure-pnpm.mjs",
     "dev": "pnpm --filter @ez-media/api dev",
     "build": "pnpm --version && pnpm -r build",
     "typecheck": "pnpm --version && pnpm -r typecheck",
-    "test": "pnpm --version && vitest run",
+    "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
