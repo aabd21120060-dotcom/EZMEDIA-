@@ -1,83 +1,40 @@
-# ============================================================
-# EZ MEDIA
-# 01.06.11 — Production Dockerfile
-# Node.js 24.21.0 + pnpm 12.9.1
-# ============================================================
-
-FROM node:24.21.0-bookworm-slim AS base
-
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-
-RUN corepack enable \
-    && corepack install --global pnpm@12.9.1
-
-WORKDIR /app
-
-# ============================================================
-# مرحلة تثبيت الاعتمادات
-# ============================================================
-
-FROM base AS dependencies
-
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY tsconfig.json tsconfig.base.json ./
-COPY apps/*/package.json apps/
-COPY packages/*/package.json packages/
-
-RUN pnpm --version
-
-RUN pnpm install --frozen-lockfile
-
-# ============================================================
-# مرحلة Build
-# ============================================================
-
-FROM dependencies AS build
-
-COPY . .
-
-RUN pnpm --version
-
-RUN pnpm typecheck
-
-RUN pnpm build
-
-# ============================================================
-# مرحلة Production
-# ============================================================
-
-FROM node:24.21.0-bookworm-slim AS production
-
-ENV NODE_ENV=production
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-
-RUN corepack enable \
-    && corepack install --global pnpm@12.9.1
-
-WORKDIR /app
-
-COPY --from=build /app/package.json ./
-COPY --from=build /app/pnpm-workspace.yaml ./
-COPY --from=build /app/pnpm-lock.yaml ./
-
-COPY --from=build /app/apps ./apps
-COPY --from=build /app/packages ./packages
-COPY --from=build /app/database ./database
-COPY --from=build /app/scripts ./scripts
-COPY --from=build /app/tsconfig.base.json ./
-
-RUN pnpm --version
-
-# ============================================================
-# Railway يحقن PORT تلقائيًا
-# ============================================================
-
-EXPOSE 8080
-
-# ============================================================
-# تشغيل EZ MEDIA API
-# ============================================================
-
-CMD ["pnpm", "start"]
+{
+  "name": "ez-media",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EZ MEDIA — Global Intelligent Media Platform",
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=24.21.0 <25",
+    "pnpm": ">=12.9.1 <13"
+  },
+  "scripts": {
+    "preinstall": "node ./scripts/maintenance/ensure-pnpm.mjs",
+    "dev": "pnpm --filter @ez-media/api dev",
+    "build": "pnpm --version && pnpm -r build",
+    "typecheck": "pnpm --version && pnpm -r typecheck",
+    "test": "pnpm --version && vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:smoke": "vitest run tests/smoke",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "pnpm typecheck && pnpm format:check && pnpm build && pnpm test",
+    "repair": "./scripts/maintenance/auto-repair.sh",
+    "db:migrate": "tsx scripts/maintenance/migrate.ts",
+    "ci": "pnpm verify",
+    "start": "pnpm --filter @ez-media/api start"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "prettier": "3.6.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}
