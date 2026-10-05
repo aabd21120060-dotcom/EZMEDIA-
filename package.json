@@ -1,37 +1,83 @@
-{
-  "name": "ez-media",
-  "version": "1.0.0",
-  "private": true,
-  "description": "EZ MEDIA — Global Intelligent Media Platform",
-  "license": "UNLICENSED",
-  "type": "module",
-  "packageManager": "pnpm@10.18.0",
-  "engines": {
-    "node": ">=24.11.0 <25",
-    "pnpm": ">=10.18.0 <11"
-  },
-  "scripts": {
-    "dev": "pnpm --filter @ez-media/api dev",
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:security": "vitest run tests/security",
-    "test:smoke": "vitest run tests/smoke",
-    "lint": "pnpm -r lint",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "check": "pnpm typecheck && pnpm build && pnpm test",
-    "ci": "pnpm check",
-    "start": "pnpm --filter @ez-media/api start"
-  },
-  "devDependencies": {
-    "@types/node": "^24.10.0",
-    "prettier": "^3.6.2",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
-  }
-}
+# ============================================================
+# EZ MEDIA
+# 01.06.11 — Production Dockerfile
+# Node.js 24.21.0 + pnpm 12.9.1
+# ============================================================
+
+FROM node:24.21.0-bookworm-slim AS base
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+RUN corepack enable \
+    && corepack install --global pnpm@12.9.1
+
+WORKDIR /app
+
+# ============================================================
+# مرحلة تثبيت الاعتمادات
+# ============================================================
+
+FROM base AS dependencies
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY tsconfig.json tsconfig.base.json ./
+COPY apps/*/package.json apps/
+COPY packages/*/package.json packages/
+
+RUN pnpm --version
+
+RUN pnpm install --frozen-lockfile
+
+# ============================================================
+# مرحلة Build
+# ============================================================
+
+FROM dependencies AS build
+
+COPY . .
+
+RUN pnpm --version
+
+RUN pnpm typecheck
+
+RUN pnpm build
+
+# ============================================================
+# مرحلة Production
+# ============================================================
+
+FROM node:24.21.0-bookworm-slim AS production
+
+ENV NODE_ENV=production
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+RUN corepack enable \
+    && corepack install --global pnpm@12.9.1
+
+WORKDIR /app
+
+COPY --from=build /app/package.json ./
+COPY --from=build /app/pnpm-workspace.yaml ./
+COPY --from=build /app/pnpm-lock.yaml ./
+
+COPY --from=build /app/apps ./apps
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/database ./database
+COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/tsconfig.base.json ./
+
+RUN pnpm --version
+
+# ============================================================
+# Railway يحقن PORT تلقائيًا
+# ============================================================
+
+EXPOSE 8080
+
+# ============================================================
+# تشغيل EZ MEDIA API
+# ============================================================
+
+CMD ["pnpm", "start"]
