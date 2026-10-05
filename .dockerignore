@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+.github
+
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+build
+coverage
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs
+
+# Local data
+uploads
+media
+cache
+tmp
+temp
+docker-data
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests
+test-results
+playwright-report
+
+# Documentation that is not needed for runtime
+*.md
+docs
+
+# Certificates / private keys
+*.pem
+*.key
+*.crt
+
+# Local Docker files
+docker-compose.override.yml
