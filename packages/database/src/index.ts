@@ -15,9 +15,7 @@ export const PACKAGE_NAME =
 export const PACKAGE_VERSION =
   '1.0.0';
 
-const {
-  Pool,
-} = pg;
+const { Pool } = pg;
 
 export interface DatabaseConfig {
   readonly connectionString: string;
@@ -34,11 +32,8 @@ export interface DatabaseHealth {
     | 'disabled';
 
   readonly latencyMs?: number;
-
   readonly message?: string;
-
   readonly database?: string;
-
   readonly serverVersion?: string;
 }
 
@@ -54,13 +49,8 @@ export interface TransactionClient {
   ): Promise<QueryResult<T>>;
 }
 
-let databasePool:
-  | Pool
-  | undefined;
-
-let databaseConfig:
-  | DatabaseConfig
-  | undefined;
+let databasePool: Pool | undefined;
+let databaseConfig: DatabaseConfig | undefined;
 
 export function createDatabaseConfig(
   connectionString: string,
@@ -71,18 +61,14 @@ export function createDatabaseConfig(
     readonly ssl?: boolean;
   } = {},
 ): DatabaseConfig {
-  if (
-    !connectionString.trim()
-  ) {
+  if (!connectionString.trim()) {
     throw new Error(
       'DATABASE_URL is required.',
     );
   }
 
   if (
-    !Number.isInteger(
-      maxConnections,
-    ) ||
+    !Number.isInteger(maxConnections) ||
     maxConnections < 1
   ) {
     throw new Error(
@@ -91,17 +77,13 @@ export function createDatabaseConfig(
   }
 
   const idleTimeoutMs =
-    options.idleTimeoutMs ??
-    10_000;
+    options.idleTimeoutMs ?? 10_000;
 
   const connectionTimeoutMs =
-    options.connectionTimeoutMs ??
-    10_000;
+    options.connectionTimeoutMs ?? 10_000;
 
   if (
-    !Number.isInteger(
-      idleTimeoutMs,
-    ) ||
+    !Number.isInteger(idleTimeoutMs) ||
     idleTimeoutMs < 0
   ) {
     throw new Error(
@@ -110,9 +92,7 @@ export function createDatabaseConfig(
   }
 
   if (
-    !Number.isInteger(
-      connectionTimeoutMs,
-    ) ||
+    !Number.isInteger(connectionTimeoutMs) ||
     connectionTimeoutMs < 1
   ) {
     throw new Error(
@@ -125,19 +105,17 @@ export function createDatabaseConfig(
     maxConnections,
     idleTimeoutMs,
     connectionTimeoutMs,
-    ssl:
-      options.ssl ??
-      false,
+    ssl: options.ssl ?? false,
   };
 }
 
-export function createDatabaseFromEnvironment(): DatabaseConfig | null {
-  const config =
-    loadConfig();
+export function createDatabaseFromEnvironment():
+  | DatabaseConfig
+  | null {
+  const config = loadConfig();
 
   const connectionString =
-    config.environment
-      .DATABASE_URL;
+    config.environment.DATABASE_URL;
 
   if (
     !connectionString ||
@@ -158,13 +136,11 @@ export function createDatabaseFromEnvironment(): DatabaseConfig | null {
   databaseConfig =
     createDatabaseConfig(
       connectionString,
-      config.environment
-        .DATABASE_POOL_MAX,
+      config.environment.DATABASE_POOL_MAX,
       {
         ssl,
         connectionTimeoutMs:
-          config.environment
-            .REQUEST_TIMEOUT_MS,
+          config.environment.REQUEST_TIMEOUT_MS,
       },
     );
 
@@ -194,27 +170,25 @@ export function getDatabasePool():
     return null;
   }
 
-  databasePool =
-    new Pool({
-      connectionString:
-        config.connectionString,
+  databasePool = new Pool({
+    connectionString:
+      config.connectionString,
 
-      max:
-        config.maxConnections,
+    max:
+      config.maxConnections,
 
-      idleTimeoutMillis:
-        config.idleTimeoutMs,
+    idleTimeoutMillis:
+      config.idleTimeoutMs,
 
-      connectionTimeoutMillis:
-        config.connectionTimeoutMs,
+    connectionTimeoutMillis:
+      config.connectionTimeoutMs,
 
-      ssl: config.ssl
-        ? {
-            rejectUnauthorized:
-              false,
-          }
-        : undefined,
-    });
+    ssl: config.ssl
+      ? {
+          rejectUnauthorized: false,
+        }
+      : undefined,
+  });
 
   databasePool.on(
     'error',
@@ -223,10 +197,8 @@ export function getDatabasePool():
         JSON.stringify({
           event:
             'database_pool_error',
-
           message:
             error.message,
-
           timestamp:
             new Date().toISOString(),
         }),
@@ -291,8 +263,7 @@ export async function pingDatabase():
 
     const latencyMs =
       Math.round(
-        performance.now() -
-          started,
+        performance.now() - started,
       );
 
     const row =
@@ -309,8 +280,7 @@ export async function pingDatabase():
   } catch (error) {
     const latencyMs =
       Math.round(
-        performance.now() -
-          started,
+        performance.now() - started,
       );
 
     return {
@@ -324,9 +294,7 @@ export async function pingDatabase():
   }
 }
 
-export async function withTransaction<
-  T,
->(
+export async function withTransaction<T>(
   callback: (
     client: TransactionClient,
   ) => Promise<T>,
@@ -387,10 +355,10 @@ export async function closeDatabase():
   await pool.end();
 }
 
-export function resetDatabaseForTests():
+export async function resetDatabaseForTests():
   Promise<void> {
   databaseConfig =
     undefined;
 
-  return closeDatabase();
+  await closeDatabase();
 }
