@@ -1,216 +1,96 @@
+import type {
+  FastifyInstance,
+} from 'fastify';
+
 import {
-  closeDatabase,
-  getDatabasePool,
+  loadConfig,
+} from '@ez-media/config';
+
+import {
+  pingDatabase,
 } from '@ez-media/database';
 
-import {
-  readdir,
-  readFile,
-} from 'node:fs/promises';
+const SERVICE_NAME =
+  '@ez-media/api';
 
-import {
-  createHash,
-} from 'node:crypto';
+const SERVICE_VERSION =
+  '1.0.0';
 
-import {
-  join,
-} from 'node:path';
-
-const ROOT =
-  process.cwd();
-
-const MIGRATIONS_DIR =
-  join(
-    ROOT,
-    'database',
-    'migrations',
+export async function registerHealthRoutes(
+  app: FastifyInstance,
+): Promise<void> {
+  app.get(
+    '/health',
+    {
+      logLevel: 'warn',
+    },
+    async () => {
+      return {
+        status: 'ok',
+        service: SERVICE_NAME,
+        version: SERVICE_VERSION,
+        timestamp:
+          new Date().toISOString(),
+        uptimeSeconds:
+          process.uptime(),
+      };
+    },
   );
 
-function checksum(
-  content: string,
-): string {
-  return createHash(
-    'sha256',
-  )
-    .update(content)
-    .digest('hex');
-}
+  app.get(
+    '/ready',
+    {
+      logLevel: 'warn',
+    },
+    async (
+      _request,
+      reply,
+    ) => {
+      const config =
+        loadConfig();
 
-function migrationName(
-  filename: string,
-): string {
-  return filename
-    .replace(/\.sql$/i, '');
-}
+      const database =
+        await pingDatabase();
 
-async function main(): Promise<void> {
-  const pool =
-    getDatabasePool();
+      const application = {
+        status: 'up' as const,
+      };
 
-  if (!pool) {
-    throw new Error(
-      'DATABASE_URL is not configured.',
-    );
-  }
+      const checks = {
+        application,
+        database,
+      };
 
-  const files =
-    (
-      await readdir(
-        MIGRATIONS_DIR,
-      )
-    )
-      .filter(
-        (file) =>
-          file.endsWith(
-            '.sql',
-          ),
-      )
-      .sort();
+      const ready =
+        database.status !== 'down';
 
-  if (
-    files.length === 0
-  ) {
-    console.log(
-      'No migrations found.',
-    );
-
-    return;
-  }
-
-  const client =
-    await pool.connect();
-
-  try {
-    await client.query(
-      'BEGIN',
-    );
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        version VARCHAR(255) PRIMARY KEY,
-        name VARCHAR(500) NOT NULL,
-        checksum VARCHAR(128) NOT NULL,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
-    for (const file of files) {
-      const path =
-        join(
-          MIGRATIONS_DIR,
-          file,
-        );
-
-      const content =
-        await readFile(
-          path,
-          'utf8',
-        );
-
-      const version =
-        file.split('_')[0];
-
-      const name =
-        migrationName(
-          file,
-        );
-
-      const hash =
-        checksum(
-          content,
-        );
-
-      const existing =
-        await client.query<{
-          version: string;
-          checksum: string;
-        }>(
-          `
-          SELECT
-            version,
-            checksum
-          FROM schema_migrations
-          WHERE version = $1
-          `,
-          [version],
-        );
-
-      if (
-        existing.rowCount &&
-        existing.rowCount > 0
-      ) {
-        const previous =
-          existing.rows[0];
-
-        if (
-          previous?.checksum !==
-          hash
-        ) {
-          throw new Error(
-            `Migration checksum changed: ${file}`,
-          );
-        }
-
-        console.log(
-          `⏭️ Already applied: ${file}`,
-        );
-
-        continue;
-      }
-
-      console.log(
-        `▶️ Applying: ${file}`,
-      );
-
-      await client.query(
-        content,
-      );
-
-      await client.query(
-        `
-        INSERT INTO schema_migrations (
-          version,
-          name,
-          checksum
+      return reply
+        .code(
+          ready
+            ? 200
+            : 503,
         )
-        VALUES (
-          $1,
-          $2,
-          $3
-        )
-        `,
-        [
-          version,
-          name,
-          hash,
-        ],
-      );
+        .send({
+          status:
+            ready
+              ? 'ready'
+              : 'not_ready',
 
-      console.log(
-        `✅ Applied: ${file}`,
-      );
-    }
+          service:
+            SERVICE_NAME,
 
-    await client.query(
-      'COMMIT',
-    );
+          version:
+            SERVICE_VERSION,
 
-    console.log(
-      '✅ Database migrations completed.',
-    );
-  } catch (error) {
-    await client.query(
-      'ROLLBACK',
-    );
+          timestamp:
+            new Date().toISOString(),
 
-    throw error;
-  } finally {
-    client.release();
-  }
-}
+          checks,
 
-try {
-  await main();
-} finally {
-  await closeDatabase();
+          environment:
+            config.environment
+              .NODE_ENV,
+        });
+    },
+  );
 }
