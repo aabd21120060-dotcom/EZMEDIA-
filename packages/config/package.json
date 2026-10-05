@@ -1,21 +1,37 @@
 {
-  "name": "@ez-media/config",
+  "name": "ez-media",
   "version": "1.0.0",
   "private": true,
+  "description": "EZ MEDIA — Global Intelligent Media Platform",
+  "license": "UNLICENSED",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=24.21.0 <25",
+    "pnpm": ">=12.9.1 <13"
   },
   "scripts": {
-    "build": "tsc -b",
-    "typecheck": "tsc -b --pretty false"
+    "dev": "pnpm --filter @ez-media/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:smoke": "vitest run tests/smoke",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm build && pnpm test",
+    "ci": "pnpm check",
+    "start": "pnpm --filter @ez-media/api start"
   },
-  "dependencies": {
-    "zod": "^4.1.11"
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }
