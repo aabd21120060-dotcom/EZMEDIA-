@@ -23,15 +23,16 @@
     "lint": "pnpm -r lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm typecheck && pnpm build && pnpm test",
-    "ci": "pnpm check",
+    "verify": "pnpm typecheck && pnpm format:check && pnpm build && pnpm test",
+    "repair": "./scripts/maintenance/auto-repair.sh",
+    "ci": "pnpm verify",
     "start": "pnpm --filter @ez-media/api start"
   },
   "devDependencies": {
-    "@types/node": "^24.10.0",
-    "prettier": "^3.6.2",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "@types/node": "26.6.4",
+    "prettier": "3.6.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
   }
 }
