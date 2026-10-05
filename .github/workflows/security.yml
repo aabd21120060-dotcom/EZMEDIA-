@@ -1,0 +1,119 @@
+name: EZ MEDIA Security
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+  schedule:
+    - cron: "17 3 * * 1"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ez-media-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 15
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
+
+  repository-secrets:
+    name: Repository Secret Checks
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 10
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check suspicious secret files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          forbidden_patterns=(
+            ".env"
+            "*.pem"
+            "*.key"
+            "*.p12"
+            "*.pfx"
+          )
+
+          for pattern in "${forbidden_patterns[@]}"; do
+            if git ls-files | grep -E "(^|/)$pattern$" >/dev/null 2>&1; then
+              echo "Forbidden secret-like file detected: $pattern"
+              exit 1
+            fi
+          done
+
+          echo "No forbidden secret files detected."
+
+
+  production-env-check:
+    name: Production Environment Safety
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 10
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate environment template
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f .env.example
+
+          if grep -nE \
+            '(^|=)(password|secret|token|api[_-]?key|private[_-]?key)' \
+            .env.example >/dev/null 2>&1; then
+            echo "Potential hardcoded secret detected in .env.example"
+            exit 1
+          fi
+
+          echo "Environment template passed safety checks."
