@@ -1,0 +1,23 @@
+{
+  "name": "@ez-media/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@ez-media/config": "workspace:*",
+    "@ez-media/contracts": "workspace:*",
+    "fastify": "5.12.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "tsx": "4.23.15"
+  }
+}
