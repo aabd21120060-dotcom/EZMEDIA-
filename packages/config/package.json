@@ -1,24 +1,24 @@
 {
-  "name": "@ez-media/database",
+  "name": "@ez-media/api",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
     "build": "tsc -b",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "start": "node dist/server.js"
   },
   "dependencies": {
-    "pg": "8.23.1"
+    "@ez-media/config": "workspace:*",
+    "@ez-media/contracts": "workspace:*",
+    "@ez-media/database": "workspace:*",
+    "fastify": "5.12.5"
   },
   "devDependencies": {
-    "@types/node": "26.6.4"
+    "@types/node": "26.6.4",
+    "tsx": "4.23.15"
   }
 }
